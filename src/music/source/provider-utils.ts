@@ -19,9 +19,10 @@ export const normalizeTrack = (t: RawApiTrack, source: MusicSource): MusicTrack 
 });
 
 export const isAbort = (e: unknown): boolean =>
-  (e instanceof Error ||
+  e === 'Request cancelled' ||
+  ((e instanceof Error ||
     (typeof DOMException !== 'undefined' && e instanceof DOMException)) &&
-  (e as Error).name === 'AbortError';
+    ((e as Error).name === 'AbortError' || e.message === 'Request cancelled'));
 
 const buildUrl = (
   apiBase: string,

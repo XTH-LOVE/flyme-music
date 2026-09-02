@@ -1,3 +1,5 @@
+import { httpFetch } from '@/lib/apiTransport';
+
 /**
  * Music API endpoint management with failure cooldown,
  * replicated from Otter Music's src/lib/api/config.ts.
@@ -65,7 +67,7 @@ export const markMusicApiUrlSuccess = (url: string, now = Date.now()): void => {
 };
 
 export function fetchWithTimeout(
-  input: RequestInfo,
+  input: string,
   init: RequestInit = {},
   timeout = REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
@@ -79,7 +81,7 @@ export function fetchWithTimeout(
     else external.addEventListener('abort', forwardAbort);
   }
   const timer = window.setTimeout(() => controller.abort(), timeout);
-  return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+  return httpFetch(input, { ...init, signal: controller.signal }).finally(() => {
     window.clearTimeout(timer);
     if (external) external.removeEventListener('abort', forwardAbort);
   });

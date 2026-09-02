@@ -389,6 +389,7 @@
 /* ---------- Mobile portrait ---------- */
 .hc--p .hc-p-body {
   height: 100%;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   max-width: 560px;
@@ -401,13 +402,15 @@
   flex-shrink: 0;
 }
 .hc-p-cover {
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
+  align-items: center;
   justify-content: center;
   padding: 14px 0 12px;
 }
 .hc--p .hc-p-cover .hc-cover {
-  width: min(84vw, 50vh);
+  width: min(84vw, 58vh);
   height: auto;
 }
 .hc--p .hc-meta-row {
@@ -415,9 +418,10 @@
   flex-shrink: 0;
 }
 .hc-p-spacer {
-  /* flex-grow so leftover height lands above the controls, pinning them to the bottom */
-  flex: 1 1 clamp(10px, 3vh, 28px);
+  /* 固定小间距：多余高度由 .hc-p-cover 居中吸收，避免封面与控制区之间出现大空隙 */
+  flex: 0 0 clamp(10px, 3vh, 28px);
   min-height: 12px;
+  max-height: 28px;
 }
 .hc--p .hc-transport {
   height: 76px;
@@ -676,6 +680,7 @@
    height and the whole player layout shifts. Pin an explicit square size
    (identical result where aspect-ratio is supported). */
 .hc--p .hc-p-cover .hc-cover {
-  width: min(84vw, 50vh);
-  height: min(84vw, 50vh);
+  width: min(84vw, 58vh);
+  height: min(84vw, 58vh);
+  max-height: 100%;
 }

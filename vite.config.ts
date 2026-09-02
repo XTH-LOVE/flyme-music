@@ -1,8 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
-import crypto from 'node:crypto';
-import fs from 'node:fs';
 
 /* ------------------------------------------------------------------
  * Dev-server proxies: bypass CORS / hotlink blocks for Netease weapi,
@@ -22,63 +20,6 @@ function getResponseCookie(headers: Headers): string {
     .map((value) => value.split(';', 1)[0]?.trim())
     .filter((value): value is string => Boolean(value))
     .join('; ');
-}
-
-type AuroraAccount = { id: string; username: string; nickname: string; avatarUrl?: string; passwordHash: string };
-const authFile = path.resolve(process.cwd(), '.aurora-auth.json');
-const authTokens = new Map<string, string>();
-function readAuroraAccounts(): Record<string, AuroraAccount> {
-  try { return JSON.parse(fs.readFileSync(authFile, 'utf8')) as Record<string, AuroraAccount>; } catch { return {}; }
-}
-function writeAuroraAccounts(accounts: Record<string, AuroraAccount>) {
-  fs.writeFileSync(authFile, JSON.stringify(accounts, null, 2), 'utf8');
-}
-function hashAuroraPassword(password: string, salt: string) {
-  return salt + ':' + crypto.scryptSync(password, salt, 32).toString('hex');
-}
-function verifyAuroraPassword(password: string, stored: string) {
-  const [salt, hash] = stored.split(':');
-  return Boolean(salt && hash) && crypto.timingSafeEqual(Buffer.from(hash, 'hex'), crypto.scryptSync(password, salt, 32));
-}
-function auroraAuthProxy(): Plugin {
-  return { name: 'aurora-auth-api', configureServer(server) {
-    server.middlewares.use('/api/auth', (req, res) => {
-      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
-      let body = '';
-      req.on('data', (chunk) => { body += chunk; });
-      req.on('end', () => {
-        const send = (status: number, value: unknown) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(value)); };
-        try {
-          const payload = body ? JSON.parse(body) as Record<string, string> : {};
-          const accounts = readAuroraAccounts();
-          const auth = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-          const username = payload.username?.trim().toLowerCase();
-          if (req.url === '/register' && req.method === 'POST') {
-            if (!username || !/^[^@\s]{3,64}@[^ @\s]{2,64}\.[^\s@]{2,24}$/i.test(username) || !payload.password || payload.password.length < 6) return send(400, { message: '请输入有效邮箱，密码至少 6 位' });
-            if (accounts[username]) return send(409, { message: '账号已存在，请直接登录' });
-            const salt = crypto.randomBytes(16).toString('hex');
-            const account = { id: crypto.randomUUID(), username, nickname: username, passwordHash: hashAuroraPassword(payload.password, salt) };
-            accounts[username] = account; writeAuroraAccounts(accounts);
-            const token = crypto.randomBytes(32).toString('hex'); authTokens.set(token, username);
-            return send(200, { token, user: { id: account.id, username, nickname: account.nickname } });
-          }
-          if (req.url === '/login' && req.method === 'POST') {
-            const account = username ? accounts[username] : undefined;
-            if (!account || !payload.password || !verifyAuroraPassword(payload.password, account.passwordHash)) return send(401, { message: '账号或密码错误' });
-            const token = crypto.randomBytes(32).toString('hex'); authTokens.set(token, username);
-            return send(200, { token, user: { id: account.id, username, nickname: account.nickname, avatarUrl: account.avatarUrl } });
-          }
-          const sessionUser = authTokens.get(auth);
-          if (req.url === '/profile' && req.method === 'PATCH' && sessionUser && accounts[sessionUser]) {
-            const account = accounts[sessionUser]; account.nickname = payload.nickname?.trim() || account.nickname; account.avatarUrl = payload.avatarUrl?.trim() || undefined; writeAuroraAccounts(accounts);
-            return send(200, { user: { id: account.id, username: account.username, nickname: account.nickname, avatarUrl: account.avatarUrl } });
-          }
-          if (req.url === '/me' && req.method === 'GET' && sessionUser && accounts[sessionUser]) { const a = accounts[sessionUser]; return send(200, { user: { id: a.id, username: a.username, nickname: a.nickname, avatarUrl: a.avatarUrl } }); }
-          send(401, { message: '未登录' });
-        } catch { send(400, { message: '请求格式错误' }); }
-      });
-    });
-  } };
 }
 
 /** Dev-only forwarder: the browser cannot POST to music.163.com (CORS) nor
@@ -338,7 +279,7 @@ function aiProxy(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'AURORA_');
   return {
-  plugins: [react(), genericProxy(), auroraAuthProxy(), neteaseWeapiProxy(), imageProxy(), mediaDownloadProxy(), aiProxy(env)],
+  plugins: [react(), genericProxy(), neteaseWeapiProxy(), imageProxy(), mediaDownloadProxy(), aiProxy(env)],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

@@ -17,12 +17,6 @@ function mapUser(user: { id: string; email?: string; user_metadata?: Record<stri
   const meta = user.user_metadata ?? {};
   return { id: user.id, username: String(meta.username || user.email || ''), nickname: String(meta.nickname || meta.display_name || user.email?.split('@')[0] || 'Aurora 听友'), avatarUrl: typeof meta.avatarUrl === 'string' ? meta.avatarUrl : undefined };
 }
-async function legacyRequest(path: string, init: RequestInit = {}) {
-  const response = await fetch('/api/auth' + path, { ...init, headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
-  const data = await response.json() as { message?: string; token?: string; user?: LocalUser };
-  if (!response.ok) throw new Error(data.message || '账号服务暂不可用');
-  return data;
-}
 const normalizeUsername = (username: string) => username.trim().toLowerCase();
 // Keep the historical address for ASCII accounts; encode Unicode names so they remain valid emails.
 const internalEmail = (username: string) => {
@@ -39,22 +33,19 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
   user: null, token: '', ready: false,
   register: async (email, password) => {
     if (!/^\d{6}$/.test(password)) return { ok: false, message: '密码必须是 6 位数字' };
-    if (supabase) {
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
-      if (error) return { ok: false, message: error.message };
-      if (data.user && data.session) set({ user: mapUser(data.user), token: data.session.access_token });
-      return { ok: true, message: data.session ? '注册成功' : '注册成功，请查收验证邮件后登录' };
-    }
-    try { const d = await legacyRequest('/register', { method: 'POST', body: JSON.stringify({ username: email, password }) }); set({ token: d.token || '', user: d.user || null }); return { ok: true }; } catch (e) { return { ok: false, message: e instanceof Error ? e.message : '注册失败' }; }
+    if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
+    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+    if (error) return { ok: false, message: error.message };
+    if (data.user && data.session) set({ user: mapUser(data.user), token: data.session.access_token });
+    return { ok: true, message: data.session ? '注册成功' : '注册成功，请查收验证邮件后登录' };
   },
   login: async (email, password) => {
     if (!/^\d{6}$/.test(password)) return { ok: false, message: '密码必须是 6 位数字' };
-    if (supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (error || !data.user || !data.session) return { ok: false, message: error?.message || '登录失败' };
-      set({ user: mapUser(data.user), token: data.session.access_token }); return { ok: true };
-    }
-    try { const d = await legacyRequest('/login', { method: 'POST', body: JSON.stringify({ username: email, password }) }); set({ token: d.token || '', user: d.user || null }); return { ok: true }; } catch (e) { return { ok: false, message: e instanceof Error ? e.message : '登录失败' }; }
+    if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error || !data.user || !data.session) return { ok: false, message: error?.message || '登录失败' };
+    set({ user: mapUser(data.user), token: data.session.access_token });
+    return { ok: true };
   },
   registerUsername: async (displayName, username, password) => {
     if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
@@ -76,13 +67,11 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
   },
   logout: async () => { if (supabase) await supabase.auth.signOut(); set({ token: '', user: null }); },
   updateProfile: async (patch) => {
-    if (supabase) {
-      const { data, error } = await supabase.auth.updateUser({ data: { nickname: patch.nickname?.trim(), avatarUrl: patch.avatarUrl?.trim() || null } });
-      if (!error && data.user) set({ user: mapUser(data.user) });
-      return;
-    }
-    const token = get().token; if (!token) return;
-    try { const d = await legacyRequest('/profile', { method: 'PATCH', headers: { Authorization: 'Bearer ' + token }, body: JSON.stringify(patch) }); if (d.user) set({ user: d.user }); } catch { /* preserve last known profile */ }
+    if (!supabase) return;
+    const { data, error } = await supabase.auth.updateUser({
+      data: { nickname: patch.nickname?.trim(), avatarUrl: patch.avatarUrl?.trim() || null },
+    });
+    if (!error && data.user) set({ user: mapUser(data.user) });
   },
   uploadAvatar: async (file) => {
     const user = get().user;

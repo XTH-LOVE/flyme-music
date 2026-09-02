@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { SongListItem } from '@/components/SongListItem';
@@ -20,7 +20,10 @@ import { useLibraryStore } from '@/store/useLibraryStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useAiStore } from '@/store/useAiStore';
 import { getNeteaseCloudSongs, getNeteaseLikedSongs, getNeteaseUserPlaylists, type NetPlaylistSummary, type NeteaseCloudSong } from '@/music/netease/netease-api';
+import { exportBackup, readBackupFile, restoreBackupToStorage } from '@/utils/backup';
+import { notify } from '@/utils/notify';
 import './pages.css';
 
 type Tab = 'recent' | 'favorite' | 'mine' | 'songs' | 'albums' | 'artists' | 'playlists' | 'netease';
@@ -55,6 +58,8 @@ export function MePage() {
   const recentTracks = useLibraryStore((s) => s.recentTracks);
   const legacyRecentIds = useLibraryStore((s) => s.recentSongIds);
   const favoriteIds = useLibraryStore((s) => s.favoriteSongIds);
+  const playLog = useLibraryStore((s) => s.playLog);
+  const dislikes = useAiStore((s) => s.dislikes);
   const { data: legacySongs } = useSongs(recentTracks.length ? undefined : legacyRecentIds);
   const { data: favoriteSongs } = useSongs(favoriteIds);
   const { data: allAlbums, loading: albumsLoading } = useAllAlbums();
@@ -78,6 +83,42 @@ export function MePage() {
       setAuthOpen(false);
     } else {
       setAuthMsg(result.message ?? '操作失败');
+    }
+  };
+
+  const [backupMsg, setBackupMsg] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    setBackupMsg('');
+    try {
+      await exportBackup({
+        favorites: favoriteIds,
+        recentTracks,
+        playLog,
+        dislikes,
+        playlists: userPlaylists,
+      });
+      setBackupMsg('已导出备份文件');
+    } catch (error) {
+      setBackupMsg(error instanceof Error ? error.message : '导出失败');
+    }
+  };
+
+  const handleImport = async (file: File | undefined) => {
+    setBackupMsg('');
+    if (!file) return;
+    try {
+      const backup = await readBackupFile(file);
+      if (!backup) {
+        setBackupMsg('不是有效的 Aurora 备份文件');
+        return;
+      }
+      restoreBackupToStorage(backup);
+      notify('已导入备份，正在刷新…');
+      window.setTimeout(() => window.location.reload(), 600);
+    } catch (error) {
+      setBackupMsg(error instanceof Error ? error.message : '导入失败');
     }
   };
   const openProfile = () => { if (!localAuth.user) { setAuthOpen(true); return; } setProfileNickname(localAuth.user.nickname); setProfileMsg(''); setProfileOpen(true); };
@@ -211,13 +252,65 @@ export function MePage() {
 
         {tab === 'favorite' &&
           (favoriteSongs && favoriteSongs.length ? (
-            <div className="song-list">
-              {favoriteSongs.map((s) => (
-                <SongListItem key={s.id} song={s} context={favoriteSongs} />
-              ))}
-            </div>
+            <>
+              <div className="backup-bar">
+                <span className="backup-bar__hint">收藏、歌单与听歌记录仅保存在本机</span>
+                <div className="backup-bar__actions">
+                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => void handleExport()}>
+                    <Icon name="download" size={14} />
+                    导出备份
+                  </button>
+                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => fileInputRef.current?.click()}>
+                    <Icon name="arrowRight" size={14} />
+                    导入备份
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      void handleImport(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+              </div>
+              {backupMsg ? <div className="settings-account-note">{backupMsg}</div> : null}
+              <div className="song-list">
+                {favoriteSongs.map((s) => (
+                  <SongListItem key={s.id} song={s} context={favoriteSongs} />
+                ))}
+              </div>
+            </>
           ) : (
-            <EmptyState icon="heart" title="还没有喜欢的歌" description="点击歌曲旁的爱心收藏到这里" />
+            <>
+              <div className="backup-bar">
+                <span className="backup-bar__hint">收藏、歌单与听歌记录仅保存在本机</span>
+                <div className="backup-bar__actions">
+                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => void handleExport()}>
+                    <Icon name="download" size={14} />
+                    导出备份
+                  </button>
+                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => fileInputRef.current?.click()}>
+                    <Icon name="arrowRight" size={14} />
+                    导入备份
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      void handleImport(e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+              </div>
+              {backupMsg ? <div className="settings-account-note">{backupMsg}</div> : null}
+              <EmptyState icon="heart" title="还没有喜欢的歌" description="点击歌曲旁的爱心收藏到这里" />
+            </>
           ))}
 
         {tab === 'mine' && (

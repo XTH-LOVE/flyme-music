@@ -1,5 +1,6 @@
 import type { MusicSource, MusicTrack, RawApiTrack, SearchPageResult, SongLyric } from './types';
 import { normalizeTrack, requestMusicApiJSON } from './provider-utils';
+import { toSimplified } from '@/utils/t2s';
 
 /**
  * Base provider for GD-API backed sources (same shape as Otter's BaseMusicProvider).
@@ -18,7 +19,17 @@ export abstract class BaseMusicProvider {
       { types: 'search', source: this.source, name: query, count, pages: page },
       signal,
     );
-    const items = json.map((t) => normalizeTrack(t, this.source));
+    let items = json.map((t) => normalizeTrack(t, this.source));
+    if (this.source === 'joox') {
+      items = await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          name: await toSimplified(item.name),
+          album: await toSimplified(item.album),
+          artist: await Promise.all(item.artist.map((a) => toSimplified(a))),
+        })),
+      );
+    }
     return { items, hasMore: items.length === count };
   }
 
@@ -48,6 +59,7 @@ export abstract class BaseMusicProvider {
       source: this.source,
       id: track.lyric_id,
     });
-    return { lyric: json.lyric ?? '', tlyric: json.tlyric ?? '' };
+    const lyric = this.source === 'joox' ? await toSimplified(json.lyric ?? '') : json.lyric ?? '';
+    return { lyric, tlyric: json.tlyric ?? '' };
   }
 }

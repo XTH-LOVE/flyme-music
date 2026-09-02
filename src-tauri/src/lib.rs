@@ -71,7 +71,21 @@ pub fn run() {
     );
   }
 
+  builder = builder.plugin(tauri_plugin_http::init());
+  #[cfg(desktop)]
+  {
+    builder = builder.plugin(tauri_plugin_dialog::init());
+  }
+
   builder
+    .invoke_handler(tauri::generate_handler![
+      netease::netease_post,
+      ai::ai_status,
+      ai::ai_models,
+      ai::ai_chat_completions,
+      download::download_and_save,
+      download::save_image_base64
+    ])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

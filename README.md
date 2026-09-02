@@ -13,6 +13,28 @@ npm run build    # 生产构建
 npm run preview  # 预览构建产物
 ```
 
+## 打包成独立应用
+
+```bash
+npm install
+npm run tauri:build            # Windows 安装包（NSIS），产物在 src-tauri/target/release/bundle/nsis
+npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JAVA_HOME
+```
+
+打包后的应用不依赖 vite dev server，也不依赖任何线上后端：
+
+- 音乐源请求经 Tauri 的 Rust 层直连（绕过 CORS）
+- AI 的 endpoint/key/model 在编译期从 `.env.local` 内嵌进 Rust，前端拿不到 key
+- 下载由 Rust 直接写盘：桌面弹另存为，Android 存到应用的 Download/FlymeMusic 目录
+
+纯浏览器开发（`npm run dev`）仍然可用：vite 中间件提供 /api/netease/weapi、/api/proxy、/api/img、/api/media-proxy、/api/ai。
+
+## 更换应用图标
+
+1. 用 1024x1024 的 PNG 覆盖 `src-tauri/icons/app-icon.png`
+2. 运行 `npx tauri icon src-tauri/icons/app-icon.png`
+3. 重新打包。桌面图标写入 `src-tauri/icons/`，Android 图标写入 `src-tauri/gen/android/app/src/main/res/mipmap-*`
+
 ## 官网落地页
 
 项目采用 Vite 双入口：主应用（`index.html`）与官网落地页（`official.html`）完全隔离、可单独部署。

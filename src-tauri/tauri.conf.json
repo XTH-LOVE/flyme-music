@@ -17,13 +17,12 @@
         "height": 680,
         "resizable": true,
         "fullscreen": false,
-        "url": "https://flyme-music.pages.dev",
         "minWidth": 380,
         "minHeight": 560
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https: http:; media-src 'self' blob: https: http:; connect-src 'self' ipc: http://ipc.localhost https:; font-src 'self' data:"
     }
   },
   "bundle": {

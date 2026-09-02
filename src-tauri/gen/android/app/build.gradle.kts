@@ -17,7 +17,7 @@ android {
     compileSdk = 36
     namespace = "com.flyme.music"
     defaultConfig {
-        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
         applicationId = "com.flyme.music"
         minSdk = 24
         targetSdk = 36

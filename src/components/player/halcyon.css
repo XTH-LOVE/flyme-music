@@ -1,0 +1,681 @@
+/* ============================================================
+   Halcyon-style player: palette gradient background, left cover
+   column + right lyrics, glow comet progress, glyph transport.
+   ============================================================ */
+
+/* ---------- Background ---------- */
+.hc-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: #07070b;
+}
+.hc-bg__layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 720ms var(--am-ease-standard);
+}
+.hc-bg__layer--top {
+  opacity: 1;
+}
+.hc-bg__grad {
+  position: absolute;
+  inset: 0;
+}
+.hc-bg__flow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 62% at 50% -10%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 52%),
+    radial-gradient(90% 60% at 82% 108%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.3) 100%);
+}
+.hc-bg__noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* ---------- Shared bits ---------- */
+.hc-collapse {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard);
+}
+.hc-collapse:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.hc-collapse__icon {
+  transform: rotate(90deg);
+}
+.hc-iconbtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard),
+    transform var(--am-motion-micro) var(--am-ease-spring), color 200ms;
+}
+.hc-iconbtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.hc-iconbtn:active {
+  transform: scale(0.9);
+}
+.hc-iconbtn--on {
+  background: rgba(255, 255, 255, 0.16);
+}
+.hc-iconbtn--fav {
+  color: #ff8fac;
+}
+
+/* ---------- Desktop body ---------- */
+.hc-body {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: clamp(36px, 4vw, 56px);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 30px 44px 24px;
+}
+.hc-left {
+  width: 38%;
+  min-width: 350px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.hc-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-right: 44px;
+}
+.hc-meta {
+  flex: 1;
+  min-width: 0;
+}
+.hc-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hc-title--p {
+  font-size: 22px;
+}
+.hc-artist {
+  margin-top: 3px;
+  font-size: 12.5px;
+  opacity: 0.58;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hc-cover-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 0;
+}
+.hc-cover {
+  height: min(100%, 46vh);
+  aspect-ratio: 1;
+  max-width: 100%;
+  cursor: grab;
+  touch-action: pan-y;
+  transition: transform 90ms linear;
+  will-change: transform;
+}
+.hc-cover:active {
+  cursor: grabbing;
+}
+.hc-swap {
+  width: 100%;
+}
+.hc-swap .fp-cover-swap__layer {
+  border-radius: 14px;
+}
+.hc-swap .fp-cover-swap__layer--top {
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Glow progress ---------- */
+.hc-progress-block {
+  flex-shrink: 0;
+}
+.hc-glow {
+  position: relative;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+.hc-glow__track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+.hc-glow__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+}
+.hc-glow__head {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.4) 38%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  filter: blur(1.5px);
+  opacity: 0.85;
+  transition: opacity var(--am-motion-micro) var(--am-ease-standard),
+    scale var(--am-motion-micro) var(--am-ease-spring);
+}
+.hc-glow__head::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: #fff;
+  filter: none;
+}
+.hc-glow--active .hc-glow__head {
+  opacity: 1;
+  scale: 1.3;
+}
+.hc-times {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 12.5px;
+  opacity: 0.82;
+  font-variant-numeric: tabular-nums;
+}
+.hc-pill {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 0.9;
+}
+
+/* ---------- Transport ---------- */
+.hc-transport {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 84px;
+  flex-shrink: 0;
+}
+.hc-tbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.92);
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard),
+    transform var(--am-motion-micro) var(--am-ease-spring), color 200ms;
+}
+.hc-tbtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.hc-tbtn:active {
+  transform: scale(0.92);
+}
+.hc-tbtn--on {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.4);
+}
+.hc-tbtn--dim {
+  color: rgba(255, 255, 255, 0.62);
+}
+.hc-play {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.96);
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard),
+    transform var(--am-motion-micro) var(--am-ease-spring);
+}
+.hc-play:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.hc-play:active {
+  transform: scale(0.92);
+}
+.hc-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  max-width: 220px;
+  opacity: 0.7;
+  color: rgba(255, 255, 255, 0.9);
+  transition: opacity 200ms;
+}
+.hc-volume:hover {
+  opacity: 1;
+}
+.hc-volume .am-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.9) var(--am-slider-fill, 0%),
+    rgba(255, 255, 255, 0.18) var(--am-slider-fill, 0%)
+  );
+}
+
+/* ---------- Right lyrics panel ---------- */
+.hc-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-right: 8px;
+}
+.hc-right .lyrics {
+  text-align: left;
+}
+.hc-right .lyrics__spacer:first-child {
+  height: 30%;
+}
+.hc-right .lyrics__spacer:last-child {
+  height: 40%;
+}
+.hc-right .lyrics__line {
+  color: #fff;
+  opacity: 0.48;
+  filter: blur(1.6px);
+  font-size: calc(17px * var(--lyric-scale, 1));
+  padding: 9px 8px;
+  transition: color var(--am-motion-normal) var(--am-ease-standard),
+    opacity var(--am-motion-page) var(--am-ease-standard),
+    font-size var(--am-motion-page) var(--am-ease-standard),
+    filter var(--am-motion-page) var(--am-ease-standard),
+    transform var(--am-motion-page) var(--am-ease-spring);
+}
+.hc-right .lyrics__line:hover {
+  opacity: 0.85;
+}
+.hc-right .lyrics__line--near {
+  opacity: 0.72;
+  filter: blur(0.7px);
+}
+.hc-right .lyrics__line--far {
+  opacity: 0.26;
+  filter: blur(2.4px);
+}
+.hc-right .lyrics__line--active {
+  opacity: 1;
+  filter: none;
+  font-size: calc(27px * var(--lyric-scale, 1));
+  transform: none;
+}
+.hc-right .lyrics__trans {
+  font-size: calc(13px * var(--lyric-scale, 1));
+  opacity: 0.6;
+  margin-top: 4px;
+}
+.hc-right .lyrics__line--active .lyrics__trans {
+  font-size: calc(14px * var(--lyric-scale, 1));
+  opacity: 0.72;
+}
+
+/* ---------- More sheet ---------- */
+.hc-more {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hc-more button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: var(--am-radius-md);
+  font-size: 14px;
+  color: var(--am-text-1);
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard);
+}
+.hc-more button:hover {
+  background: var(--am-surface-2);
+}
+
+/* ---------- Mobile portrait ---------- */
+.hc--p .hc-p-body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 22px calc(14px + env(safe-area-inset-bottom));
+}
+.hc-p-top {
+  display: flex;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.hc-p-cover {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 12px;
+}
+.hc--p .hc-p-cover .hc-cover {
+  width: min(84vw, 50vh);
+  height: auto;
+}
+.hc--p .hc-meta-row {
+  padding-right: 0;
+  flex-shrink: 0;
+}
+.hc-p-spacer {
+  /* flex-grow so leftover height lands above the controls, pinning them to the bottom */
+  flex: 1 1 clamp(10px, 3vh, 28px);
+  min-height: 12px;
+}
+.hc--p .hc-transport {
+  height: 76px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  justify-items: center;
+  align-items: center;
+  column-gap: 8px;
+}
+.hc--p .hc-transport > button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.hc--p .hc-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+/* Mobile lyrics page */
+.hc-p-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  flex-shrink: 0;
+}
+.hc-p-head__cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.hc-p-head__text {
+  flex: 1;
+  min-width: 0;
+}
+.hc-p-head__title {
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hc-p-head__artist {
+  font-size: 12px;
+  opacity: 0.58;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hc-p-lyrics {
+  flex: 1;
+  min-height: 0;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.hc-p-lyrics .lyrics {
+  height: 100%;
+  min-height: 0;
+}
+.hc-p-lyrics .lyrics__spacer {
+  height: 18%;
+}
+.hc--p-lyrics .hc-p-spacer {
+  display: none;
+}
+.hc-p-lyrics .lyrics__line {
+  font-size: calc(16.5px * var(--lyric-scale, 1));
+}
+.hc-p-lyrics .lyrics__line--active {
+  font-size: calc(20px * var(--lyric-scale, 1));
+}
+/* Mirror the desktop blur falloff on the mobile lyrics page */
+.hc-p-lyrics .lyrics__line {
+  filter: blur(1.6px);
+}
+.hc-p-lyrics .lyrics__line--near {
+  filter: blur(0.7px);
+}
+.hc-p-lyrics .lyrics__line--far {
+  filter: blur(2.4px);
+}
+.hc-p-lyrics .lyrics__line--active {
+  filter: none;
+}
+/* While the user is dragging the lyrics, lift the blur so lines stay readable */
+.lyrics-wrap--scrubbing .lyrics__line,
+.lyrics-wrap--scrubbing .lyrics__line--near,
+.lyrics-wrap--scrubbing .lyrics__line--far {
+  filter: none;
+}
+.hc-right .lyrics__scrub {
+  color: #fff;
+}
+.hc-p-lyrics .lyrics__scrub {
+  color: rgba(36, 40, 49, 0.5);
+}
+/* Single lyric line under the mobile cover: large, black, animated on change */
+.hc-p-minilyric {
+  flex-shrink: 0;
+  margin-top: 22px;
+  min-height: 27px;
+  padding: 0 2px;
+  text-align: left;
+}
+.hc-p-minilyric__line {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #17181d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: hc-lyric-swap 360ms var(--am-ease-standard);
+}
+@keyframes hc-lyric-swap {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 1600px) {
+  .hc-body {
+    padding: 34px 60px 28px;
+  }
+  .hc-right .lyrics__line {
+    font-size: 18px;
+  }
+  .hc-right .lyrics__line--active {
+    font-size: 30px;
+  }
+}
+
+/* ---------- Light iOS liquid-glass player ---------- */
+/* Keep immersive artwork mode untouched; the standard player is intentionally
+   calm and paper-white so the square cover remains the visual anchor. */
+[data-theme='light'] .hc:not(.hc--imm) {
+  color: #20232b;
+  background: #f4f5f8;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-bg {
+  background: #f4f5f8;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-bg__grad {
+  background: rgba(255, 255, 255, 0.76) !important;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-bg__flow {
+  background:
+    radial-gradient(90% 52% at 50% -8%, rgba(255, 255, 255, 0.96), transparent 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(231, 233, 239, 0.42));
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-bg__noise {
+  opacity: 0.018;
+  filter: invert(1);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-collapse,
+[data-theme='light'] .hc:not(.hc--imm) .hc-iconbtn,
+[data-theme='light'] .hc:not(.hc--imm) .hc-tbtn,
+[data-theme='light'] .hc:not(.hc--imm) .hc-play,
+[data-theme='light'] .hc:not(.hc--imm) .hc-volume {
+  color: #30343d;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-collapse:hover,
+[data-theme='light'] .hc:not(.hc--imm) .hc-iconbtn:hover,
+[data-theme='light'] .hc:not(.hc--imm) .hc-tbtn:hover,
+[data-theme='light'] .hc:not(.hc--imm) .hc-play:hover {
+  background: rgba(40, 48, 64, 0.08);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-iconbtn--on,
+[data-theme='light'] .hc:not(.hc--imm) .hc-tbtn--on {
+  color: #2458c7;
+  background: rgba(61, 123, 255, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(61, 123, 255, 0.18);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-tbtn--dim {
+  color: #747b88;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-glow__track {
+  background: rgba(39, 48, 64, 0.14);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-glow__fill {
+  background: rgba(61, 123, 255, 0.78);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-glow__head::after {
+  background: #2458c7;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-times {
+  color: #5f6672;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-pill {
+  background: rgba(38, 48, 68, 0.07);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-right .lyrics__line,
+[data-theme='light'] .hc:not(.hc--imm) .hc-p-lyrics .lyrics__line {
+  color: rgba(36, 40, 49, 0.48);
+  text-shadow: none;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-right .lyrics__line--near,
+[data-theme='light'] .hc:not(.hc--imm) .hc-p-lyrics .lyrics__line--near {
+  color: rgba(36, 40, 49, 0.7);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-right .lyrics__line--far,
+[data-theme='light'] .hc:not(.hc--imm) .hc-p-lyrics .lyrics__line--far {
+  color: rgba(36, 40, 49, 0.26);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-right .lyrics__line--active,
+[data-theme='light'] .hc:not(.hc--imm) .hc-p-lyrics .lyrics__line--active {
+  color: #171a20;
+  text-shadow: 0 2px 18px rgba(40, 50, 70, 0.14);
+}
+
+/* Dark theme tweaks for pieces the light block owns in light mode */
+[data-theme='dark'] .hc-p-minilyric__line {
+  color: #f4f4f6;
+}
+[data-theme='dark'] .hc-p-lyrics .lyrics__scrub {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Light theme: control pills adapt to the paper-white player */
+[data-theme='light'] .hc:not(.hc--imm) .lyrics__ctl-btn {
+  background: rgba(255, 255, 255, 0.72);
+  color: #242831;
+  box-shadow: 0 1px 6px rgba(20, 24, 32, 0.12);
+}
+[data-theme='light'] .hc:not(.hc--imm) .lyrics__ctl-btn--on {
+  background: #1e2026;
+  color: #fff;
+}
+
+/* MOBILE LYRIC CTL */
+/* Mobile lyric page: smaller font controls pinned to the bottom-right */
+.hc-p-lyrics .lyrics__controls {
+  top: auto;
+  bottom: 6px;
+  right: 10px;
+  gap: 4px;
+}
+.hc-p-lyrics .lyrics__ctl-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+
+/* WEBVIEW SQUARE FALLBACK */
+/* Old Android WebViews lack aspect-ratio: the cover would collapse to zero
+   height and the whole player layout shifts. Pin an explicit square size
+   (identical result where aspect-ratio is supported). */
+.hc--p .hc-p-cover .hc-cover {
+  width: min(84vw, 50vh);
+  height: min(84vw, 50vh);
+}

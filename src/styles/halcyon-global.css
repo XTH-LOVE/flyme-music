@@ -1,0 +1,174 @@
+/* Global Halcyon-inspired surface language. Structural layout stays local to
+   each feature; this layer keeps materials, spacing and states consistent. */
+:root {
+  --hc-surface-glass: color-mix(in srgb, var(--am-glass) 86%, transparent);
+  --hc-border: color-mix(in srgb, var(--am-glass-border) 72%, var(--am-divider));
+  --hc-radius: 22px;
+  --hc-radius-sm: 16px;
+}
+
+body {
+  background: var(--am-bg);
+}
+
+.app-main__inner {
+  padding-bottom: 12px;
+}
+
+.page {
+  padding-top: 16px;
+}
+
+.page-title {
+  font-size: 24px;
+  line-height: 1.25;
+  margin: 4px 0 18px;
+}
+
+.am-glass,
+.settings-card,
+.stats-card,
+.stats-panel,
+.stats-song,
+.user-pl-card,
+.chart-card-tile,
+.ai-side-card,
+.me-stats {
+  background: var(--hc-surface-glass);
+  border: 1px solid var(--hc-border);
+  border-radius: var(--hc-radius);
+  box-shadow: var(--am-shadow-glass);
+  backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
+}
+
+.settings-card,
+.stats-card,
+.stats-panel,
+.ai-side-card,
+.me-stats {
+  overflow: hidden;
+}
+
+.home-search,
+.am-search {
+  border: 1px solid var(--hc-border);
+  background: color-mix(in srgb, var(--am-glass) 78%, var(--am-surface-2));
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+}
+
+.music-card__cover,
+.recent-card__cover,
+.chart-card-tile__cover,
+.detail-hero__cover,
+.user-pl-card__cover,
+.net-pl-cover {
+  border-radius: var(--hc-radius-sm);
+}
+
+.song-item,
+.chart-card__song,
+.stats-song,
+.picker-item,
+.queue-item {
+  min-height: 56px;
+}
+
+.song-item:hover,
+.chart-card__song:hover,
+.picker-item:hover,
+.queue-item:hover,
+.settings-row:hover {
+  background: color-mix(in srgb, var(--am-accent-soft) 54%, transparent);
+}
+
+.am-btn,
+.am-chip,
+.quality-chip,
+.theme-option,
+.create-pl-btn,
+.load-more {
+  min-height: 40px;
+  border: 1px solid transparent;
+}
+
+.am-btn--primary,
+.quality-chip--active,
+.am-chip--active {
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--am-accent) 20%, transparent);
+}
+
+.am-icon-btn--sm {
+  width: 40px;
+  height: 40px;
+}
+
+.am-icon-btn--md {
+  width: 44px;
+  height: 44px;
+}
+
+.am-section-header {
+  margin-top: 30px;
+}
+
+.banner,
+.chart-card {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--hc-radius);
+}
+
+.am-sheet,
+.am-dialog {
+  border: 1px solid var(--hc-border);
+  backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
+}
+
+.bottom-nav {
+  min-height: 64px;
+}
+
+@media (max-width: 959px) {
+  .app-main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .page {
+    padding-top: 10px;
+  }
+
+  .page-back {
+    margin-top: 2px;
+    margin-bottom: 2px;
+  }
+
+  .bottom-nav {
+    width: min(360px, calc(100vw - 24px));
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    height: auto;
+    padding: 6px;
+    border: 1px solid var(--hc-border);
+    border-radius: 28px;
+    box-shadow: var(--am-shadow-floating);
+  }
+
+  .bottom-nav__item {
+    min-height: 48px;
+    padding: 7px 10px;
+    border-radius: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .music-card:hover,
+  .recent-card:hover,
+  .chart-card-tile:hover,
+  .song-item:active {
+    transform: none;
+  }
+}

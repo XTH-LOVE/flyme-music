@@ -1,0 +1,105 @@
+/* Miuix / HyperOS grouped-card settings styling (cascade override layer). */
+.page--narrow .page-title {
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+.page--narrow .settings-card {
+  background: var(--am-surface-1);
+  border-radius: var(--am-radius-lg);
+  overflow: hidden;
+  border: none;
+  box-shadow: none;
+}
+.page--narrow .settings-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.1));
+}
+.page--narrow .settings-row:last-child {
+  border-bottom: none;
+}
+.page--narrow .settings-row__title {
+  font-size: 14.5px;
+  font-weight: 550;
+}
+.page--narrow .settings-row__desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--am-text-3);
+}
+.page--narrow .theme-options {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+}
+.page--narrow .theme-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: var(--am-radius-md);
+  background: var(--am-surface-2);
+  font-size: 13px;
+  color: var(--am-text-1);
+  transition: background-color var(--am-motion-normal) var(--am-ease-standard),
+    color var(--am-motion-normal) var(--am-ease-standard),
+    box-shadow var(--am-motion-normal) var(--am-ease-standard);
+}
+.page--narrow .theme-option--active {
+  background: color-mix(in srgb, var(--am-accent, #3d7bff) 16%, transparent);
+  color: color-mix(in srgb, var(--am-accent, #3d7bff) 74%, var(--am-text-1));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--am-accent, #3d7bff) 45%, transparent);
+}
+.page--narrow .quality-options {
+  display: flex;
+  gap: 6px;
+}
+.page--narrow .quality-chip {
+  padding: 7px 13px;
+  border-radius: var(--am-radius-pill);
+  font-size: 12.5px;
+  background: var(--am-surface-2);
+  color: var(--am-text-1);
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard),
+    color var(--am-motion-micro) var(--am-ease-standard);
+}
+.page--narrow .quality-chip--active {
+  background: var(--am-accent, #3d7bff);
+  color: #fff;
+}
+/* Lyric 3D perspective containers. */
+.hc-right .lyrics,
+.hc-p-lyrics .lyrics,
+.fp3-lyrics .lyrics {
+  perspective: 900px;
+}
+
+
+/* CHIP ROWS STACK */
+/* Rows with chip groups (personality / quality): when space is tight the
+   label column collapsed to one character per line. Let chips wrap to a
+   second line instead of starving the title + description. */
+.page--narrow .settings-row:has(.quality-options) {
+  flex-wrap: wrap;
+}
+.page--narrow .settings-row:has(.quality-options) .settings-row__body {
+  flex: 1 1 190px;
+}
+.page--narrow .settings-row:has(.quality-options) .quality-options {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+/* API node input row: input may shrink too much beside two buttons -
+   allow the buttons to wrap below on very narrow screens. */
+.page--narrow .picker-create {
+  flex-wrap: wrap;
+}
+.page--narrow .picker-create__input {
+  flex: 1 1 150px;
+  min-width: 0;
+}

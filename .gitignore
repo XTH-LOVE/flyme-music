@@ -1,0 +1,20 @@
+node_modules
+dist
+*.local
+.DS_Store
+npm-debug.log*
+
+# Rust / Tauri 构建产物
+src-tauri/target
+src-tauri/gen/android/.gradle
+src-tauri/gen/android/build
+src-tauri/gen/android/buildSrc/build
+src-tauri/gen/android/buildSrc/.gradle
+src-tauri/gen/android/app/build
+src-tauri/gen/android/app/.cxx
+
+# 本地账号数据（含密码哈希）
+.aurora-auth.json
+
+# supabase CLI 缓存
+supabase/.temp

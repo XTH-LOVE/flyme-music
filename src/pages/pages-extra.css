@@ -1,0 +1,17 @@
+.source-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.source-chips::-webkit-scrollbar {
+  display: none;
+}
+.load-more {
+  margin: 16px auto;
+  display: flex;
+}
+.create-pl-btn {
+  margin-top: 14px;
+}

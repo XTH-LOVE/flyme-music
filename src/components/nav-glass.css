@@ -1,0 +1,47 @@
+/* Halcyon LiquidGlassBottomBar: floating glass pill navigation. */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  width: min(282px, calc(100vw - 24px));
+  gap: 4px;
+  padding: 6px;
+  border-radius: 26px;
+  background: var(--am-glass);
+  backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
+  border: 1px solid var(--am-glass-border);
+  box-shadow: var(--am-shadow-floating);
+}
+.bottom-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 10px 6px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  color: var(--am-text-2);
+  transition: background-color var(--am-motion-normal) var(--am-ease-standard),
+    color var(--am-motion-normal) var(--am-ease-standard),
+    transform var(--am-motion-micro) var(--am-ease-spring);
+}
+.bottom-nav__item:active {
+  transform: scale(0.94);
+}
+.bottom-nav__item--active {
+  background: color-mix(in srgb, var(--am-accent, #3d7bff) 18%, transparent);
+  color: color-mix(in srgb, var(--am-accent, #3d7bff) 72%, var(--am-text-1));
+  font-weight: 600;
+}
+@media (min-width: 960px) {
+  .bottom-nav {
+    display: none;
+  }
+}

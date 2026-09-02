@@ -1,0 +1,85 @@
+import { useEffect, useState } from 'react';
+import { Icon } from '@/components/Icon';
+import { resolveTrackPic } from '@/music/source/track-resolver';
+import { initialImgStage, markDirectFailed, withPicSize } from '@/utils/imgFallback';
+import { fallbackPalette } from '@/utils/palette';
+import { useCoverPalette } from '@/utils/coverPalette';
+import type { MusicTrack } from '@/music/source/types';
+import './source.css';
+
+interface TrackCoverProps {
+  track: MusicTrack;
+  radius?: string;
+  bare?: boolean;
+  title?: string;
+}
+
+/**
+ * Cover for any track: gradient base always renders (instant, no flash),
+ * real artwork layers on top once loaded - falling back through the dev
+ * image proxy when the CDN blocks direct hotlinks.
+ */
+export function TrackCover({ track, radius, bare = false, title }: TrackCoverProps) {
+  const [url, setUrl] = useState<string | null>(withPicSize(track.picUrl, '300y300') || null);
+  const [stage, setStage] = useState<'direct' | 'proxy' | 'failed'>(initialImgStage(track.picUrl));
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setUrl(withPicSize(track.picUrl, '300y300') || null);
+    setStage(initialImgStage(track.picUrl));
+    setLoaded(false);
+    if (!track.picUrl && track.source !== 'mock') {
+      let alive = true;
+      resolveTrackPic(track).then((u) => {
+        if (alive && u) setUrl(withPicSize(u, '300y300'));
+      });
+      return () => {
+        alive = false;
+      };
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.id, track.source, track.picUrl]);
+
+  // Prefer colors extracted from the real artwork; hash palette is a fallback.
+  const extracted = useCoverPalette(track.picUrl, track.id);
+  const palette = extracted ?? track.palette ?? fallbackPalette(track.id);
+  const showImg = Boolean(url) && stage !== 'failed';
+
+  const style: React.CSSProperties = {
+    background:
+      'radial-gradient(120% 90% at 15% 10%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 46%),' +
+      'radial-gradient(140% 120% at 90% 95%, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 55%),' +
+      'linear-gradient(135deg, ' + palette[0] + ' 0%, ' + palette[1] + ' 100%)',
+  };
+  // Artwork loaded: drop the palette backdrop so the rounded corners stop
+  // leaking placeholder color (matches the album page rendering).
+  if (showImg && loaded) style.background = 'transparent';
+  if (radius) style.borderRadius = radius;
+
+  return (
+    <div className="am-cover" style={style} aria-label={title ?? track.name}>
+      {showImg && url ? (
+        <img
+          key={stage + url}
+          className="track-cover-img"
+          src={stage === 'direct' ? url : '/api/img?url=' + encodeURIComponent(url)}
+          alt={title ?? track.name}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => {
+            if (stage === 'direct') {
+              markDirectFailed(url);
+              setStage('proxy');
+            } else {
+              setStage('failed');
+            }
+          }}
+          onLoad={() => setLoaded(true)}
+        />
+      ) : null}
+      {!showImg && !bare && title ? <span className="am-cover__glyph">{title.slice(0, 1)}</span> : null}
+      {!showImg && !bare && !title ? <Icon name="music" size={22} className="am-cover__icon" /> : null}
+    </div>
+  );
+}

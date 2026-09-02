@@ -1,0 +1,352 @@
+import type { MusicTrack } from '../source/types';
+import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
+
+/**
+ * Netease official API client.
+ * Calls the dev-server weapi proxy which handles encryption & CORS.
+ * Covers: recommend playlists, playlist detail, playlist square (by category),
+ * new songs and hot comments - all real online data.
+ */
+
+const WEAPI_ENDPOINT = '/api/netease/weapi';
+
+export async function callWeapi<T>(
+  path: string,
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<T> {
+  const res = await fetch(WEAPI_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, data, cookie: useNeteaseAuthStore.getState().cookie }),
+    signal,
+  });
+  if (!res.ok) throw new Error('netease weapi HTTP ' + res.status);
+  return (await res.json()) as T;
+}
+
+export interface NetPlaylistSummary {
+  id: string;
+  name: string;
+  coverUrl: string;
+  playCount: number;
+  trackCount: number;
+  description: string;
+  /** Cursor for highquality pagination. */
+  updateTime?: number;
+}
+
+interface RawRecommendItem {
+  id: number;
+  name: string;
+  picUrl?: string;
+  playCount?: number;
+  trackCount?: number;
+  copywriter?: string;
+}
+
+/** 推荐歌单（官方个性化推荐，真实在线数据）。 */
+export async function getRecommendPlaylists(
+  signal?: AbortSignal,
+): Promise<NetPlaylistSummary[]> {
+  const r = await callWeapi<{ code: number; result?: RawRecommendItem[] }>(
+    '/weapi/personalized/playlist',
+    { limit: 30, total: true, n: 1000 },
+    signal,
+  );
+  if (!r.result) throw new Error('netease recommend code ' + r.code);
+  return r.result.map((p) => ({
+    id: String(p.id),
+    name: p.name,
+    coverUrl: (p.picUrl || '') + '?param=400y400',
+    playCount: p.playCount ?? 0,
+    trackCount: p.trackCount ?? 0,
+    description: p.copywriter ?? '',
+  }));
+}
+
+interface RawHighQualityPlaylist {
+  id: number;
+  name: string;
+  coverImgUrl?: string;
+  playCount?: number;
+  trackCount?: number;
+  description?: string;
+  updateTime?: number;
+}
+
+export interface PlaylistSquarePage {
+  items: NetPlaylistSummary[];
+  total: number;
+  more: boolean;
+  lasttime: number;
+}
+
+/** 歌单广场：按分类拉取精品歌单（真实，可翻页）。 */
+export async function getHighQualityPlaylists(
+  cat: string,
+  lasttime = 0,
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<PlaylistSquarePage> {
+  const r = await callWeapi<{
+    code: number;
+    playlists?: RawHighQualityPlaylist[];
+    total?: number;
+    more?: boolean;
+  }>(
+    '/weapi/playlist/highquality/list',
+    { cat, limit, lasttime, total: true },
+    signal,
+  );
+  if (r.code !== 200) throw new Error('netease highquality code ' + r.code);
+  const items = (r.playlists ?? []).map((p) => ({
+    id: String(p.id),
+    name: p.name,
+    coverUrl: (p.coverImgUrl || '') + '?param=400y400',
+    playCount: p.playCount ?? 0,
+    trackCount: p.trackCount ?? 0,
+    description: p.description ?? '',
+    updateTime: p.updateTime,
+  }));
+  const last = items[items.length - 1];
+  return {
+    items,
+    total: r.total ?? items.length,
+    more: r.more ?? false,
+    lasttime: last?.updateTime ?? lasttime,
+  };
+}
+
+export interface NetPlaylistDetail {
+  meta: NetPlaylistSummary & { creator: string };
+  tracks: MusicTrack[];
+}
+
+export interface NeteaseCloudSong {
+  track: MusicTrack;
+  size?: number;
+  bitrate?: number;
+}
+
+/** 登录账号的歌单（包含创建与收藏的歌单）。 */
+export async function getNeteaseUserPlaylists(
+  uid: string,
+  signal?: AbortSignal,
+): Promise<NetPlaylistSummary[]> {
+  const r = await callWeapi<{
+    code: number;
+    playlist?: Array<{ id: number; name: string; coverImgUrl?: string; playCount?: number; trackCount?: number; description?: string }>;
+  }>('/weapi/user/playlist', { uid, limit: 100, offset: 0, includeVideo: true }, signal);
+  if (r.code !== 200) throw new Error('netease user playlist code ' + r.code);
+  return (r.playlist ?? []).map((p) => ({
+    id: String(p.id),
+    name: p.name,
+    coverUrl: (p.coverImgUrl || '') + '?param=400y400',
+    playCount: p.playCount ?? 0,
+    trackCount: p.trackCount ?? 0,
+    description: p.description ?? '',
+  }));
+}
+
+/** 登录账号的云盘歌曲。 */
+export async function getNeteaseCloudSongs(
+  signal?: AbortSignal,
+): Promise<NeteaseCloudSong[]> {
+  const r = await callWeapi<{
+    code: number;
+    data?: Array<{ song?: RawSong; simpleSong?: RawSong; fileSize?: number; bitrate?: number }>;
+  }>('/weapi/v1/cloud/get', { limit: 100, offset: 0, csrf_token: '' }, signal);
+  if (r.code !== 200) throw new Error('netease cloud code ' + r.code);
+  return (r.data ?? []).flatMap((item) => {
+    const song = item.song ?? item.simpleSong;
+    return song ? [{ track: toTrack(song), size: item.fileSize, bitrate: item.bitrate }] : [];
+  });
+}
+
+/** 登录账号收藏的歌曲。网易云返回歌曲 ID，再补充歌曲详情用于播放。 */
+export async function getNeteaseLikedSongs(
+  uid: string,
+  signal?: AbortSignal,
+): Promise<MusicTrack[]> {
+  const liked = await callWeapi<{ code: number; ids?: number[] }>(
+    '/weapi/song/like/get',
+    { uid, csrf_token: '' },
+    signal,
+  );
+  if (liked.code !== 200) throw new Error('netease liked songs code ' + liked.code);
+  const ids = (liked.ids ?? []).slice(0, 300);
+  if (!ids.length) return [];
+  const songs = await callWeapi<{ code: number; songs?: RawSong[] }>(
+    '/weapi/v3/song/detail',
+    { c: JSON.stringify(ids.map((id) => ({ id }))), ids: JSON.stringify(ids) },
+    signal,
+  );
+  if (songs.code !== 200) throw new Error('netease liked detail code ' + songs.code);
+  return (songs.songs ?? []).map(toTrack);
+}
+
+interface RawSong {
+  id: number;
+  name: string;
+  dt?: number;
+  ar?: { id: number; name: string }[];
+  al?: { id: number; name: string; picUrl?: string; picId?: number | string };
+}
+
+function toTrack(s: RawSong): MusicTrack {
+  return {
+    id: String(s.id),
+    name: s.name,
+    artist: (s.ar ?? []).map((a) => a.name).filter(Boolean),
+    album: s.al?.name ?? '',
+    pic_id: String(s.al?.picId ?? s.al?.id ?? s.id),
+    url_id: String(s.id),
+    lyric_id: String(s.id),
+    source: 'netease',
+    duration: Math.round((s.dt ?? 0) / 1000),
+    picUrl: s.al?.picUrl,
+  };
+}
+
+/** 歌单详情：歌单元信息 + 完整歌曲列表（真实曲目，可直接播放）。 */
+export async function getNeteasePlaylistDetail(
+  playlistId: string,
+  signal?: AbortSignal,
+): Promise<NetPlaylistDetail> {
+  const detail = await callWeapi<{
+    code: number;
+    playlist?: {
+      id: number;
+      name: string;
+      coverImgUrl?: string;
+      description?: string;
+      playCount?: number;
+      trackCount?: number;
+      creator?: { nickname?: string };
+      trackIds?: { id: number }[];
+    };
+  }>(
+    '/weapi/v3/playlist/detail',
+    { id: playlistId, offset: 0, total: true, limit: 1000, n: 1000, csrf_token: '' },
+    signal,
+  );
+  const pl = detail.playlist;
+  if (!pl) throw new Error('netease playlist detail code ' + detail.code);
+
+  const ids = (pl.trackIds ?? []).slice(0, 300).map((t) => t.id);
+  const tracks: MusicTrack[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const songs = await callWeapi<{ songs?: RawSong[] }>(
+      '/weapi/v3/song/detail',
+      {
+        c: JSON.stringify(chunk.map((id) => ({ id }))),
+        ids: JSON.stringify(chunk),
+      },
+      signal,
+    );
+    tracks.push(...(songs.songs ?? []).map(toTrack));
+  }
+
+  return {
+    meta: {
+      id: String(pl.id),
+      name: pl.name,
+      coverUrl: (pl.coverImgUrl || '') + '?param=400y400',
+      playCount: pl.playCount ?? 0,
+      trackCount: pl.trackCount ?? ids.length,
+      description: pl.description ?? '',
+      creator: pl.creator?.nickname ?? '',
+    },
+    tracks,
+  };
+}
+
+/** 新歌速递（官方发现页新音乐，真实数据）。 */
+interface RawNewSong {
+  id: number;
+  name: string;
+  duration?: number;
+  artists?: { id?: number; name?: string }[];
+  album?: { id?: number; name?: string; picUrl?: string; picId?: number | string };
+}
+
+export async function getNewSongs(signal?: AbortSignal): Promise<MusicTrack[]> {
+  const r = await callWeapi<{ code: number; data?: RawNewSong[] }>(
+    '/weapi/v1/discovery/new/songs',
+    { areaId: 0, total: true },
+    signal,
+  );
+  if (r.code !== 200 || !r.data) throw new Error('netease new songs code ' + r.code);
+  return r.data.slice(0, 50).map((s) => ({
+    id: String(s.id),
+    name: s.name,
+    artist: (s.artists ?? []).map((a) => a.name ?? '').filter(Boolean),
+    album: s.album?.name ?? '',
+    pic_id: String(s.album?.picId ?? s.album?.id ?? s.id),
+    url_id: String(s.id),
+    lyric_id: String(s.id),
+    source: 'netease',
+    duration: Math.round((s.duration ?? 0) / 1000),
+    picUrl: (s.album?.picUrl ?? '').replace(/^http:/, 'https:'),
+  }));
+}
+
+export interface NetComment {
+  nickname: string;
+  avatarUrl: string;
+  content: string;
+  likedCount: number;
+  time: number;
+}
+
+/** 歌曲热评（官方评论区，真实数据）。 */
+export async function getHotComments(
+  songId: string,
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<NetComment[]> {
+  const rid = 'R_SO_4_' + songId;
+  const r = await callWeapi<{
+    code: number;
+    hotComments?: {
+      user?: { nickname?: string; avatarUrl?: string };
+      content?: string;
+      likedCount?: number;
+      time?: number;
+    }[];
+  }>(
+    '/weapi/v1/resource/hotcomments/' + rid,
+    { rid, limit, offset: 0, beforeTime: 0 },
+    signal,
+  );
+  if (r.code !== 200) throw new Error('netease comments code ' + r.code);
+  return (r.hotComments ?? []).map((c) => ({
+    nickname: c.user?.nickname ?? '',
+    avatarUrl: (c.user?.avatarUrl ?? '') + '?param=80y80',
+    content: c.content ?? '',
+    likedCount: c.likedCount ?? 0,
+    time: c.time ?? 0,
+  }));
+}
+
+/** 官方搜索（cloudsearch）：结果自带专辑封面与时长，免去逐首解析封面。 */
+export async function getNeteaseSearch(
+  query: string,
+  page: number,
+  count: number,
+  signal?: AbortSignal,
+): Promise<{ items: MusicTrack[]; hasMore: boolean }> {
+  const r = await callWeapi<{
+    code: number;
+    result?: { songs?: RawSong[]; songCount?: number };
+  }>(
+    '/weapi/cloudsearch/get/web',
+    { s: query, type: 1, limit: count, offset: (page - 1) * count, csrf_token: '' },
+    signal,
+  );
+  if (r.code !== 200) throw new Error('netease search code ' + r.code);
+  const songs = r.result?.songs ?? [];
+  return { items: songs.map(toTrack), hasMore: songs.length === count };
+}

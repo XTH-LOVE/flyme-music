@@ -1,0 +1,69 @@
+import { Suspense, lazy } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import { AppLayout } from '@/layouts/AppLayout';
+import { ErrorBoundary } from '@/app/ErrorBoundary';
+import { NotFoundPage } from '@/pages/NotFoundPage';
+
+// Route-level code splitting: each page ships in its own chunk.
+// Pages use named exports, so each lazy call maps it to a default.
+const HomePage = lazy(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
+const LibraryPage = lazy(() => import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })));
+const DiscoverPage = lazy(() => import('@/pages/DiscoverPage').then((m) => ({ default: m.DiscoverPage })));
+const SearchPage = lazy(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })));
+const PlaylistSquarePage = lazy(() => import('@/pages/PlaylistSquarePage').then((m) => ({ default: m.PlaylistSquarePage })));
+const PlaylistDetailPage = lazy(() => import('@/pages/PlaylistDetailPage').then((m) => ({ default: m.PlaylistDetailPage })));
+const UserPlaylistDetailPage = lazy(() => import('@/pages/UserPlaylistDetailPage').then((m) => ({ default: m.UserPlaylistDetailPage })));
+const NeteasePlaylistDetailPage = lazy(() => import('@/pages/NeteasePlaylistDetailPage').then((m) => ({ default: m.NeteasePlaylistDetailPage })));
+const QqChartDetailPage = lazy(() => import('@/pages/QqChartDetailPage').then((m) => ({ default: m.QqChartDetailPage })));
+const AlbumDetailPage = lazy(() => import('@/pages/AlbumDetailPage').then((m) => ({ default: m.AlbumDetailPage })));
+const ArtistDetailPage = lazy(() => import('@/pages/ArtistDetailPage').then((m) => ({ default: m.ArtistDetailPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const MePage = lazy(() => import('@/pages/MePage').then((m) => ({ default: m.MePage })));
+const StatsPage = lazy(() => import('@/pages/StatsPage').then((m) => ({ default: m.StatsPage })));
+const AiPage = lazy(() => import('@/pages/AiPage').then((m) => ({ default: m.AiPage })));
+// Polish layer loaded last so it wins cascade ties; Monet + Miuix above all.
+import '@/styles/ui-refresh.css';
+import '@/styles/monet.css';
+import '@/styles/settings-miuix.css';
+import '@/styles/a11y.css';
+import '@/styles/halcyon-global.css';
+
+function PageFallback() {
+  return (
+    <div
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}
+    >
+      <div className="am-spinner" aria-label="加载中" />
+    </div>
+  );
+}
+
+export function App() {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/playlists" element={<PlaylistSquarePage />} />
+            <Route path="/playlist/:id" element={<PlaylistDetailPage />} />
+            <Route path="/my-playlist/:id" element={<UserPlaylistDetailPage />} />
+            <Route path="/ne-playlist/:id" element={<NeteasePlaylistDetailPage />} />
+            <Route path="/chart/netease/:id" element={<NeteasePlaylistDetailPage />} />
+            <Route path="/chart/qq/:topId" element={<QqChartDetailPage />} />
+            <Route path="/album/:id" element={<AlbumDetailPage />} />
+            <Route path="/artist/:id" element={<ArtistDetailPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/me" element={<MePage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/ai" element={<AiPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
+  );
+}

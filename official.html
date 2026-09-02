@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/jpeg" href="/aurora-mark.jpg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101012" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="AuroraMusic — HyperOS 风格的现代音乐播放器，沉浸式歌词、动态环境色、轻量 Liquid Glass。" />
+    <title>AuroraMusic — HyperOS 风格现代音乐播放器</title>
+  </head>
+  <body>
+    <script type="module" src="/src/official/main.ts"></script>
+
+    <header class="of-nav">
+      <div class="of-nav__inner">
+        <a class="of-nav__brand" href="./official.html">
+          <img src="/aurora-mark.jpg" alt="AuroraMusic" class="of-nav__mark" />
+          <span class="of-nav__name">AuroraMusic</span>
+        </a>
+        <nav class="of-nav__links">
+          <a href="#features">特性</a>
+          <a href="#preview">界面</a>
+          <a href="#about">关于</a>
+        </nav>
+        <a class="of-btn of-btn--primary of-nav__cta" href="/">立即体验</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- Hero -->
+      <section class="of-hero">
+        <div class="of-hero__glow of-hero__glow--1" aria-hidden="true"></div>
+        <div class="of-hero__glow of-hero__glow--2" aria-hidden="true"></div>
+        <div class="of-hero__inner">
+          <p class="of-hero__eyebrow">HyperOS 风格 · 现代音乐播放器</p>
+          <h1 class="of-hero__title">让音乐，回到最纯粹的样子</h1>
+          <p class="of-hero__subtitle">
+            轻量 Liquid Glass 视觉、沉浸式歌词、随专辑流动的环境色——<br class="of-hero__br" />
+            一款把设计语言做到极致的音乐应用。
+          </p>
+          <div class="of-hero__actions">
+            <a class="of-btn of-btn--primary of-btn--lg" href="/">立即体验</a>
+            <a class="of-btn of-btn--secondary of-btn--lg" href="#features">了解特性</a>
+          </div>
+          <div class="of-hero__mark-wrap" aria-hidden="true">
+            <img src="/aurora-mark.jpg" alt="" class="of-hero__mark" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section class="of-section" id="features">
+        <div class="of-section__inner">
+          <h2 class="of-section__title of-reveal">为听歌而生的每一处细节</h2>
+          <p class="of-section__desc of-reveal">从设计系统到播放核心，每个能力都为统一的体验而生。</p>
+          <div class="of-features">
+            <article class="of-card of-reveal">
+              <div class="of-card__icon" style="--icon-tint: var(--am-accent)">◆</div>
+              <h3 class="of-card__title">完整设计系统</h3>
+              <p class="of-card__desc">色彩、字体、间距、圆角、阴影、动效全部统一 Token 驱动，视觉从第一像素就保持一致。</p>
+            </article>
+            <article class="of-card of-reveal">
+              <div class="of-card__icon" style="--icon-tint: var(--am-accent-2)">♪</div>
+              <h3 class="of-card__title">沉浸式歌词</h3>
+              <p class="of-card__desc">逐行高亮、自动滚动、点击跳转，歌词像音乐一样流动。</p>
+            </article>
+            <article class="of-card of-reveal">
+              <div class="of-card__icon" style="--icon-tint: #9c6bff">◐</div>
+              <h3 class="of-card__title">动态环境色</h3>
+              <p class="of-card__desc">播放器背景随专辑封面色调实时生成，每一次切歌都是新的氛围。</p>
+            </article>
+            <article class="of-card of-reveal">
+              <div class="of-card__icon" style="--icon-tint: #00b8b0">⇄</div>
+              <h3 class="of-card__title">Provider 架构</h3>
+              <p class="of-card__desc">数据源与 UI 完全解耦，一行代码即可切换未来的真实音乐服务。</p>
+            </article>
+            <article class="of-card of-reveal">
+              <div class="of-card__icon" style="--icon-tint: #f2a65a">▦</div>
+              <h3 class="of-card__title">本地渐变封面</h3>
+              <p class="of-card__desc">程序生成的渐变封面系统，零网络依赖、零版权风险，离线也完整可用。</p>
+            </article>
+            <article class="of-card of-reveal">
+              <div class="of-card__icon" style="--icon-tint: #2fa96b">◑</div>
+              <h3 class="of-card__title">多主题支持</h3>
+              <p class="of-card__desc">Light / Dark / 跟随系统，三种主题从第一天起就是一等公民。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Preview -->
+      <section class="of-section of-section--preview" id="preview">
+        <div class="of-section__inner">
+          <h2 class="of-section__title of-reveal">熟悉的界面，一眼心动</h2>
+          <p class="of-section__desc of-reveal">圆角卡片、玻璃质感与柔和阴影——主应用的气质，浓缩在这一屏。</p>
+          <div class="of-preview of-reveal">
+            <div class="of-preview__player" aria-hidden="true">
+              <div class="of-preview__cover" style="--cover-a: #2c5fd8; --cover-b: #7fb0ff"></div>
+              <div class="of-preview__meta">
+                <p class="of-preview__song">夜光航线</p>
+                <p class="of-preview__artist">夜航星</p>
+              </div>
+              <div class="of-preview__progress">
+                <span class="of-preview__progress-fill"></span>
+              </div>
+              <div class="of-preview__controls">
+                <span class="of-preview__ctrl">⏮</span>
+                <span class="of-preview__ctrl of-preview__ctrl--play">▶</span>
+                <span class="of-preview__ctrl">⏭</span>
+              </div>
+            </div>
+            <div class="of-preview__list" aria-hidden="true">
+              <div class="of-preview__row">
+                <span class="of-preview__row-cover" style="--cover-a: #2c5fd8; --cover-b: #7fb0ff"></span>
+                <span class="of-preview__row-meta">
+                  <span class="of-preview__row-title">舷窗</span>
+                  <span class="of-preview__row-artist">夜航星</span>
+                </span>
+                <span class="of-preview__eq"><i></i><i></i><i></i></span>
+              </div>
+              <div class="of-preview__row">
+                <span class="of-preview__row-cover" style="--cover-a: #2fa96b; --cover-b: #b8e8c8"></span>
+                <span class="of-preview__row-meta">
+                  <span class="of-preview__row-title">清晨采集</span>
+                  <span class="of-preview__row-artist">林间回声</span>
+                </span>
+                <span class="of-preview__row-dur">3:16</span>
+              </div>
+              <div class="of-preview__row">
+                <span class="of-preview__row-cover" style="--cover-a: #f2a65a; --cover-b: #ffe8c8"></span>
+                <span class="of-preview__row-meta">
+                  <span class="of-preview__row-title">海岸线电台</span>
+                  <span class="of-preview__row-artist">白鹭乐队</span>
+                </span>
+                <span class="of-preview__row-dur">4:02</span>
+              </div>
+              <div class="of-preview__row">
+                <span class="of-preview__row-cover" style="--cover-a: #7b4fe0; --cover-b: #d4b8ff"></span>
+                <span class="of-preview__row-meta">
+                  <span class="of-preview__row-title">云层图鉴</span>
+                  <span class="of-preview__row-artist">云岛</span>
+                </span>
+                <span class="of-preview__row-dur">3:41</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- About / Footer -->
+      <footer class="of-footer" id="about">
+        <div class="of-footer__inner">
+          <div class="of-footer__brand">
+            <img src="/aurora-mark.jpg" alt="" class="of-footer__mark" />
+            <div>
+              <p class="of-footer__name">AuroraMusic</p>
+              <p class="of-footer__tagline">HyperOS 风格 · 高级简约 · 轻量 Liquid Glass</p>
+            </div>
+          </div>
+          <nav class="of-footer__links" aria-label="页面链接">
+            <a href="/">立即体验</a>
+            <a href="#features">设计语言</a>
+            <a href="#preview">界面预览</a>
+          </nav>
+          <p class="of-footer__copy">© 2026 AuroraMusic · 原创虚构内容，未使用任何受版权保护的资源</p>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,207 @@
+/* Flyme Music global theme — v2 (HyperOS × Noctis inspired).
+   CSS custom properties are the runtime source of truth. */
+
+:root {
+  --am-bg: #f5f5f7;
+  --am-surface: #ffffff;
+  --am-surface-2: #efeff2;
+  --am-surface-3: #e6e6ea;
+  --am-surface-1: rgba(255, 255, 255, 0.72);
+  --am-border-soft: rgba(16, 16, 20, 0.09);
+  --am-text-1: #101014;
+  --am-text-2: #74747c;
+  --am-text-3: #a6a6ae;
+  --am-accent: #3d7bff;
+  --am-accent-2: #7a5cff;
+  --am-accent-soft: rgba(61, 123, 255, 0.12);
+  --am-danger: #ff4d4f;
+  --am-divider: rgba(16, 16, 20, 0.07);
+  --am-scrim: rgba(12, 12, 16, 0.44);
+  --am-glass: rgba(255, 255, 255, 0.62);
+  --am-glass-border: rgba(255, 255, 255, 0.58);
+  --am-glass-blur: 30px;
+  --am-glass-saturate: 1.5;
+  --am-glass-highlight: rgba(255, 255, 255, 0.36);
+  --am-glass-shadow: 0 12px 40px rgba(16, 16, 20, 0.14);
+
+  --am-radius-sm: 12px;
+  --am-radius-md: 16px;
+  --am-radius-lg: 20px;
+  --am-radius-xl: 24px;
+  --am-radius-xxl: 28px;
+  --am-radius-cover: 32px;
+  --am-radius-pill: 999px;
+
+  --am-shadow-card: 0 1px 2px rgba(16, 16, 20, 0.04), 0 4px 16px rgba(16, 16, 20, 0.05);
+  --am-shadow-card-hover: 0 6px 28px rgba(16, 16, 20, 0.11);
+  --am-shadow-floating: 0 12px 40px rgba(16, 16, 20, 0.14);
+  --am-shadow-glass: 0 6px 28px rgba(16, 16, 20, 0.09);
+
+  --am-motion-micro: 120ms;
+  --am-motion-normal: 200ms;
+  --am-motion-page: 300ms;
+  --am-motion-sheet: 380ms;
+  --am-motion-slow: 560ms;
+  --am-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --am-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --am-ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  --am-font: 'MiSans', 'HarmonyOS Sans', 'PingFang SC', 'Segoe UI', system-ui,
+    -apple-system, sans-serif;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --am-bg: #0c0c0e;
+  --am-surface: #16161a;
+  --am-surface-2: #1e1e24;
+  --am-surface-3: #28282f;
+  --am-surface-1: rgba(30, 30, 36, 0.72);
+  --am-border-soft: rgba(255, 255, 255, 0.10);
+  --am-text-1: #f4f4f6;
+  --am-text-2: #9d9da6;
+  --am-text-3: #62626c;
+  --am-accent: #5b8cff;
+  --am-accent-2: #9c7bff;
+  --am-accent-soft: rgba(91, 140, 255, 0.17);
+  --am-danger: #ff6b6b;
+  --am-divider: rgba(255, 255, 255, 0.08);
+  --am-scrim: rgba(0, 0, 0, 0.6);
+  --am-glass: rgba(22, 22, 27, 0.6);
+  --am-glass-border: rgba(255, 255, 255, 0.09);
+  --am-glass-blur: 30px;
+  --am-glass-saturate: 1.45;
+  --am-glass-highlight: rgba(255, 255, 255, 0.16);
+  --am-glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+
+  --am-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.32);
+  --am-shadow-card-hover: 0 6px 28px rgba(0, 0, 0, 0.45);
+  --am-shadow-floating: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --am-shadow-glass: 0 6px 28px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--am-bg);
+  color: var(--am-text-1);
+  font-family: var(--am-font);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  transition: background-color var(--am-motion-page) var(--am-ease-standard),
+    color var(--am-motion-page) var(--am-ease-standard);
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+input {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: var(--am-accent-soft);
+}
+
+/* Restrained HyperOS-style scrollbar */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--am-surface-3);
+  border-radius: var(--am-radius-pill);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--am-text-3);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Shared animation utilities */
+@keyframes am-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes am-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes am-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes am-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes am-shimmer {
+  from {
+    background-position: -400px 0;
+  }
+  to {
+    background-position: 400px 0;
+  }
+}
+
+.am-page-enter {
+  animation: am-page-in var(--am-motion-page) var(--am-ease-out) both;
+}

@@ -1,0 +1,12 @@
+/* Monet dynamic accent usage (loaded after ui-refresh to win the cascade). */
+.sidebar__item--active {
+  background: color-mix(in srgb, var(--am-accent, #3d7bff) 16%, transparent) !important;
+  color: color-mix(in srgb, var(--am-accent, #3d7bff) 62%, #fff) !important;
+}
+.card-playbtn {
+  background: var(--am-accent, #3d7bff) !important;
+}
+.am-btn--primary,
+.am-chip--active {
+  background: color-mix(in srgb, var(--am-accent, #3d7bff) 88%, #fff) !important;
+}

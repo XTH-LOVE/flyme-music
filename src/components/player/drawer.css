@@ -1,0 +1,41 @@
+/* Right-docked HyperOS drawer for the queue (desktop only). */
+@keyframes am-drawer-in {
+  from {
+    transform: translateX(30%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 960px) {
+  .am-sheet-root--drawer {
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+  .am-sheet-root--drawer .am-sheet {
+    width: 400px;
+    max-width: 86vw;
+    height: calc(100% - 32px);
+    max-height: none;
+    margin: 16px 16px 16px 0;
+    border-radius: var(--am-radius-xl);
+    animation: am-drawer-in var(--am-motion-sheet) var(--am-ease-standard) both;
+  }
+  .am-sheet-root--drawer .am-sheet__grab {
+    display: none;
+  }
+  .am-sheet-root--drawer .am-sheet__title {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+  }
+  .am-sheet-root--drawer.am-sheet-root--closing .am-sheet {
+    transform: translateX(30%);
+    opacity: 0;
+    transition: transform 240ms var(--am-ease-standard),
+      opacity 220ms var(--am-ease-standard);
+  }
+}

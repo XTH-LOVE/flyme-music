@@ -5,6 +5,7 @@ import { BottomNavigation } from '@/components/BottomNavigation';
 import { PageBackButton } from '@/components/PageBackButton';
 import { FullPlayer } from '@/components/player/FullPlayer';
 import { AiCompanion } from '@/components/ai/AiCompanion';
+import { ProactiveEngine } from '@/ai/ProactiveEngine';
 import { MonetAccent } from '@/components/MonetAccent';
 import { usePlaybackSync } from '@/hooks/usePlaybackSync';
 import { useSleepTimer } from '@/hooks/useSleepTimer';
@@ -47,6 +48,7 @@ export function AppLayout() {
       <MiniPlayer />
       <BottomNavigation />
       <AiCompanion />
+      <ProactiveEngine />
       <FullPlayer />
     </div>
   );

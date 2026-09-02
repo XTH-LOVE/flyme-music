@@ -32,6 +32,7 @@ interface AiConfigState {
   model: string;
   persona: AiPersona;
   companion: boolean;
+  proactive: boolean;
 }
 
 interface AiState extends AiConfigState {
@@ -65,11 +66,13 @@ function loadConfig(): AiConfigState {
         model: '',
         persona: 'gentle',
         companion: true,
+        proactive: true,
         ...(typeof parsed.model === 'string' ? { model: parsed.model } : {}),
         ...(parsed.persona === 'gentle' || parsed.persona === 'sharp' || parsed.persona === 'chuuni'
           ? { persona: parsed.persona }
           : {}),
         ...(typeof parsed.companion === 'boolean' ? { companion: parsed.companion } : {}),
+        ...(typeof parsed.proactive === 'boolean' ? { proactive: parsed.proactive } : {}),
       };
       if ('apiKey' in parsed || 'endpoint' in parsed) {
         localStorage.setItem('aurora.ai.v1', JSON.stringify(clean));
@@ -79,7 +82,7 @@ function loadConfig(): AiConfigState {
   } catch {
     /* ignore */
   }
-  return { model: '', persona: 'gentle', companion: true };
+  return { model: '', persona: 'gentle', companion: true, proactive: true };
 }
 
 function loadDislikes(): string[] {
@@ -103,6 +106,7 @@ export const useAiStore = create<AiState>((set, get) => ({
   dislikes: loadDislikes(),
   memories: [],
   memoryPanelOpen: false,
+  proactive: true,
 
   setConfig: (patch) => {
     const next = { ...get(), ...patch };
@@ -110,6 +114,7 @@ export const useAiStore = create<AiState>((set, get) => ({
       model: next.model,
       persona: next.persona,
       companion: next.companion,
+      proactive: next.proactive,
     };
     try {
       localStorage.setItem('aurora.ai.v1', JSON.stringify(persist));

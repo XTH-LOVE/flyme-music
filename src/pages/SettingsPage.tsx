@@ -261,6 +261,13 @@ export function SettingsPage() {
           </div>
           <Switch checked={ai.companion} onChange={(v) => ai.setConfig({ companion: v })} />
         </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">主动陪伴</div>
+            <div className="settings-row__desc">时段问候、连听关心与每周听歌报告</div>
+          </div>
+          <Switch checked={ai.proactive} onChange={(v) => ai.setConfig({ proactive: v })} />
+        </div>
       </div>
 
       <SectionHeader title="账号与登录" />

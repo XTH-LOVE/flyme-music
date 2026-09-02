@@ -1,3 +1,5 @@
+import { isTauri } from '@/lib/apiTransport';
+
 export interface AiConfig {
   model: string;
 }
@@ -11,6 +13,61 @@ function aiFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch('/api/ai' + path, init);
 }
 
+interface AiChunk {
+  delta?: string | null;
+  thought?: string | null;
+  done: boolean;
+  error?: string | null;
+}
+
+async function invokeAi<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<T>(command, args);
+}
+
+/** Packaged-app path: Rust owns the key and streams deltas over a Channel. */
+async function tauriChat(
+  body: Record<string, unknown>,
+  onDelta: (delta: string) => void,
+  onThought?: (thought: string) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  const { Channel } = await import('@tauri-apps/api/core');
+  const channel = new Channel<AiChunk>();
+  let full = '';
+  let failed: string | null = null;
+  let stopped = false;
+  channel.onmessage = (chunk) => {
+    if (stopped) return;
+    if (chunk.error) {
+      failed = chunk.error;
+      return;
+    }
+    if (chunk.thought) onThought?.(chunk.thought);
+    if (chunk.delta) {
+      full += chunk.delta;
+      onDelta(chunk.delta);
+    }
+    if (chunk.done) stopped = true;
+  };
+  await Promise.race([
+    invokeAi<void>('ai_chat_completions', {
+      body: JSON.stringify({ ...body, stream: true }),
+      onChunk: channel,
+    }),
+    new Promise<void>((_resolve, reject) => {
+      const onAbort = () => {
+        stopped = true;
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+      if (signal?.aborted) onAbort();
+      else signal?.addEventListener('abort', onAbort, { once: true });
+    }),
+  ]);
+  if (failed) throw new Error(failed);
+  return full;
+}
+
 export interface AiStatus {
   configured: boolean;
   endpoint: string;
@@ -20,6 +77,7 @@ export interface AiStatus {
 const MODEL_ATTEMPT_TIMEOUT_MS = 7_500;
 
 export async function getAiStatus(): Promise<AiStatus> {
+  if (isTauri()) return invokeAi<AiStatus>('ai_status');
   const res = await aiFetch('/status', { method: 'GET' });
   if (!res.ok) throw new Error('AI 状态 HTTP ' + res.status);
   return (await res.json()) as AiStatus;
@@ -27,6 +85,13 @@ export async function getAiStatus(): Promise<AiStatus> {
 
 /** GET /models - list available model ids on the configured endpoint. */
 export async function listAiModels(_cfg?: AiConfig): Promise<string[]> {
+  if (isTauri()) {
+    try {
+      return await invokeAi<string[]>('ai_models');
+    } catch {
+      return [];
+    }
+  }
   const res = await aiFetch('/models', { method: 'GET' });
   if (!res.ok) throw new Error('模型列表 HTTP ' + res.status);
   const json = (await res.json()) as { data?: { id?: string }[] };
@@ -47,6 +112,14 @@ export async function chatStream(
   onThought?: (thought: string) => void,
   signal?: AbortSignal,
 ): Promise<string> {
+  if (isTauri()) {
+    return tauriChat(
+      { model: cfg.model, messages, temperature: 0.8, max_tokens: 2400 },
+      onDelta,
+      onThought,
+      signal,
+    );
+  }
   const res = await aiFetch('/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -165,6 +238,14 @@ export async function chatOnce(
   messages: AiChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
+  if (isTauri()) {
+    return tauriChat(
+      { model: cfg.model, messages, temperature: 0.9, max_tokens: 120 },
+      () => undefined,
+      undefined,
+      signal,
+    );
+  }
   const res = await aiFetch('/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

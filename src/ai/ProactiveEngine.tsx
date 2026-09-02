@@ -39,7 +39,7 @@ export function ProactiveEngine() {
         aiReady: state.companion && aiConfigured({ model: state.model }),
         memories: state.memories,
         playLog,
-        session: null,
+        session,
       }).then(({ text }) => {
         state.pushMessage({ id: nextAiMsgId(), role: 'ai', kind: 'chat', text });
         if (kind === 'weekly') notify('Aurora 为你生成了上周听歌报告');

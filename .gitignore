@@ -1,8 +1,12 @@
 node_modules
-dist
+/dist
 *.local
+*.log
 .DS_Store
 npm-debug.log*
+
+# TypeScript 增量编译缓存（tsc -b 产物）
+*.tsbuildinfo
 
 # Rust / Tauri 构建产物
 src-tauri/target
@@ -12,6 +16,11 @@ src-tauri/gen/android/buildSrc/build
 src-tauri/gen/android/buildSrc/.gradle
 src-tauri/gen/android/app/build
 src-tauri/gen/android/app/.cxx
+
+# Android 签名密钥（release 打包产物，绝不入库）
+*.keystore
+*.jks
+signing.properties
 
 # 本地账号数据（含密码哈希）
 .aurora-auth.json

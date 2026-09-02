@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { OS3Wallpaper } from '@/components/OS3Wallpaper';
 import { TrackCover } from '@/components/TrackCover';
@@ -7,6 +7,9 @@ import { usePlayerStore } from '@/store/usePlayerStore';
 import { playerController } from '@/player';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { fallbackPalette } from '@/utils/palette';
+import { buildListeningReport, rangeLabel, type ReportRange } from '@/utils/listeningReport';
+import { shareListeningReport } from '@/utils/reportShare';
+import { notify } from '@/utils/notify';
 import './stats.css';
 
 interface DayCell {
@@ -44,6 +47,26 @@ export function StatsPage() {
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const current = usePlayerStore((s) => s.current);
   const palette = (current?.palette ?? fallbackPalette(current?.id ?? 'stats')) as unknown as string[];
+
+  const [reportRange, setReportRange] = useState<ReportRange>('month');
+  const [sharing, setSharing] = useState(false);
+
+  const report = useMemo(
+    () => buildListeningReport(playLog, reportRange),
+    [playLog, reportRange],
+  );
+
+  const handleShareReport = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      await shareListeningReport(playLog, reportRange);
+    } catch (error) {
+      if (error instanceof Error && error.message !== 'cancelled') notify('生成报告失败：' + error.message);
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const stats = useMemo(() => {
     const today = dayKey(new Date());
@@ -130,6 +153,48 @@ export function StatsPage() {
           <div className="stats-card__label">单曲最高播放</div>
         </div>
       </div>
+
+      <section className="stats-panel report-section">
+        <div className="report-section__head">
+          <div className="report-section__title">听歌报告</div>
+          <div className="report-section__range">
+            {(['week', 'month', 'year'] as ReportRange[]).map((r) => (
+              <button
+                key={r}
+                className={'report-chip' + (reportRange === r ? ' report-chip--on' : '')}
+                onClick={() => setReportRange(r)}
+              >
+                {r === 'week' ? '本周' : r === 'month' ? '本月' : '年度'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="report-summary">
+          <div className="report-summary__item">
+            <span className="report-summary__num">{report.total}</span>
+            <span className="report-summary__label">累计播放</span>
+          </div>
+          <div className="report-summary__item">
+            <span className="report-summary__num">{report.distinctSongs}</span>
+            <span className="report-summary__label">歌曲</span>
+          </div>
+          <div className="report-summary__item">
+            <span className="report-summary__num">{report.distinctArtists}</span>
+            <span className="report-summary__label">歌手</span>
+          </div>
+          <div className="report-summary__item">
+            <span className="report-summary__num">{report.activeDays}</span>
+            <span className="report-summary__label">活跃天数</span>
+          </div>
+        </div>
+        {report.estimatedSeconds > 0 ? (
+          <div className="report-duration">约 {Math.round(report.estimatedSeconds / 60)} 分钟音乐时光 · {rangeLabel(reportRange, Date.now())}</div>
+        ) : null}
+        <button className="am-btn am-btn--primary am-btn--md report-share-btn" disabled={sharing || !report.total} onClick={() => void handleShareReport()}>
+          <Icon name="download" size={16} />
+          {sharing ? '生成中…' : '生成并分享报告卡片'}
+        </button>
+      </section>
 
       <div className="stats-grid">
         <section className="stats-panel">

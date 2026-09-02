@@ -29,6 +29,13 @@ npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JA
 
 纯浏览器开发（`npm run dev`）仍然可用：vite 中间件提供 /api/netease/weapi、/api/proxy、/api/img、/api/media-proxy、/api/ai。
 
+### 已知限制
+
+- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.flyme.music/files/Download/FlymeMusic；写入公共 Download 需要 MediaStore，属后续增强
+- 打包应用内取消 AI 请求只会停止前端渲染，Rust 侧的上游请求会自然结束
+- 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
+- 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除
+
 ## 更换应用图标
 
 1. 用 1024x1024 的 PNG 覆盖 `src-tauri/icons/app-icon.png`

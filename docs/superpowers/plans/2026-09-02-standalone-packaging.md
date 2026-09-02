@@ -1023,7 +1023,8 @@ git commit -m "feat: move QQ official endpoints into a single client implementat
 ### Task 7: GD-API（Joox/搜索源）走 CORS-free 通道
 
 **Files:**
-- Modify: `src/music/source/provider-utils.ts:1-8,67-86`
+- Modify: `src/music/source/api-config.ts:67-86`（fetchWithTimeout 的真实位置）
+- Modify: `src/music/source/provider-utils.ts:21-24`（isAbort 加固，兼容 plugin-http 的取消错误形状）
 
 - [ ] **Step 1: fetchWithTimeout 内部改用 httpFetch**
 
@@ -1060,16 +1061,33 @@ Expected: 无输出。
 Run: `npm run dev`，把音源切到 Joox 搜索一首歌并播放。
 Expected: 搜索与播放正常（浏览器路径未变，只是多了一层 httpFetch 转发）。
 
+- [ ] **Step 3b: provider-utils.ts 加固 isAbort**
+
+plugin-http 取消请求时抛 Error('Request cancelled')，读响应流阶段被取消时甚至是裸字符串，name 不是 AbortError。若不兼容，用户切歌或离开搜索页会把健康的 GD-API 端点打进 5 分钟冷却。把 src/music/source/provider-utils.ts 的 isAbort（第 21-24 行）替换为：
+
+```ts
+export const isAbort = (e: unknown): boolean =>
+  e === 'Request cancelled' ||
+  ((e instanceof Error ||
+    (typeof DOMException !== 'undefined' && e instanceof DOMException)) &&
+    ((e as Error).name === 'AbortError' || e.message === 'Request cancelled'));
+```
+
+Run: `npx tsc -b --force`
+Expected: 无输出。
+
 - [ ] **Step 4: 提交**
 
 ```bash
-git add src/music/source/provider-utils.ts
+git add src/music/source/api-config.ts src/music/source/provider-utils.ts
 git commit -m "feat: route GD-API requests through the transport layer"
 ```
 
 ---
 
 ### Task 8: 图片通道（blob 化）
+
+注意（来自 Task 3 的审查结论）：imageSource.ts 顶部需定义 `const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';`，Tauri 分支的请求头必须同时带 `Referer` 与 `'User-Agent': BROWSER_UA`（否则 Rust 侧填 tauri-plugin-http/<ver>，部分 CDN 会拒）；且高频封面请求不要共用一个 AbortController（plugin-http 每次调用会给 signal 挂两个不摘的监听器）。
 
 **Files:**
 - Create: `src/utils/imageSource.ts`
@@ -1848,7 +1866,7 @@ git commit -m "feat: serve AI through Rust commands with the key embedded at bui
 在 [dependencies] 段追加：
 
 ```toml
-tauri-plugin-http = "2"
+tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }  # 不开 unsafe-headers 时 Rust 会丢弃 Referer/Origin/Cookie，QQ 接口与图片防盗链会静默 403
 tauri-plugin-dialog = "2"
 base64 = "0.22"
 ```
@@ -2681,6 +2699,7 @@ Run: `npx tauri dev`
 8. 分享歌词卡片：弹另存为，PNG 内容含封面与歌词
 9. F11 全屏切换与右上角注入的全屏按钮仍可用
 10. DevTools Console 无 CSP 报错（若有 script-src 报错，说明注入脚本被 CSP 拦截，在 tauri.conf.json 的 script-src 追加 'unsafe-inline' 后重跑）
+11. 运行 `npx tauri dev` 期间，Rust stderr **不得**出现 `Skipping referer header as it is a forbidden header`；若出现说明 Cargo 的 `unsafe-headers` feature 没生效，QQ 榜单封面与图片防盗链会静默失败
 
 - [ ] **Step 3: 打 Windows 安装包并做断网验证**
 
@@ -2720,6 +2739,7 @@ Expected: 产物位于 `src-tauri/gen/android/app/build/outputs/apk/universal/re
 - Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.flyme.music/files/Download/FlymeMusic；写入公共 Download 需要 MediaStore，属后续增强
 - 打包应用内取消 AI 请求只会停止前端渲染，Rust 侧的上游请求会自然结束
 - 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
+- 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除
 ```
 
 ```bash

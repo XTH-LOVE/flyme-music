@@ -27,3 +27,10 @@ signing.properties
 
 # supabase CLI 缓存
 supabase/.temp
+
+# 本地密钥 / Cloudflare 缓存（含真实 AI API key，绝不入库）
+.dev.vars
+.wrangler/
+
+# Cloudflare Pages 拖拽上传包（本地生成）
+release-cf/

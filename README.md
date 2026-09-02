@@ -36,7 +36,38 @@ npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JA
 - 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
 - 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除
 
-## 部署网页版到 Vercel
+## 部署网页版到 Cloudflare Pages（flyme-music.pages.dev）
+
+线上网页版部署在 Cloudflare Pages。后端由 `functions/api/` 下的 Pages Functions 提供（Workers 运行时，逻辑与 `server/auroraApi.ts` 同源）：`/api/proxy`、`/api/img`、`/api/media-proxy`、`/api/netease/weapi`、`/api/ai/*`，在线功能与 `npm run dev` 一致。
+
+### 更新部署（dashboard 拖拽上传，无需 CLI 登录）
+
+1. `npm run build` 构建最新前端
+2. 组装上传包（静态产物 + functions 同级）：
+   ```powershell
+   Remove-Item release-cf -Recurse -Force -ErrorAction SilentlyContinue
+   Copy-Item dist release-cf -Recurse
+   Copy-Item functions release-cf\functions -Recurse
+   ```
+3. 打开 https://dash.cloudflare.com → Workers & Pages → flyme-music → **Create new deployment**，把 `release-cf` 整个文件夹拖进去上传
+4. 部署完成后访问 https://flyme-music.pages.dev 验证
+
+### 环境变量（dashboard → flyme-music → Settings → Variables and Secrets）
+
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `AURORA_AI_API_KEY` | ✅ | 智谱 API key，只在函数运行时存在，前端永远拿不到 |
+| `AURORA_AI_ENDPOINT` | 可选 | 默认已是 `https://open.bigmodel.cn/api/paas/v4` |
+| `AURORA_AI_MODEL` | 可选 | 默认已是 `glm-4-flash` |
+
+修改环境变量后需重新触发一次部署才会生效。本地验证 Functions：`npx wrangler pages dev dist`（配合 `.dev.vars`，已被 gitignore）。
+
+### 备注
+
+- SPA 回退：Pages 对未命中静态文件的路径自动回退 `index.html`（BrowserRouter 深链刷新不会 404）
+- 仓库中另有一套 Vercel 版实现（`api/` + `server/auroraApi.ts` + `vercel.json`，见下节），两者逻辑同源，可任选其一作为线上部署
+
+## 部署网页版到 Vercel（备选方案）
 
 网页版把 dev 专用的 `/api/*` 中间件移植成了 Vercel Serverless Functions（逻辑在 `server/auroraApi.ts`，薄封装在 `api/`，路由配置在 `vercel.json`），在线功能与 `npm run dev` 一致：网易 weapi 转发、QQ 系代理、封面图代理、媒体下载代理、AI 透传。前端零改动（浏览器分支本来就打相对路径 `/api/*`）。
 

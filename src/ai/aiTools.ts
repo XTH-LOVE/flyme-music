@@ -7,6 +7,8 @@ import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { navigateAppRoute } from '@/app/navigation';
 import { fetchLyricLines, lyricLineAt } from '@/utils/currentLyric';
 import { searchAllSources, countSkippedCovers } from './musicSearch';
+import { upsertMemories } from './memory';
+import type { AiMemoryCategory } from './memory';
 import type { MusicTrack } from '@/music/source/types';
 import type { AiPersona, AiPlaylistInfo } from '@/store/useAiStore';
 
@@ -147,6 +149,7 @@ export function buildSystemPrompt(
   lyricSnippet: string,
   dislikes: string[],
   appContext = '',
+  memoryInfo = '',
 ): string {
   return (
     PERSONA_PROMPTS[persona] +
@@ -157,6 +160,7 @@ export function buildSystemPrompt(
       : '（未在播放）') +
     (lyricSnippet ? '\n当前歌词：' + lyricSnippet : '') +
     (appContext ? '\n当前应用状态：' + appContext : '') +
+    (memoryInfo ? '\n你对用户的长期了解（可自然引用，别罗列、别提"记忆"二字）：' + memoryInfo : '') +
     '\n用户听歌记录：' + stats +
     (dislikes.length ? '\n用户不喜欢（搜索时回避）：' + dislikes.join('、') : '') +
     '\n你可以真正操作播放器和 Aurora 页面。工具用法：单独一行输出 ::tool {"tool":"名字",...}。' +
@@ -168,7 +172,7 @@ export function buildSystemPrompt(
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
     '\n· navigate {"to":"/settings 或其他 Aurora 路由"} —— 打开应用页面' +
     '\n· open_player {} —— 打开全屏播放器 · toggle_lyrics {} —— 切换歌词页 · set_theme {"mode":"light|dark|system"}' +
-    '\n· analyze_song {} —— 取当前歌的完整歌词，由你来写分析 · report {} · dislike {"word":"回避的歌手或风格"}' +
+    '\n· analyze_song {} —— 取当前歌的完整歌词，由你来写分析 · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
     '\n\n行动准则：' +
     '\n· 你有多轮行动能力：每次工具结果会以「[工具结果]」消息返回给你，看完可以继续调用下一个工具（最多连续 6 次），都做完再答复用户。' +
     '\n· 创建歌单属于需要用户确认的操作；先说明歌单名称和预计歌曲数量，等待确认后再执行。' +
@@ -261,6 +265,7 @@ export function describeToolCall(call: Record<string, unknown>): string {
   if (t === 'control') return '控制播放';
   if (t === 'report') return '整理听歌报告';
   if (t === 'dislike') return '记住不喜欢「' + String(call.word ?? '') + '」';
+  if (t === 'remember') return '记住了：' + String(call.content ?? '');
   return '执行操作';
 }
 
@@ -556,10 +561,22 @@ export async function executeTool(
     };
   }
 
+  if (tool === 'remember') {
+    const rawCategory = String(call.category ?? 'fact');
+    const category = (['artist', 'genre', 'mood', 'fact', 'dislike'].includes(rawCategory) ? rawCategory : 'fact') as AiMemoryCategory;
+    const content = String(call.content ?? '').trim();
+    if (!content || content.length > 200) {
+      return { reply: '（这条想记的内容太长或为空，换个说法？）', fact: { action: 'remember', error: 'bad_content' } };
+    }
+    void upsertMemories([{ category, content }]).catch(() => undefined);
+    return { reply: '记住了：' + content, fact: { action: 'remember', category, content } };
+  }
+
   if (tool === 'dislike') {
     const word = String(call.word ?? '').trim();
     if (!word) return { reply: '（告诉我不喜欢谁/什么风格，我记下来。）' };
     useAiStore.getState().addDislike(word);
+    void upsertMemories([{ category: 'dislike', content: word }]).catch(() => undefined);
     return { reply: '记住了，以后找歌会避开「' + word + '」。', fact: { action: 'dislike', avoid: word } };
   }
 

@@ -1,5 +1,8 @@
 import { fetchLyricLines, lyricLineAt } from './currentLyric';
 import { fetchImageBlob } from './imageSource';
+import { isTauri } from '@/lib/apiTransport';
+import { notify } from './notify';
+import { saveBlobInBrowser } from './saveBlob';
 import { resolveTrackPic } from '@/music/source/track-resolver';
 import { fallbackPalette } from '@/utils/palette';
 import type { MusicTrack } from '@/music/source/types';
@@ -105,9 +108,15 @@ export async function shareLyricCard(track: MusicTrack, currentTime: number): Pr
   ctx.font = '400 22px system-ui, "Microsoft YaHei", sans-serif';
   ctx.fillText('Flyme Music', W / 2, H - 60);
 
-  const a = document.createElement('a');
-  a.download = track.name + '-歌词卡片.png';
-  a.href = canvas.toDataURL('image/png');
-  a.click();
+  const fileName = track.name + '-歌词卡片.png';
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke<string>('save_image_base64', { fileName, dataUrl: canvas.toDataURL('image/png') });
+    notify('歌词卡片已保存');
+    return true;
+  }
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return false;
+  await saveBlobInBrowser(blob, fileName);
   return true;
 }

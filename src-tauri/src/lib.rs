@@ -1,5 +1,6 @@
 mod netease;
 mod ai;
+mod download;
 
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::{Listener, Manager};

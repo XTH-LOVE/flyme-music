@@ -9,6 +9,7 @@ import { usePlayerStore } from '@/store/usePlayerStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { useExtrasStore } from '@/store/useExtrasStore';
 import { downloadTrack } from '@/utils/download';
+import { notify } from '@/utils/notify';
 import { formatTime } from '@/utils/format';
 import { fallbackPalette } from '@/utils/palette';
 import { useCoverPalette } from '@/utils/coverPalette';
@@ -298,8 +299,9 @@ export function FullPlayer() {
     setDownloading(true);
     try {
       await downloadTrack(current);
-    } catch {
-      /* non-fatal */
+    } catch (error) {
+      // 用户取消另存为不算错误
+      if (error instanceof Error && error.message !== 'cancelled') notify(error.message);
     } finally {
       setDownloading(false);
     }
@@ -310,8 +312,8 @@ export function FullPlayer() {
     setSharing(true);
     try {
       await shareLyricCard(current, currentTime);
-    } catch {
-      /* non-fatal */
+    } catch (error) {
+      if (error instanceof Error && error.message !== 'cancelled') notify('分享失败：' + error.message);
     } finally {
       setSharing(false);
     }

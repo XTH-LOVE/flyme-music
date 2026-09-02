@@ -391,7 +391,7 @@ function rsaEncrypt(secKey: string): string {
   return enc.toString(16).padStart(256, '0');
 }
 
-export interface WeapiPayload {
+export type WeapiPayload = {
   params: string;
   encSecKey: string;
 }
@@ -1087,7 +1087,7 @@ git commit -m "feat: route GD-API requests through the transport layer"
 
 ### Task 8: 图片通道（blob 化）
 
-注意（来自 Task 3 的审查结论）：imageSource.ts 顶部需定义 `const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';`，Tauri 分支的请求头必须同时带 `Referer` 与 `'User-Agent': BROWSER_UA`（否则 Rust 侧填 tauri-plugin-http/<ver>，部分 CDN 会拒）；且高频封面请求不要共用一个 AbortController（plugin-http 每次调用会给 signal 挂两个不摘的监听器）。
+注意（来自 Task 3 的审查结论）：imageSource.ts 顶部需定义 `const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';`，Tauri 分支的请求头必须同时带 `Referer` 与 `'User-Agent': BROWSER_UA`（否则 Rust 侧填 tauri-plugin-http/<ver>，部分 CDN 会拒）；且高频封面请求不要共用一个 AbortController（plugin-http 每次调用会给 signal 挂两个不摘的监听器）。另外，`src/music/source/types.ts` 的 `forceHttps`（第 88-91 行）目前只做 `http:` → `https:`，**不处理协议相对 URL**（QQ 封面常见 `//y.gtimg.cn/...`），而 `httpFetch` 的 Tauri 分支会拒绝无 scheme 的 URL；本任务须先把它加固为在开头补一行 `if (url.startsWith('//')) return 'https:' + url;`，并让 imageSource.ts 在发请求前统一调用 `forceHttps`（该文件因此也要进 Task 8 的 Files 清单与提交清单）。
 
 **Files:**
 - Create: `src/utils/imageSource.ts`
@@ -2700,6 +2700,7 @@ Run: `npx tauri dev`
 9. F11 全屏切换与右上角注入的全屏按钮仍可用
 10. DevTools Console 无 CSP 报错（若有 script-src 报错，说明注入脚本被 CSP 拦截，在 tauri.conf.json 的 script-src 追加 'unsafe-inline' 后重跑）
 11. 运行 `npx tauri dev` 期间，Rust stderr **不得**出现 `Skipping referer header as it is a forbidden header`；若出现说明 Cargo 的 `unsafe-headers` feature 没生效，QQ 榜单封面与图片防盗链会静默失败
+12. 网易云相关功能（搜索/歌单/扫码登录）在打包应用内可用 —— 这同时验证 `crypto.subtle` 在 Tauri 的 `http://tauri.localhost` 源下可用（WebCrypto 仅在 secure context 暴露；若某平台落到非可信源，`crypto.subtle` 会是 undefined，weapi 加密全线失效）
 
 - [ ] **Step 3: 打 Windows 安装包并做断网验证**
 

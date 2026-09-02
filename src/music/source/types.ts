@@ -87,5 +87,6 @@ export function songToTrack(song: Song): MusicTrack {
 
 export function forceHttps(url?: string): string {
   if (!url) return '';
+  if (url.startsWith('//')) return 'https:' + url;
   return url.replace(/^http:/, 'https:');
 }

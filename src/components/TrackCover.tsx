@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { resolveTrackPic } from '@/music/source/track-resolver';
-import { initialImgStage, markDirectFailed, withPicSize } from '@/utils/imgFallback';
+import { withPicSize } from '@/utils/imgFallback';
 import { fallbackPalette } from '@/utils/palette';
 import { useCoverPalette } from '@/utils/coverPalette';
+import { useProxiedImage } from '@/utils/useProxiedImage';
 import type { MusicTrack } from '@/music/source/types';
 import './source.css';
 
@@ -16,17 +17,17 @@ interface TrackCoverProps {
 
 /**
  * Cover for any track: gradient base always renders (instant, no flash),
- * real artwork layers on top once loaded - falling back through the dev
- * image proxy when the CDN blocks direct hotlinks.
+ * real artwork layers on top once loaded - falling back through the proxy
+ * (blob URL in the packaged app, /api/img in dev) when the CDN blocks
+ * direct hotlinks.
  */
 export function TrackCover({ track, radius, bare = false, title }: TrackCoverProps) {
   const [url, setUrl] = useState<string | null>(withPicSize(track.picUrl, '300y300') || null);
-  const [stage, setStage] = useState<'direct' | 'proxy' | 'failed'>(initialImgStage(track.picUrl));
+  const { src: imgSrc, stage, onError } = useProxiedImage(url);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setUrl(withPicSize(track.picUrl, '300y300') || null);
-    setStage(initialImgStage(track.picUrl));
     setLoaded(false);
     if (!track.picUrl && track.source !== 'mock') {
       let alive = true;
@@ -44,7 +45,7 @@ export function TrackCover({ track, radius, bare = false, title }: TrackCoverPro
   // Prefer colors extracted from the real artwork; hash palette is a fallback.
   const extracted = useCoverPalette(track.picUrl, track.id);
   const palette = extracted ?? track.palette ?? fallbackPalette(track.id);
-  const showImg = Boolean(url) && stage !== 'failed';
+  const showImg = Boolean(imgSrc) && stage !== 'failed';
 
   const style: React.CSSProperties = {
     background:
@@ -59,22 +60,15 @@ export function TrackCover({ track, radius, bare = false, title }: TrackCoverPro
 
   return (
     <div className="am-cover" style={style} aria-label={title ?? track.name}>
-      {showImg && url ? (
+      {showImg && imgSrc ? (
         <img
-          key={stage + url}
+          key={stage + imgSrc}
           className="track-cover-img"
-          src={stage === 'direct' ? url : '/api/img?url=' + encodeURIComponent(url)}
+          src={imgSrc}
           alt={title ?? track.name}
           loading="lazy"
           referrerPolicy="no-referrer"
-          onError={() => {
-            if (stage === 'direct') {
-              markDirectFailed(url);
-              setStage('proxy');
-            } else {
-              setStage('failed');
-            }
-          }}
+          onError={onError}
           onLoad={() => setLoaded(true)}
         />
       ) : null}

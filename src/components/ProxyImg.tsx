@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { initialImgStage, markDirectFailed } from '@/utils/imgFallback';
+import { useProxiedImage } from '@/utils/useProxiedImage';
 
 interface ProxyImgProps {
   src: string;
@@ -10,31 +9,24 @@ interface ProxyImgProps {
 
 /**
  * <img> with a resilience chain: direct CDN load first; on failure retry
- * through the dev-server image proxy (bypasses hotlink/referrer blocks);
- * if that also fails the element disappears so the underlying gradient
- * fallback stays visible.
+ * through the proxy (blob URL in the packaged app, /api/img in dev); if
+ * that also fails the element disappears so the gradient fallback shows.
  */
 export function ProxyImg({ src, alt = '', className, style }: ProxyImgProps) {
-  const [stage, setStage] = useState<'direct' | 'proxy'>(initialImgStage(src));
-  const [failed, setFailed] = useState(false);
+  const { src: resolved, stage, onError } = useProxiedImage(src);
 
-  if (!src || failed) return null;
+  if (!src || !resolved) return null;
 
   return (
     <img
-      key={stage + src}
+      key={stage + resolved}
       className={className}
       style={style}
       alt={alt}
       loading="lazy"
       referrerPolicy="no-referrer"
-      src={stage === 'direct' ? src : '/api/img?url=' + encodeURIComponent(src)}
-      onError={() => {
-        if (stage === 'direct') {
-          markDirectFailed(src);
-          setStage('proxy');
-        } else setFailed(true);
-      }}
+      src={resolved}
+      onError={onError}
     />
   );
 }

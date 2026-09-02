@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import type { MusicTrack } from '@/music/source/types';
 import { fallbackPalette } from '@/utils/palette';
 import { darken } from '@/utils/color';
-import { initialImgStage, markDirectFailed, withPicSize } from '@/utils/imgFallback';
+import { withPicSize } from '@/utils/imgFallback';
+import { useProxiedImage } from '@/utils/useProxiedImage';
 
 interface BgLayer {
   key: string;
@@ -12,23 +13,16 @@ interface BgLayer {
 /** Blurred cover image with direct -> proxy fallback. */
 function BgImage({ track }: { track: MusicTrack }) {
   const url = withPicSize(track.picUrl, '768y768');
-  const [stage, setStage] = useState<'direct' | 'proxy' | 'failed'>(() => initialImgStage(url));
-  if (!url || stage === 'failed') return null;
+  const { src, stage, onError } = useProxiedImage(url);
+  if (!src || stage === 'failed') return null;
   return (
     <img
-      key={stage}
+      key={stage + src}
       className="fp-bg__img"
-      src={stage === 'direct' ? url : '/api/img?url=' + encodeURIComponent(url)}
+      src={src}
       alt=""
       referrerPolicy="no-referrer"
-      onError={() => {
-        if (stage === 'direct') {
-          markDirectFailed(url);
-          setStage('proxy');
-        } else {
-          setStage('failed');
-        }
-      }}
+      onError={onError}
     />
   );
 }

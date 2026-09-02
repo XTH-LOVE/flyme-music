@@ -1,4 +1,5 @@
 import { fetchLyricLines, lyricLineAt } from './currentLyric';
+import { fetchImageBlob } from './imageSource';
 import { resolveTrackPic } from '@/music/source/track-resolver';
 import { fallbackPalette } from '@/utils/palette';
 import type { MusicTrack } from '@/music/source/types';
@@ -39,16 +40,21 @@ export async function shareLyricCard(track: MusicTrack, currentTime: number): Pr
   ctx.fillStyle = 'rgba(0,0,0,0.38)';
   ctx.fillRect(0, 0, W, H);
 
-  // Cover (through same-origin proxy so the canvas stays untainted).
+  // Cover bytes keep the canvas readable: CDN hotlinks fail outright
+  // without a Referer, and cross-origin images would taint the canvas.
   const pic = await resolveTrackPic(track, 500).catch(() => null);
   let y = 130;
+  let objectUrl = '';
   if (pic) {
     try {
+      const blob = await fetchImageBlob(pic);
+      if (!blob) throw new Error('cover');
+      objectUrl = URL.createObjectURL(blob);
       const img = new Image();
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
         img.onerror = () => reject(new Error('img'));
-        img.src = '/api/img?url=' + encodeURIComponent(pic);
+        img.src = objectUrl;
       });
       const size = 460;
       const x = (W - size) / 2;
@@ -61,6 +67,8 @@ export async function shareLyricCard(track: MusicTrack, currentTime: number): Pr
       y += size + 64;
     } catch {
       /* no cover - text-only card */
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     }
   }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { withPicSize } from './imgFallback';
+import { fetchImageBlob } from './imageSource';
 
 export type CoverPalette = [string, string];
 
@@ -21,11 +22,11 @@ function lighten(hex: string, amount = 0.45): string {
 async function extract(picUrl: string): Promise<CoverPalette | null> {
   try {
     const src = withPicSize(picUrl, '300y300') || picUrl;
-    // Same-origin proxy keeps the canvas readable: CDNs block cross-origin
+    // Bytes (not a URL) keep the canvas readable: CDNs block cross-origin
     // pixel reads, and hotlinking fails outright without a Referer.
-    const res = await fetch('/api/img?url=' + encodeURIComponent(src));
-    if (!res.ok) return null;
-    const bmp = await createImageBitmap(await res.blob());
+    const blob = await fetchImageBlob(src);
+    if (!blob) return null;
+    const bmp = await createImageBitmap(blob);
     const N = 24;
     const canvas = document.createElement('canvas');
     canvas.width = N;

@@ -36,6 +36,36 @@ npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JA
 - 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
 - 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除
 
+## 部署网页版到 Vercel
+
+网页版把 dev 专用的 `/api/*` 中间件移植成了 Vercel Serverless Functions（逻辑在 `server/auroraApi.ts`，薄封装在 `api/`，路由配置在 `vercel.json`），在线功能与 `npm run dev` 一致：网易 weapi 转发、QQ 系代理、封面图代理、媒体下载代理、AI 透传。前端零改动（浏览器分支本来就打相对路径 `/api/*`）。
+
+### 环境变量（Vercel Dashboard → Settings → Environment Variables）
+
+| 变量 | 作用 | 时机 |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Supabase 账号登录 | Build（构建期内嵌） |
+| `AURORA_AI_ENDPOINT` | AI 上游，默认 `https://open.bigmodel.cn/api/paas/v4` | Runtime（函数运行时读取） |
+| `AURORA_AI_API_KEY` | AI 密钥，**只在函数运行时存在，前端永远拿不到** | Runtime |
+| `AURORA_AI_MODEL` | AI 模型名，如 `glm-4-flash` | Runtime |
+
+### 本地验证与部署
+
+```bash
+npm run build          # 先本地构建确认无错
+npx vercel dev         # 本地模拟 Vercel（含 /api 函数）
+npx vercel             # 预览环境部署
+npx vercel --prod      # 生产部署
+```
+
+`vercel.json` 已配置 SPA 回退 rewrite（`/api/` 与静态资源不受影响，未命中深链回退 `index.html`），浏览器端使用 `BrowserRouter`，刷新深链不会 404。
+
+### 网页功能预期
+
+- 与开发模式完全一致：搜索/榜单/网易歌单/封面/下载/AI 对话均经同源 `/api/*` 函数转发，无 CORS 问题
+- AI 密钥仅存于 Vercel 运行时环境变量，浏览器请求不携带、也读不到；`GET /api/ai/status` 只返回 `configured/endpoint/model`
+- Supabase 账号登录在网页版直接可用（同源，无需额外配置）
+
 ## 更换应用图标
 
 1. 用 1024x1024 的 PNG 覆盖 `src-tauri/icons/app-icon.png`

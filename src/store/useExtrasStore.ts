@@ -9,6 +9,8 @@ interface ExtrasState {
   sleepEndsAt: number | null;
   /** Pause right after the current song ends (Halcyon "stop after current"). */
   stopAfterCurrent: boolean;
+  /** Volume the player had when the sleep timer was armed (for fade restore). */
+  sleepFromVolume: number | null;
   setSleepMinutes: (minutes: number | null) => void;
   setStopAfterCurrent: (v: boolean) => void;
   clearSleep: () => void;
@@ -27,7 +29,7 @@ function loadBool(key: string, fallback: boolean): boolean {
 }
 
 /** Small player extras: speed, sleep timer and immersive mode. */
-export const useExtrasStore = create<ExtrasState>((set) => ({
+export const useExtrasStore = create<ExtrasState>((set, get) => ({
   speed: 1,
   setSpeed: (v) => {
     playerController.setSpeed(v);
@@ -35,15 +37,35 @@ export const useExtrasStore = create<ExtrasState>((set) => ({
   },
   sleepEndsAt: null,
   stopAfterCurrent: false,
+  sleepFromVolume: null,
   setSleepMinutes: (minutes) => {
-    set(
-      minutes === null
-        ? { sleepEndsAt: null, stopAfterCurrent: false }
-        : { sleepEndsAt: Date.now() + minutes * 60_000, stopAfterCurrent: false },
-    );
+    if (minutes === null) {
+      // Restore the pre-fade volume before clearing, then drop the fade state.
+      const from = get().sleepFromVolume;
+      if (typeof from === 'number') playerController.setVolume(from);
+      set({ sleepEndsAt: null, stopAfterCurrent: false, sleepFromVolume: null });
+      return;
+    }
+    set({
+      sleepEndsAt: Date.now() + minutes * 60_000,
+      stopAfterCurrent: false,
+      sleepFromVolume: playerController.snapshot().volume,
+    });
   },
-  setStopAfterCurrent: (v) => set({ stopAfterCurrent: v, sleepEndsAt: null }),
-  clearSleep: () => set({ sleepEndsAt: null, stopAfterCurrent: false }),
+  setStopAfterCurrent: (v) => {
+    const from = get().sleepFromVolume;
+    if (v === false && typeof from === 'number') playerController.setVolume(from);
+    set({
+      stopAfterCurrent: v,
+      sleepEndsAt: null,
+      sleepFromVolume: v ? playerController.snapshot().volume : null,
+    });
+  },
+  clearSleep: () => {
+    const from = get().sleepFromVolume;
+    if (typeof from === 'number') playerController.setVolume(from);
+    set({ sleepEndsAt: null, stopAfterCurrent: false, sleepFromVolume: null });
+  },
   immersive: loadBool('aurora.immersive', false),
   toggleImmersive: () =>
     set((s) => {

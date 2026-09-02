@@ -10,6 +10,8 @@ import { EmptyState } from '@/design-system/components/EmptyState';
 import { useNeteaseRecommend } from '@/music/netease/useNetease';
 import { getNewSongs } from '@/music/netease/netease-api';
 import type { MusicTrack } from '@/music/source/types';
+import { useDailyPick } from '@/hooks/useDailyPick';
+import { playerController } from '@/player';
 import './pages.css';
 import './discover-extra.css';
 
@@ -25,6 +27,7 @@ const genres = ['流行', '民谣', '电子', '摇滚', '说唱', '古风', '轻
 export function DiscoverPage() {
   const navigate = useNavigate();
   const { data: netPlaylists, loading: netLoading } = useNeteaseRecommend();
+  const dailyPick = useDailyPick();
   const [newSongs, setNewSongs] = useState<MusicTrack[] | null>(null);
 
   useEffect(() => {
@@ -48,6 +51,29 @@ export function DiscoverPage() {
   return (
     <div className="page">
       <h1 className="page-title">发现</h1>
+
+      <section>
+        <SectionHeader
+          title={'每日推荐' + (dailyPick.sourceNames.length ? ' · ' + dailyPick.sourceNames.map((s) => (s === 'netease' ? '网易云' : s === 'joox' ? 'Joox' : s === 'qq' ? 'QQ' : s)).join('/') : '')}
+          action={dailyPick.available ? '播放全部' : undefined}
+          onAction={dailyPick.available ? () => playerController.playTracks(dailyPick.tracks) : undefined}
+        />
+        {dailyPick.loading && !dailyPick.tracks.length ? (
+          <div className="song-list">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} height={54} radius="var(--am-radius-lg)" />
+            ))}
+          </div>
+        ) : dailyPick.tracks.length ? (
+          <div className="song-list">
+            {dailyPick.tracks.slice(0, 10).map((track) => (
+              <TrackListItem key={track.source + ':' + track.id} track={track} context={dailyPick.tracks} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="compass" title="还没有为你推荐" description="多听几首歌，Aurora 就会根据你的口味生成每日推荐" />
+        )}
+      </section>
 
       <section className="banner-row">
         {netLoading && !netPlaylists

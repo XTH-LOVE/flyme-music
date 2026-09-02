@@ -20,6 +20,8 @@ import {
   type ToolCtx,
 } from '@/ai/aiTools';
 import { fetchLyricLines, lyricLineAt } from '@/utils/currentLyric';
+import { loadMemories, memoryBlock, scheduleMemoryExtraction } from '@/ai/memory';
+import { MemoryPanel } from '@/ai/memoryUi';
 import type { MusicTrack } from '@/music/source/types';
 import './ai-page.css';
 
@@ -243,6 +245,10 @@ export function AiPage() {
   const dislikes = useAiStore((s) => s.dislikes);
   const setConfig = useAiStore((s) => s.setConfig);
   const retryAnalysis = useAiStore((s) => s.retryAnalysis);
+  const memories = useAiStore((s) => s.memories);
+  const setMemories = useAiStore((s) => s.setMemories);
+  const setMemoryPanelOpen = useAiStore((s) => s.setMemoryPanelOpen);
+  const memoryInfo = memoryBlock(memories);
   const current = usePlayerStore((s) => s.current);
   const openFullPlayer = usePlayerStore((s) => s.openFullPlayer);
   const [input, setInput] = useState('');
@@ -319,6 +325,7 @@ export function AiPage() {
             snippet,
             dislikes,
             buildPageContext(location.pathname + location.search, snap),
+            memoryInfo,
           ),
         },
         ...messages
@@ -450,6 +457,14 @@ export function AiPage() {
         tracks: lastTracks,
         playlist: lastPlaylist,
       });
+      // Channel A: quiet background extraction from this turn's dialogue.
+      void scheduleMemoryExtraction(
+        history.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-6),
+        useAiStore.getState().model,
+      )
+        .then(() => loadMemories())
+        .then(setMemories)
+        .catch(() => undefined);
     } finally {
       setBusy(false);
       setActivity(ctrl.signal.aborted ? '已暂停' : '');
@@ -469,6 +484,9 @@ export function AiPage() {
               {configured ? '在线 · ' + model : '本地模式 · 去设置选择模型'}
             </div>
           </div>
+          <button className="ai-memory-chip" onClick={() => setMemoryPanelOpen(true)}>
+            记忆 {memories.length}
+          </button>
             <button className="ai-page__context-toggle" onClick={() => setContextOpen(true)} aria-label="打开 AI 上下文" aria-expanded={contextOpen}>
               <Icon name="music" size={16} />
             </button>
@@ -596,6 +614,7 @@ export function AiPage() {
           onClose={() => setContextOpen(false)}
         />
       ) : null}
+      <MemoryPanel />
     </div>
   );
 }

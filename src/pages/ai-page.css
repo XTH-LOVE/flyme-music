@@ -669,3 +669,36 @@
     display: block;
   }
 }
+
+/* ---- Aurora memory chip + panel ---- */
+.ai-memory-chip {
+  margin-left: auto;
+  border: 1px solid var(--am-border, rgba(128, 128, 128, 0.3));
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ai-memory-chip:hover { background: rgba(128, 128, 128, 0.12); }
+.ai-memory-mask {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.ai-memory-panel {
+  width: min(560px, 100%); max-height: 70vh; overflow: auto;
+  background: var(--am-surface, #fff); color: var(--am-text, #111);
+  border-radius: 20px 20px 0 0; padding: 16px 18px 22px;
+}
+.ai-memory-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ai-memory-close { border: 0; background: transparent; font-size: 20px; cursor: pointer; color: inherit; }
+.ai-memory-empty { padding: 24px 0; text-align: center; opacity: 0.65; font-size: 13px; }
+.ai-memory-group { margin-bottom: 12px; }
+.ai-memory-group-title { font-size: 12px; opacity: 0.55; margin-bottom: 4px; }
+.ai-memory-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid rgba(128, 128, 128, 0.15); }
+.ai-memory-text { flex: 1; font-size: 14px; }
+.ai-memory-time { font-size: 11px; opacity: 0.5; }
+.ai-memory-del { border: 0; background: transparent; color: #e5484d; font-size: 12px; cursor: pointer; }
+.ai-memory-clear { margin-top: 8px; width: 100%; padding: 9px 0; border-radius: 12px; border: 1px solid rgba(229, 72, 77, 0.5); background: transparent; color: #e5484d; cursor: pointer; }

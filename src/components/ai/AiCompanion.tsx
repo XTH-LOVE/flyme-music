@@ -160,6 +160,11 @@ export function AiCompanion() {
             const cache = readAnalysisCache();
             cache[keyWithConfig] = t;
             writeAnalysisCache(cache);
+            // Remember the model that actually worked so the next song skips
+            // the futile first attempt against a stale model name.
+            if (text.model !== activeModel) {
+              useAiStore.getState().setConfig({ model: text.model });
+            }
           }
         } catch {
           if (!controller.signal.aborted || timedOut) {

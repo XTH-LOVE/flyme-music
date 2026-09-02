@@ -3,15 +3,10 @@ import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
 import { neteaseWeapi } from './neteaseWeapi';
 
 /**
- * Netease official API client.
- * Calls the dev-server weapi proxy which handles encryption & CORS.
- * Covers: recommend playlists, playlist detail, playlist square (by category),
- * new songs and hot comments - all real online data.
- */
-
-/**
  * Netease official API client. Encryption lives in weapi.ts; the transport
  * is the Rust command in the packaged app and the vite middleware in dev.
+ * Covers: recommend playlists, playlist detail, playlist square (by category),
+ * new songs and hot comments - all real online data.
  */
 export async function callWeapi<T>(
   path: string,

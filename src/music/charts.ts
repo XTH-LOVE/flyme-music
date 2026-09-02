@@ -1,10 +1,10 @@
-import type { MusicTrack } from './source/types';
 import { callWeapi } from './netease/netease-api';
 
 /**
  * Official charts clients.
  * Netease: /weapi/toplist (chart list) + existing playlist detail for tracks.
- * QQ: legacy toplist endpoint (full metadata incl. songmid + duration).
+ * QQ: single client implementation lives in src/music/qq/qq-api.ts and is
+ * re-exported below so page imports stay stable.
  */
 
 export interface NetChart {
@@ -81,92 +81,5 @@ export const QQ_CHARTS: QqChartConfig[] = [
   { topId: 63, name: 'DJ舞曲榜', desc: '电音舞曲热度 · 每周更新', palette: ['#009A93', '#80E0D8'] },
 ];
 
-export interface QqChartTop {
-  title: string;
-  topSong: string;
-  topSinger: string;
-  cover: string;
-}
-
-/** QQ 榜单头名信息（含第一首歌的真实封面，用于榜单卡片）。 */
-export async function getQqChartTop(
-  topId: number,
-  signal?: AbortSignal,
-): Promise<QqChartTop> {
-  const res = await fetch('/api/qq/chart-top?topId=' + topId, { signal });
-  if (!res.ok) throw new Error('qq chart-top HTTP ' + res.status);
-  return (await res.json()) as QqChartTop;
-}
-
-export interface QqChartDetail {
-  meta: {
-    topId: number;
-    title: string;
-    titleDetail: string;
-    period: string;
-    intro: string;
-    totalNum: number;
-  };
-  tracks: MusicTrack[];
-}
-
-interface RawQqLegacySong {
-  data?: {
-    songid?: number;
-    songmid?: string;
-    songname?: string;
-    interval?: number;
-    albumname?: string;
-    albummid?: string;
-    singer?: { name?: string }[];
-  };
-}
-
-interface RawQqLegacyChart {
-  songlist?: RawQqLegacySong[];
-  topinfo?: { ListName?: string; info?: string; pic_v12?: string };
-  date?: string;
-  total_song_num?: number;
-}
-
-/** QQ 音乐榜单详情（真实曲目 + 真实时长，可直接播放）。 */
-export async function getQqChartDetail(
-  topId: number,
-  _num = 300,
-  signal?: AbortSignal,
-): Promise<QqChartDetail> {
-  const res = await fetch('/api/qq/chart?topId=' + topId, { signal });
-  if (!res.ok) throw new Error('qq chart HTTP ' + res.status);
-  const json = (await res.json()) as RawQqLegacyChart;
-  if (!json.songlist) throw new Error('qq chart data missing');
-
-  const tracks: MusicTrack[] = json.songlist
-    .map((item) => item.data)
-    .filter((d): d is NonNullable<typeof d> => Boolean(d && d.songmid))
-    .map((d) => ({
-      id: String(d.songid),
-      name: d.songname ?? '',
-      artist: (d.singer ?? []).map((s) => s.name ?? '').filter(Boolean),
-      album: d.albumname ?? '',
-      pic_id: d.albummid ?? String(d.songid),
-      url_id: d.songmid ?? '',
-      lyric_id: d.songmid ?? '',
-      source: 'qq',
-      duration: d.interval ?? 0,
-      picUrl: d.albummid
-        ? 'https://y.gtimg.cn/music/photo_new/T002R300x300M000' + d.albummid + '.jpg'
-        : undefined,
-    }));
-
-  return {
-    meta: {
-      topId,
-      title: json.topinfo?.ListName ?? '',
-      titleDetail: json.topinfo?.ListName ?? '',
-      period: json.date ?? '',
-      intro: (json.topinfo?.info ?? '').replace(/<br>/g, ' '),
-      totalNum: json.total_song_num ?? tracks.length,
-    },
-    tracks,
-  };
-}
+export { getQqChartTop, getQqChartDetail } from './qq/qq-api';
+export type { QqChartTop, QqChartDetail } from './qq/qq-api';

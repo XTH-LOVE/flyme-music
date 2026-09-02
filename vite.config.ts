@@ -132,6 +132,42 @@ function neteaseWeapiProxy(): Plugin {
   };
 }
 
+/** Dev-only generic forwarder with a caller-supplied Referer. The packaged
+ * app uses plugin-http instead, so this never ships. */
+function genericProxy(): Plugin {
+  return {
+    name: 'aurora-generic-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/proxy', async (req, res) => {
+        const parsed = new URL(req.url ?? '', 'http://localhost');
+        const target = parsed.searchParams.get('url');
+        const referer = parsed.searchParams.get('referer') ?? '';
+        if (!target || !/^https?:\/\//.test(target)) {
+          res.statusCode = 400;
+          res.end('bad url');
+          return;
+        }
+        try {
+          const upstream = await fetch(target, {
+            headers: {
+              'User-Agent': PC_USER_AGENT,
+              ...(referer ? { Referer: referer } : {}),
+            },
+          });
+          const text = await upstream.text();
+          res.statusCode = upstream.status;
+          res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(text);
+        } catch (e) {
+          res.statusCode = 502;
+          res.end(JSON.stringify({ error: String(e) }));
+        }
+      });
+    },
+  };
+}
+
 /** Generic remote-image proxy - bypasses CDN hotlink / referrer blocks. */
 function imageProxy(): Plugin {
   return {
@@ -228,136 +264,6 @@ function mediaDownloadProxy(): Plugin {
   };
 }
 
-/** QQ Music official endpoints: chart detail, toplist cover, lyrics. */
-function qqMusicProxy(): Plugin {
-  return {
-    name: 'aurora-qq-music-proxy',
-    configureServer(server) {
-      // 榜单详情（旧版接口，含 songmid / 时长 / 歌手 / 专辑）
-      server.middlewares.use('/api/qq/chart', async (req, res) => {
-        const parsed = new URL(req.url ?? '', 'http://localhost');
-        const topId = Number(parsed.searchParams.get('topId') ?? 26);
-        try {
-          const upstream = await fetch(
-            'https://c.y.qq.com/v8/fcg-bin/fcg_v8_toplist_cp.fcg?tpl=3&page=detail&type=top&topid=' +
-              topId,
-            {
-              headers: {
-                'User-Agent': PC_USER_AGENT,
-                Referer: 'https://y.qq.com/',
-              },
-            },
-          );
-          const text = await upstream.text();
-          res.setHeader('Content-Type', 'application/json');
-          res.end(text.replace(/^\uFEFF/, ''));
-        } catch (e) {
-          res.statusCode = 502;
-          res.end(JSON.stringify({ error: String(e) }));
-        }
-      });
-
-      // 榜单封面（拉前 5 名，取第一首有封面的歌，用于榜单卡片）
-      server.middlewares.use('/api/qq/chart-top', async (req, res) => {
-        const parsed = new URL(req.url ?? '', 'http://localhost');
-        const topId = Number(parsed.searchParams.get('topId') ?? 26);
-        try {
-          const payload = JSON.stringify({
-            detail: {
-              module: 'musicToplist.ToplistInfoServer',
-              method: 'GetDetail',
-              param: { topId, offset: 0, num: 5 },
-            },
-          });
-          const upstream = await fetch(
-            'https://u.y.qq.com/cgi-bin/musicu.fcg?data=' + encodeURIComponent(payload),
-            {
-              headers: { 'User-Agent': PC_USER_AGENT, Referer: 'https://y.qq.com/' },
-            },
-          );
-          const json = (await upstream.json()) as {
-            detail?: {
-              data?: {
-                data?: {
-                  title?: string;
-                  song?: { title?: string; singerName?: string; cover?: string }[];
-                };
-              };
-            }
-          };
-          const d = json.detail?.data?.data;
-          const songs = d?.song ?? [];
-          const withCover = songs.find((s) => s.cover);
-          let cover = (withCover?.cover ?? '').replace(/^http:/, 'https:');
-          // 兑底：GetDetail 无封面时，用旧版榜单接口的 albummid 拼封面 URL
-          if (!cover) {
-            try {
-              const legacyRes = await fetch(
-                'https://c.y.qq.com/v8/fcg-bin/fcg_v8_toplist_cp.fcg?tpl=3&page=detail&type=top&topid=' +
-                  topId,
-                {
-                  headers: { 'User-Agent': PC_USER_AGENT, Referer: 'https://y.qq.com/' },
-                },
-              );
-              const legacyText = await legacyRes.text();
-              const legacy = JSON.parse(legacyText.replace(/^﻿/, '')) as {
-                songlist?: { data?: { albummid?: string } }[];
-              };
-              const mid = (legacy.songlist ?? [])
-                .map((s) => s.data?.albummid)
-                .find((m) => Boolean(m));
-              if (mid) {
-                cover = 'https://y.gtimg.cn/music/photo_new/T002R300x300M000' + mid + '.jpg';
-              }
-            } catch {
-              /* keep empty */
-            }
-          }
-          res.setHeader('Content-Type', 'application/json');
-          res.end(
-            JSON.stringify({
-              title: d?.title ?? '',
-              topSong: songs[0]?.title ?? '',
-              topSinger: songs[0]?.singerName ?? '',
-              cover,
-            }),
-          );
-        } catch (e) {
-          res.statusCode = 502;
-          res.end(JSON.stringify({ error: String(e) }));
-        }
-      });
-
-      // 歌词（LRC 明文）
-      server.middlewares.use('/api/qq/lyric', async (req, res) => {
-        const parsed = new URL(req.url ?? '', 'http://localhost');
-        const mid = parsed.searchParams.get('mid') ?? '';
-        if (!mid) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ lyric: '' }));
-          return;
-        }
-        try {
-          const upstream = await fetch(
-            'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=' +
-              encodeURIComponent(mid) +
-              '&format=json&nobase64=1&g_tk=5381',
-            {
-              headers: { 'User-Agent': PC_USER_AGENT, Referer: 'https://y.qq.com/' },
-            },
-          );
-          const text = await upstream.text();
-          res.setHeader('Content-Type', 'application/json');
-          res.end(text.replace(/^\uFEFF/, ''));
-        } catch (e) {
-          res.statusCode = 502;
-          res.end(JSON.stringify({ lyric: '', error: String(e) }));
-        }
-      });
-    },
-  };
-}
-
 /** OpenAI-compatible AI pass-through. Credentials stay in the dev server
  * environment and are never accepted from browser requests. */
 function aiProxy(env: Record<string, string>): Plugin {
@@ -432,7 +338,7 @@ function aiProxy(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'AURORA_');
   return {
-  plugins: [react(), auroraAuthProxy(), neteaseWeapiProxy(), imageProxy(), mediaDownloadProxy(), qqMusicProxy(), aiProxy(env)],
+  plugins: [react(), genericProxy(), auroraAuthProxy(), neteaseWeapiProxy(), imageProxy(), mediaDownloadProxy(), aiProxy(env)],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

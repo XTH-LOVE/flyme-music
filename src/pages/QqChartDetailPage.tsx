@@ -23,7 +23,7 @@ export function QqChartDetailPage() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    getQqChartDetail(Number(topId), 100, controller.signal)
+    getQqChartDetail(Number(topId), controller.signal)
       .then((d) => {
         if (alive) {
           setData(d);

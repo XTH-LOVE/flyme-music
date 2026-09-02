@@ -1,5 +1,6 @@
 import { BaseMusicProvider } from '../base-provider';
 import { requestMusicApiJSON } from '../provider-utils';
+import { getQqLyric } from '../../qq/qq-api';
 import type { RawApiTrack } from '../types';
 import type { MusicSource, MusicTrack, SongLyric } from '../types';
 
@@ -51,10 +52,8 @@ export class QqProvider extends BaseMusicProvider {
   /** Lyrics still come from QQ official (real LRC). */
   async getLyric(track: MusicTrack): Promise<SongLyric | null> {
     try {
-      const res = await fetch('/api/qq/lyric?mid=' + encodeURIComponent(track.url_id));
-      if (!res.ok) return null;
-      const j = (await res.json()) as { lyric?: string; trans?: string };
-      return { lyric: j.lyric ?? '', tlyric: j.trans ?? '' };
+      const { lyric, trans } = await getQqLyric(track.url_id);
+      return { lyric, tlyric: trans };
     } catch {
       return null;
     }

@@ -34,3 +34,6 @@ supabase/.temp
 
 # Cloudflare Pages 拖拽上传包（本地生成）
 release-cf/
+
+# 腾讯 EdgeOne 部署缓存（含 ProjectId 等部署元数据）
+.edgeone/

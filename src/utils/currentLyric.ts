@@ -1,6 +1,7 @@
 import { parseLrc } from '@/music/source/provider-utils';
 import { getTrackProvider } from '@/music/source/factory';
 import type { MusicTrack } from '@/music/source/types';
+import { neteaseWeapi } from '@/music/netease/neteaseWeapi';
 
 export interface MiniLyricLine {
   time: number;
@@ -29,24 +30,19 @@ function mergeLines(main: MiniLyricLine[], transLines: MiniLyricLine[]): MiniLyr
   });
 }
 
-/** Direct music.163.com lyric via the local weapi proxy (fast lane). */
+/** Direct music.163.com lyric (fast lane, races the GD API). */
 async function neteaseWeapiLyric(id: string): Promise<MiniLyricLine[]> {
-  const res = await fetch('/api/netease/weapi', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      path: '/weapi/song/lyric',
-      data: { id, lv: -1, tv: -1, kv: -1 },
-    }),
-  });
-  if (!res.ok) return [];
-  const j = (await res.json()) as {
-    lrc?: { lyric?: string };
-    tlyric?: { lyric?: string };
-  };
-  const lrc = j?.lrc?.lyric;
-  if (!lrc) return [];
-  return mergeLines(parseLrc(lrc), j?.tlyric?.lyric ? parseLrc(j.tlyric.lyric) : []);
+  try {
+    const { json } = await neteaseWeapi<{ lrc?: { lyric?: string }; tlyric?: { lyric?: string } }>(
+      '/weapi/song/lyric',
+      { id, lv: -1, tv: -1, kv: -1 },
+    );
+    const lrc = json?.lrc?.lyric;
+    if (!lrc) return [];
+    return mergeLines(parseLrc(lrc), json?.tlyric?.lyric ? parseLrc(json.tlyric.lyric) : []);
+  } catch {
+    return [];
+  }
 }
 
 async function providerLyric(track: MusicTrack): Promise<MiniLyricLine[]> {

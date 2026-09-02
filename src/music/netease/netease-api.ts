@@ -1,5 +1,6 @@
 import type { MusicTrack } from '../source/types';
 import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
+import { neteaseWeapi } from './neteaseWeapi';
 
 /**
  * Netease official API client.
@@ -8,21 +9,17 @@ import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
  * new songs and hot comments - all real online data.
  */
 
-const WEAPI_ENDPOINT = '/api/netease/weapi';
-
+/**
+ * Netease official API client. Encryption lives in weapi.ts; the transport
+ * is the Rust command in the packaged app and the vite middleware in dev.
+ */
 export async function callWeapi<T>(
   path: string,
   data: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<T> {
-  const res = await fetch(WEAPI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path, data, cookie: useNeteaseAuthStore.getState().cookie }),
-    signal,
-  });
-  if (!res.ok) throw new Error('netease weapi HTTP ' + res.status);
-  return (await res.json()) as T;
+  const { json } = await neteaseWeapi<T>(path, data, useNeteaseAuthStore.getState().cookie, signal);
+  return json;
 }
 
 export interface NetPlaylistSummary {

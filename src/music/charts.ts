@@ -1,27 +1,11 @@
 import type { MusicTrack } from './source/types';
+import { callWeapi } from './netease/netease-api';
 
 /**
  * Official charts clients.
  * Netease: /weapi/toplist (chart list) + existing playlist detail for tracks.
  * QQ: legacy toplist endpoint (full metadata incl. songmid + duration).
  */
-
-const WEAPI_ENDPOINT = '/api/netease/weapi';
-
-async function callWeapi<T>(
-  path: string,
-  data: Record<string, unknown>,
-  signal?: AbortSignal,
-): Promise<T> {
-  const res = await fetch(WEAPI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path, data }),
-    signal,
-  });
-  if (!res.ok) throw new Error('netease weapi HTTP ' + res.status);
-  return (await res.json()) as T;
-}
 
 export interface NetChart {
   id: string;

@@ -1,4 +1,5 @@
 import type { NeteaseUser } from '@/store/useNeteaseAuthStore';
+import { neteaseWeapi } from './neteaseWeapi';
 
 interface QrKeyResponse {
   code: number;
@@ -11,13 +12,8 @@ interface AccountResponse {
 }
 
 async function callAuth<T>(path: string, data: Record<string, unknown>, cookie = ''): Promise<T> {
-  const response = await fetch('/api/netease/weapi', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path, data, cookie }),
-  });
-  if (!response.ok) throw new Error('网易云登录服务 HTTP ' + response.status);
-  return (await response.json()) as T;
+  const { json } = await neteaseWeapi<T>(path, data, cookie);
+  return json;
 }
 
 export async function getNeteaseQrKey(): Promise<string> {
@@ -33,12 +29,16 @@ export interface NeteaseQrStatus {
   data?: { cookie?: string };
 }
 
-export function checkNeteaseQr(key: string): Promise<NeteaseQrStatus> {
-  return callAuth<NeteaseQrStatus>('/weapi/login/qrcode/client/login', {
-    key,
-    type: 1,
-    csrf_token: '',
-  });
+/** code 803 = 扫码成功，会话只在 Set-Cookie 里。 */
+export async function checkNeteaseQr(key: string): Promise<NeteaseQrStatus> {
+  const { json, cookies } = await neteaseWeapi<NeteaseQrStatus>(
+    '/weapi/login/qrcode/client/login',
+    { key, type: 1, csrf_token: '' },
+  );
+  if (json.code === 803 && cookies.length && typeof json.cookie !== 'string') {
+    return { ...json, cookie: cookies.join('; ') };
+  }
+  return json;
 }
 
 export async function getNeteaseUser(cookie: string): Promise<NeteaseUser> {

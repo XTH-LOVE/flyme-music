@@ -11,67 +11,8 @@ import fs from 'node:fs';
  * pure-frontend dev setup.
  * ------------------------------------------------------------------ */
 
-const NONCE = '0CoJUm6Qyw8W8jud';
-const IV = '0102030405060708';
-const PUB_KEY = '010001';
-const MODULUS =
-  '00e0b509f6259df8642dbc35662901477df22677ec152b5ff68ace615bb7' +
-  'b725152b3ab17a876aea8a5aa76d2e417629ec4ee341f56135fccf695280' +
-  '104e0312ecbda92557c93870114af6c9d05c4f7f0c3685b7a46bee255932' +
-  '575cce10b424d813cfe4875d3e82047b97ddef52741d546b8e289dc6935b' +
-  '3ece0462db0a22b8e7';
 const PC_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-function createSecretKey(size: number): string {
-  const choice = '012345679abcdef';
-  let result = '';
-  for (let i = 0; i < size; i++) {
-    result += choice[Math.floor(Math.random() * choice.length)];
-  }
-  return result;
-}
-
-function aesEncrypt(text: string, key: string): Buffer {
-  const cipher = crypto.createCipheriv(
-    'aes-128-cbc',
-    Buffer.from(key, 'utf8'),
-    Buffer.from(IV, 'utf8'),
-  );
-  return Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
-}
-
-function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
-  let result = 1n;
-  base %= mod;
-  while (exp > 0n) {
-    if (exp & 1n) result = (result * base) % mod;
-    exp >>= 1n;
-    base = (base * base) % mod;
-  }
-  return result;
-}
-
-function rsaEncrypt(secKey: string): string {
-  const reversed = Buffer.from(secKey.split('').reverse().join(''), 'utf8');
-  const b = BigInt('0x' + reversed.toString('hex'));
-  const enc = modPow(b, BigInt('0x' + PUB_KEY), BigInt('0x' + MODULUS));
-  return enc.toString(16).padStart(256, '0');
-}
-
-function weapi(object: unknown): { params: string; encSecKey: string } {
-  const text = JSON.stringify(object);
-  const secKey = createSecretKey(16);
-  const enc1 = aesEncrypt(text, NONCE).toString('base64');
-  const enc2 = aesEncrypt(enc1, secKey).toString('base64');
-  return { params: enc2, encSecKey: rsaEncrypt(secKey) };
-}
-
-function buildVisitorCookie(): string {
-  const nuid = createSecretKey(32);
-  const nnid = nuid + ',' + Date.now();
-  return 'os=pc; appver=2.9.7; mode=31; _ntes_nuid=' + nuid + '; _ntes_nnid3=' + nnid + '; NMTID=0;';
-}
 
 /** Preserve the actual login session issued in Netease's Set-Cookie headers. */
 function getResponseCookie(headers: Headers): string {
@@ -140,6 +81,8 @@ function auroraAuthProxy(): Plugin {
   } };
 }
 
+/** Dev-only forwarder: the browser cannot POST to music.163.com (CORS) nor
+ * read Set-Cookie. Encryption already happened in src/music/netease/weapi.ts. */
 function neteaseWeapiProxy(): Plugin {
   return {
     name: 'aurora-netease-weapi-proxy',
@@ -151,25 +94,19 @@ function neteaseWeapiProxy(): Plugin {
           return;
         }
         let body = '';
-        req.on('data', (chunk) => {
-          body += chunk;
-        });
+        req.on('data', (chunk) => { body += chunk; });
         req.on('end', async () => {
           try {
-            const { path: apiPath, data, cookie } = JSON.parse(body) as {
+            const { path: apiPath, form, cookie } = JSON.parse(body) as {
               path: string;
-              data: Record<string, unknown>;
+              form: string;
               cookie?: string;
             };
-            if (!apiPath || !apiPath.startsWith('/weapi/')) {
+            if (!apiPath || !apiPath.startsWith('/weapi/') || typeof form !== 'string') {
               res.statusCode = 400;
-              res.end(JSON.stringify({ error: 'bad path' }));
+              res.end(JSON.stringify({ error: 'bad path or form' }));
               return;
             }
-            const form = weapi(data ?? {});
-            const userCookie = typeof cookie === 'string' && cookie.length <= 12000
-              ? cookie.replace(/[\r\n]/g, '').trim()
-              : '';
             const upstream = await fetch('https://music.163.com' + apiPath, {
               method: 'POST',
               headers: {
@@ -177,26 +114,14 @@ function neteaseWeapiProxy(): Plugin {
                 'User-Agent': PC_USER_AGENT,
                 Referer: 'https://music.163.com',
                 Origin: 'https://music.163.com',
-                Cookie: userCookie ? userCookie + '; ' + buildVisitorCookie() : buildVisitorCookie(),
+                Cookie: typeof cookie === 'string' ? cookie.replace(/[\r\n]/g, '').slice(0, 12000) : '',
               },
-              body: new URLSearchParams(form).toString(),
+              body: form,
             });
-            let json = await upstream.text();
-            if (apiPath === '/weapi/login/qrcode/client/login') {
-              try {
-                const result = JSON.parse(json) as Record<string, unknown>;
-                const loginCookie = getResponseCookie(upstream.headers);
-                // A successful QR authorization puts the session only in Set-Cookie.
-                // Return it to the same local browser so it can load the user's account.
-                if (result.code === 803 && loginCookie && typeof result.cookie !== 'string') {
-                  json = JSON.stringify({ ...result, cookie: loginCookie });
-                }
-              } catch {
-                // Keep the upstream response intact if it is not valid JSON.
-              }
-            }
+            const text = await upstream.text();
+            const joined = getResponseCookie(upstream.headers);
             res.setHeader('Content-Type', 'application/json');
-            res.end(json);
+            res.end(JSON.stringify({ body: text, cookies: joined ? joined.split('; ') : [] }));
           } catch (e) {
             res.statusCode = 502;
             res.end(JSON.stringify({ error: String(e) }));

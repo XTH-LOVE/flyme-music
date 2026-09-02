@@ -7,7 +7,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "tauri:build": "tauri build",
+    "tauri:build:android": "tauri android build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
@@ -24,6 +28,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "~5.7.3",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^3.2.7"
   }
 }

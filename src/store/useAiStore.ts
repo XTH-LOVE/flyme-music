@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { MusicTrack } from '@/music/source/types';
+import type { AiMemory } from '@/ai/memory';
 
 export type AiPersona = 'gentle' | 'sharp' | 'chuuni';
 
@@ -49,6 +50,10 @@ interface AiState extends AiConfigState {
   retryAnalysis: () => void;
   addDislike: (word: string) => void;
   clearDislikes: () => void;
+  memories: AiMemory[];
+  memoryPanelOpen: boolean;
+  setMemories: (list: AiMemory[]) => void;
+  setMemoryPanelOpen: (v: boolean) => void;
 }
 
 function loadConfig(): AiConfigState {
@@ -96,6 +101,8 @@ export const useAiStore = create<AiState>((set, get) => ({
   analysisRetry: 0,
   messages: [],
   dislikes: loadDislikes(),
+  memories: [],
+  memoryPanelOpen: false,
 
   setConfig: (patch) => {
     const next = { ...get(), ...patch };
@@ -142,6 +149,8 @@ export const useAiStore = create<AiState>((set, get) => ({
     }
     set({ dislikes: [] });
   },
+  setMemories: (memories) => set({ memories }),
+  setMemoryPanelOpen: (memoryPanelOpen) => set({ memoryPanelOpen }),
 }));
 
 export const aiConfigured = (s: { model: string; serverConfigured?: boolean }): boolean =>

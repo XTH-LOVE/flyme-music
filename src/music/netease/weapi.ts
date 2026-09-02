@@ -13,7 +13,12 @@ const MODULUS =
   '575cce10b424d813cfe4875d3e82047b97ddef52741d546b8e289dc6935b' +
   '3ece0462db0a22b8e7';
 
-/** Netease's alphabet intentionally omits '8'. */
+/**
+ * Netease's alphabet intentionally omits '8'.
+ * Math.random() is deliberate: secKey/nuid only obfuscate requests and mark an
+ * anonymous visitor - they protect no user secret, and this keeps byte-parity
+ * with the ported Node impl (and deterministic golden tests via stubbing).
+ */
 function randomKey(size: number): string {
   const choice = '012345679abcdef';
   let out = '';

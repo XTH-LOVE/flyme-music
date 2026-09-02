@@ -237,10 +237,13 @@ export async function chatOnce(
   cfg: AiConfig,
   messages: AiChatMessage[],
   signal?: AbortSignal,
+  opts?: { maxTokens?: number; temperature?: number },
 ): Promise<string> {
+  const maxTokens = opts?.maxTokens ?? 120;
+  const temperature = opts?.temperature ?? 0.9;
   if (isTauri()) {
     return tauriChat(
-      { model: cfg.model, messages, temperature: 0.9, max_tokens: 120 },
+      { model: cfg.model, messages, temperature, max_tokens: maxTokens },
       () => undefined,
       undefined,
       signal,
@@ -253,8 +256,8 @@ export async function chatOnce(
       model: cfg.model,
       messages,
       stream: false,
-      temperature: 0.9,
-      max_tokens: 120,
+      temperature,
+      max_tokens: maxTokens,
     }),
     signal,
   });

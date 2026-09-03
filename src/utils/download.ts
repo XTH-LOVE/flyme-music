@@ -17,9 +17,29 @@ function sanitize(name: string): string {
 }
 
 /**
+ * Fetch the remote media bytes.
+ * The deployed web (Cloudflare Pages / Vercel) and the dev server both expose
+ * /api/media-proxy which streams the CDN response with the hotlink Referer;
+ * a plain cross-origin fetch is tried first for CORS-enabled CDNs.
+ */
+async function fetchMediaBlob(url: string): Promise<Blob> {
+  // Direct CORS fetch first: some CDNs (e.g. Netease art/audio) allow it and
+  // this skips the proxy round-trip entirely.
+  try {
+    const direct = await fetch(url, { mode: 'cors' });
+    if (direct.ok) return direct.blob();
+  } catch {
+    /* CORS-blocked or network failure -> use the proxy below */
+  }
+  const res = await fetch('/api/media-proxy?url=' + encodeURIComponent(url));
+  if (!res.ok) throw new Error('下载失败：' + res.status);
+  return res.blob();
+}
+
+/**
  * Resolve the real stream URL, then save it.
  * Packaged app: Rust streams straight to disk (desktop save dialog, Android
- * download dir). Browser: dev media proxy, then Web Share or a[download].
+ * download dir). Browser: CORS-free fetch, then Web Share or a[download].
  */
 export async function downloadTrack(track: MusicTrack): Promise<void> {
   // Download at the configured quality (default: highest); the resolver
@@ -38,7 +58,6 @@ export async function downloadTrack(track: MusicTrack): Promise<void> {
     return;
   }
 
-  const res = await fetch('/api/media-proxy?url=' + encodeURIComponent(url));
-  if (!res.ok) throw new Error('下载失败：' + res.status);
-  await saveBlobInBrowser(await res.blob(), fileName);
+  const blob = await fetchMediaBlob(url);
+  await saveBlobInBrowser(blob, fileName);
 }

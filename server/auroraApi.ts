@@ -229,11 +229,13 @@ export async function handleNeteaseWeapi(req: IncomingMessage, res: ServerRespon
         },
         body: form,
       });
-    // Netease risk control (-462 etc.) is per-egress-IP and intermittent; one
-    // same-identity retry often rides a different egress and clears it.
+    // Netease risk control (-462 etc.) is per-egress-IP and intermittent;
+    // repeated attempts often ride a different egress and clear it.
     let upstream = await relay();
     let text = await upstream.text();
-    if (isRiskBody(text)) {
+    for (const delay of [250, 700, 1500]) {
+      if (!isRiskBody(text)) break;
+      await new Promise((r) => setTimeout(r, delay));
       upstream = await relay();
       text = await upstream.text();
     }

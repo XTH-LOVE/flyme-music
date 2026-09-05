@@ -215,6 +215,23 @@ export async function getNeteasePlaylistDetail(
   playlistId: string,
   signal?: AbortSignal,
 ): Promise<NetPlaylistDetail> {
+  try {
+    return await fetchPlaylistDetailWeapi(playlistId, signal);
+  } catch (e) {
+    // weapi 是网易风控的重灾区（海外出口间歇性 -462，深夜尤甚）；
+    // 网易的老非加密接口不受该风控路径影响，作为兑底通道。
+    if (isRiskError(e) && !signal?.aborted) {
+      return getPlaylistDetailLegacy(playlistId, signal);
+    }
+    throw e;
+  }
+}
+
+function isRiskError(e: unknown): boolean {
+  return e instanceof Error && e.message.includes('网易云');
+}
+
+async function fetchPlaylistDetailWeapi(playlistId: string, signal?: AbortSignal): Promise<NetPlaylistDetail> {
   const detail = await callWeapi<{
     code: number;
     playlist?: {
@@ -259,6 +276,45 @@ export async function getNeteasePlaylistDetail(
       trackCount: pl.trackCount ?? ids.length,
       description: pl.description ?? '',
       creator: pl.creator?.nickname ?? '',
+    },
+    tracks,
+  };
+}
+
+/**
+ * Legacy unencrypted channel (music.163.com/api/playlist/detail) relayed
+ * through /api/netease/public. Immune to the weapi risk-control path; only
+ * covers the playlist-detail use case, which is the one users hit most.
+ */
+async function getPlaylistDetailLegacy(playlistId: string, signal?: AbortSignal): Promise<NetPlaylistDetail> {
+  const qs = new URLSearchParams({ path: '/api/playlist/detail', id: playlistId, n: '1000' });
+  const res = await fetch('/api/netease/public?' + qs, { signal });
+  if (!res.ok) throw new Error('netease legacy fallback HTTP ' + res.status);
+  const j = (await res.json()) as {
+    code: number;
+    result?: {
+      id: number;
+      name: string;
+      coverImgUrl?: string;
+      description?: string;
+      playCount?: number;
+      trackCount?: number;
+      creator?: { nickname?: string };
+      tracks?: RawSong[];
+    };
+  };
+  if (j.code !== 200 || !j.result) throw codeError('netease legacy playlist detail', j.code);
+  const tracks = (j.result.tracks ?? []).map(toTrack);
+  if (!tracks.length) throw new Error('netease legacy fallback returned no tracks');
+  return {
+    meta: {
+      id: String(j.result.id),
+      name: j.result.name,
+      coverUrl: (j.result.coverImgUrl || '') + '?param=400y400',
+      playCount: j.result.playCount ?? 0,
+      trackCount: j.result.trackCount ?? tracks.length,
+      description: j.result.description ?? '',
+      creator: j.result.creator?.nickname ?? '',
     },
     tracks,
   };

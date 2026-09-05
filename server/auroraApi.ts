@@ -269,6 +269,37 @@ function reIdCookie(cookie: string): string {
     .replace(/_ntes_nnid3=[^,;]*/, '_ntes_nnid3=' + nid + ',' + Date.now());
 }
 
+/** Legacy unencrypted Netease channel relay (GET /api/netease/public).
+ * Whitelist-only fallback for when the weapi channel is risk-controlled. */
+export async function handleNeteasePublic(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!guardRequest(req, res, 'weapi')) return;
+  try {
+    const url = new URL(req.url ?? '', 'http://localhost');
+    const path = url.searchParams.get('path') ?? '';
+    const allowed = new Set(['/api/playlist/detail']);
+    if (!allowed.has(path)) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'path not allowed' }));
+      return;
+    }
+    const upstream = await fetch('https://music.163.com' + path + '?' + url.searchParams.toString(), {
+      headers: {
+        'User-Agent': PC_USER_AGENT,
+        Referer: 'https://music.163.com',
+        Cookie: 'os=pc; appver=2.9.7; mode=31',
+      },
+    });
+    const text = await upstream.text();
+    res.statusCode = upstream.status;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(text);
+  } catch (e) {
+    res.statusCode = 502;
+    res.end(JSON.stringify({ error: String(e) }));
+  }
+}
+
 /** OpenAI-compatible AI pass-through. Credentials come from runtime
  * environment variables and are never accepted from browser requests. */
 export async function handleAi(req: IncomingMessage, res: ServerResponse): Promise<void> {

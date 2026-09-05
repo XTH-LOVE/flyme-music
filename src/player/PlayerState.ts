@@ -11,6 +11,8 @@ export interface PlayerSnapshot {
   currentTime: number;
   duration: number;
   volume: number;
+  /** Engine playback rate (0.5-3x); needed so the OS can interpolate position. */
+  speed: number;
   queue: MusicTrack[];
   queueIndex: number;
   shuffle: boolean;

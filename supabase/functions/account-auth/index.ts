@@ -12,6 +12,35 @@ const internalEmail = (username: string) => {
   return `account.u${encoded}@users.auroramusic.invalid`
 }
 
+/**
+ * New accounts must use a real password: 8-64 chars with at least one letter
+ * and one digit. A 6-digit numeric password has only 10^6 combinations and is
+ * brute-forceable even through Supabase's built-in auth rate limits. Existing
+ * 6-digit accounts are unaffected - they log in via signInWithPassword on the
+ * client and only get migrated when they choose to change it.
+ */
+const strongPassword = (password: string) => /^(?=.*\p{L})(?=.*\d).{8,64}$/u.test(password)
+
+/* Per-isolate register throttle: blunts mass account creation from one IP.
+ * Isolates are ephemeral, so pair with Supabase Dashboard auth rate limits
+ * (or a Turnstile check) for hard guarantees. */
+const REGISTER_WINDOW_MS = 60 * 60 * 1000
+const REGISTER_MAX_PER_IP = 5
+const registerBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function registerThrottled(ip: string, now: number): boolean {
+  const bucket = registerBuckets.get(ip)
+  if (!bucket || bucket.resetAt <= now) {
+    if (registerBuckets.size > 10_000) {
+      for (const [key, value] of registerBuckets) if (value.resetAt <= now) registerBuckets.delete(key)
+    }
+    registerBuckets.set(ip, { count: 1, resetAt: now + REGISTER_WINDOW_MS })
+    return false
+  }
+  bucket.count += 1
+  return bucket.count > REGISTER_MAX_PER_IP
+}
+
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
@@ -21,9 +50,11 @@ Deno.serve(async request => {
     if (!/^[\p{L}\p{N}_]{2,20}$/u.test(username)) return json({ error: '账号名需要 2-20 位中文、字母、数字或下划线' }, 400)
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } })
     if (action === 'register') {
+      const ip = request.headers.get('cf-connecting-ip') ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? 'unknown'
+      if (registerThrottled(ip, Date.now())) return json({ error: '注册过于频繁，请稍后再试' }, 429)
       const password = String(body.password || '')
       const displayName = String(body.displayName || '').trim()
-      if (!/^\d{6}$/.test(password)) return json({ error: '密码必须是 6 位数字' }, 400)
+      if (!strongPassword(password)) return json({ error: '密码需要 8-64 位，且同时包含字母和数字' }, 400)
       if (!displayName || displayName.length > 40) return json({ error: '请输入 1-40 位昵称' }, 400)
       const { error } = await admin.auth.admin.createUser({ email: internalEmail(username), password, email_confirm: true, user_metadata: { nickname: displayName, display_name: displayName, username, login_type: 'username' } })
       if (error) return json({ error: '账号已存在或创建失败' }, 400)

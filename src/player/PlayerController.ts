@@ -221,6 +221,7 @@ class PlayerController {
       currentTime: this.engine.currentTime,
       duration: this.engine.duration,
       volume: this.volume,
+      speed: this.engine.playbackRate,
       queue: this.queue.list,
       queueIndex: this.queue.currentIndex,
       shuffle: this.queue.isShuffled,

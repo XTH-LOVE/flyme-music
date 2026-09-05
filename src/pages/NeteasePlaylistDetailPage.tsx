@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { TrackListItem } from '@/components/TrackListItem';
 import { ProxyImg } from '@/components/ProxyImg';
@@ -6,13 +7,22 @@ import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
 import { useNeteasePlaylistDetail } from '@/music/netease/useNetease';
 import { playerController } from '@/player';
+import { usePlaylistStore } from '@/store/usePlaylistStore';
+import { useNeteaseCollections } from '@/store/useNeteaseCollections';
+import { notify } from '@/utils/notify';
 import { formatPlays } from '@/utils/format';
 import './pages.css';
 
 /** Real Netease playlist detail - online tracks, directly playable. */
 export function NeteasePlaylistDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { data, loading, error } = useNeteasePlaylistDetail(id);
+  const createPlaylist = usePlaylistStore((s) => s.createPlaylist);
+  const addBatch = usePlaylistStore((s) => s.addBatch);
+  const collections = useNeteaseCollections((s) => s.items);
+  const toggleCollection = useNeteaseCollections((s) => s.toggle);
+  const [importing, setImporting] = useState(false);
 
   if (loading) {
     return (
@@ -39,6 +49,20 @@ export function NeteasePlaylistDetailPage() {
   }
 
   const { meta, tracks } = data;
+  const subscribed = collections.some((c) => c.id === String(id));
+
+  const importAsMine = () => {
+    if (importing || !tracks.length) return;
+    setImporting(true);
+    try {
+      const pid = createPlaylist(meta.name);
+      addBatch(pid, tracks);
+      notify('已导入 ' + tracks.length + ' 首到「' + meta.name + '」');
+      navigate('/my-playlist/' + pid);
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
     <div className="page">
@@ -75,6 +99,28 @@ export function NeteasePlaylistDetailPage() {
             >
               <Icon name="shuffle" size={16} />
               随机
+            </button>
+            <button
+              className="am-btn am-btn--secondary am-btn--md"
+              disabled={!tracks.length || importing}
+              onClick={importAsMine}
+            >
+              <Icon name="queue" size={16} />
+              {importing ? '导入中…' : '导入为我的歌单'}
+            </button>
+            <button
+              className="am-btn am-btn--secondary am-btn--md"
+              onClick={() =>
+                toggleCollection({
+                  id: String(id),
+                  name: meta.name,
+                  coverUrl: meta.coverUrl,
+                  creator: meta.creator,
+                })
+              }
+            >
+              <Icon name={subscribed ? 'heartFill' : 'heart'} size={16} />
+              {subscribed ? '已收藏' : '收藏歌单'}
             </button>
           </div>
         </div>

@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Flyme Music",
+  "productName": "Aurora Music",
   "version": "0.3.0",
-  "identifier": "com.flyme.music",
+  "identifier": "com.auroramusic.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Flyme Music",
+        "title": "Aurora Music",
         "width": 960,
         "height": 680,
         "resizable": true,

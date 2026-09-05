@@ -27,7 +27,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
-        <span className="sidebar__brand-name">Flyme Music</span>
+        <span className="sidebar__brand-name">Aurora Music</span>
       </div>
 
       <nav className="sidebar__nav">

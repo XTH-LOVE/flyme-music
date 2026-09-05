@@ -67,7 +67,16 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
                 <div
                   key={track.source + ':' + track.id + '-' + realIndex}
                   className="queue-item"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={'播放 ' + track.name + ' - ' + track.artist.join(' / ')}
                   onClick={() => playerController.jumpToQueueIndex(realIndex)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      playerController.jumpToQueueIndex(realIndex);
+                    }
+                  }}
                 >
                   <div className="queue-item__cover">
                     <TrackCover track={track} bare radius="var(--am-radius-sm)" />

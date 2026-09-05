@@ -26,7 +26,7 @@ export interface ToolCtx {
   found: MusicTrack[];
 }
 
-const APP_ROUTES = new Set(['/', '/library', '/discover', '/search', '/playlists', '/me', '/stats', '/settings', '/ai']);
+const APP_ROUTES = new Set(['/', '/library', '/discover', '/search', '/playlists', '/me', '/stats', '/settings', '/ai', '/local']);
 
 function isAllowedAppRoute(path: string): boolean {
   if (APP_ROUTES.has(path)) return true;
@@ -44,6 +44,7 @@ function pageName(pathname: string): string {
   if (pathname === '/stats') return '听歌统计';
   if (pathname === '/settings') return '设置';
   if (pathname === '/ai') return '一起听';
+  if (pathname === '/local') return '本地音乐';
   if (pathname.startsWith('/chart/')) return '榜单详情';
   if (pathname.startsWith('/album/')) return '专辑详情';
   if (pathname.startsWith('/artist/')) return '艺术家详情';
@@ -153,7 +154,7 @@ export function buildSystemPrompt(
 ): string {
   return (
     PERSONA_PROMPTS[persona] +
-    '\n你在 Flyme Music「一起听」页面内，搜歌会并行查网易云与 Joox 双音源，结果自动按原版优先排序（翻唱/现场/伴奏排后）。' +
+    '\n你在 Aurora Music「一起听」页面内，搜歌会并行查网易云与 Joox 双音源，结果自动按原版优先排序（翻唱/现场/伴奏排后）。' +
     '\n当前歌曲：' +
     (current
       ? current.name + ' - ' + current.artist.join('/') + '（已播 ' + Math.round(currentTime) + ' 秒）'

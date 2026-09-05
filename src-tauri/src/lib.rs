@@ -6,12 +6,44 @@ mod download;
 use tauri::{Listener, Manager};
 
 const FS_TOGGLE_EVENT: &str = "am-toggle-fullscreen";
+/// Emitted to the webview when a global media shortcut fires; the JS side
+/// maps it onto the player controller (see src/lib/globalMediaKeys.ts).
+const MEDIA_EVENT: &str = "am-media";
 
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 fn toggle_fullscreen(app: &tauri::AppHandle) {
   if let Some(win) = app.get_webview_window("main") {
     let is_fs = win.is_fullscreen().unwrap_or(false);
     let _ = win.set_fullscreen(!is_fs);
+  }
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+fn show_main_window(app: &tauri::AppHandle) {
+  if let Some(win) = app.get_webview_window("main") {
+    let _ = win.unminimize();
+    let _ = win.show();
+    let _ = win.set_focus();
+  }
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+fn emit_media(app: &tauri::AppHandle, command: &str) {
+  use tauri::Emitter;
+  if let Some(win) = app.get_webview_window("main") {
+    let _ = win.emit(MEDIA_EVENT, command);
+  }
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+fn toggle_main_window(app: &tauri::AppHandle) {
+  if let Some(win) = app.get_webview_window("main") {
+    let visible = win.is_visible().unwrap_or(false);
+    if visible {
+      let _ = win.hide();
+    } else {
+      show_main_window(app);
+    }
   }
 }
 
@@ -60,11 +92,23 @@ pub fn run() {
   {
     builder = builder.plugin(
       tauri_plugin_global_shortcut::Builder::new()
-        .with_shortcuts(["F11"])
-        .expect("failed to parse F11 shortcut")
-        .with_handler(|app, _shortcut, event| {
-          if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+        .with_shortcuts(["F11", "CmdOrCtrl+Alt+ArrowRight", "CmdOrCtrl+Alt+ArrowLeft", "CmdOrCtrl+Alt+Space"])
+        .expect("failed to register global shortcuts")
+        .with_handler(|app, shortcut, event| {
+          if event.state != tauri_plugin_global_shortcut::ShortcutState::Pressed {
+            return;
+          }
+          // Match on the key end so platform-normalized modifier spellings
+          // (Control/CmdOrCtrl) all land on the same branch.
+          let combo = shortcut.into_string();
+          if combo == "F11" {
             toggle_fullscreen(app);
+          } else if combo.ends_with("ArrowRight") {
+            emit_media(app, "next");
+          } else if combo.ends_with("ArrowLeft") {
+            emit_media(app, "previous");
+          } else if combo.ends_with("Space") {
+            emit_media(app, "toggle");
           }
         })
         .build(),
@@ -86,6 +130,19 @@ pub fn run() {
       download::download_and_save,
       download::save_image_base64
     ])
+    .on_window_event(|window, event| {
+      // Close hides to the tray so music keeps playing; real exit lives in
+      // the tray menu. Desktop only - mobile has no close button concept.
+      #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+      if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        let _ = window.hide();
+        api.prevent_close();
+      }
+      #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+      {
+        let _ = (window, event);
+      }
+    })
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -114,6 +171,30 @@ pub fn run() {
         app.listen_any(FS_TOGGLE_EVENT, move |_event| {
           toggle_fullscreen(&handle);
         });
+
+        // System tray: left click toggles the window, menu has show/exit.
+        use tauri::menu::{Menu, MenuItem};
+        use tauri::tray::{ClickType, TrayIconBuilder};
+        let show_item = MenuItem::with_id(app, "show", "显示 Aurora Music", true, None::<&str>)?;
+        let exit_item = MenuItem::with_id(app, "exit", "退出", true, None::<&str>)?;
+        let menu = Menu::with_items(app, &[&show_item, &exit_item])?;
+        let mut tray = TrayIconBuilder::with_id("aurora-tray")
+          .menu(&menu)
+          .show_menu_on_left_click(false)
+          .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => show_main_window(app),
+            "exit" => app.exit(0),
+            _ => {}
+          })
+          .on_tray_icon_event(|tray, event| {
+            if event.click_type == ClickType::Left {
+              toggle_main_window(tray.app_handle());
+            }
+          });
+        if let Some(icon) = app.default_window_icon() {
+          tray = tray.icon(icon.clone());
+        }
+        tray.build(app)?;
       }
       Ok(())
     })

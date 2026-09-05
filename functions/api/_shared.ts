@@ -9,16 +9,23 @@
  * pathname already equals the route path.
  */
 
+import {
+  isAllowedRequest,
+  rateLimit,
+  RATE_LIMITS,
+  type GuardInput,
+} from '../../src/lib/apiGuard';
+
+export {
+  isAllowedRequest,
+  rateLimit,
+  RATE_LIMITS,
+  AI_DEFAULT_ENDPOINT,
+  AI_DEFAULT_MODEL,
+} from '../../src/lib/apiGuard';
+
 export const PC_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-/**
- * Fallback defaults for the AI pass-through (Zhipu). Only the API key is
- * secret and MUST come from the Pages environment variables; endpoint and
- * model are non-sensitive so users only need to configure one variable.
- */
-export const AI_DEFAULT_ENDPOINT = 'https://open.bigmodel.cn/api/paas/v4';
-export const AI_DEFAULT_MODEL = 'glm-4-flash';
 
 export type Env = Record<string, string | undefined>;
 
@@ -26,6 +33,33 @@ export interface PagesContext {
   env: Env;
   request: Request;
   params: Record<string, string | string[]>;
+}
+
+/**
+ * Same-origin fence + per-IP rate limit shared by every function. Returns the
+ * blocking Response, or null when the request may proceed. The browser app
+ * always sends Origin/Referer, so this only fences off non-browser free-riding
+ * (scripts burning the AI key, open-proxy abuse). Extra origins can be
+ * whitelisted via the AURORA_ALLOWED_ORIGINS env var (comma separated hosts).
+ */
+export function guard(request: Request, env: Env, scope: keyof typeof RATE_LIMITS): Response | null {
+  const input: GuardInput = {
+    host: new URL(request.url).host,
+    origin: request.headers.get('origin'),
+    referer: request.headers.get('referer'),
+    extraAllowed: (env.AURORA_ALLOWED_ORIGINS ?? '').split(','),
+  };
+  if (!isAllowedRequest(input)) {
+    return json({ error: 'origin not allowed' }, 403);
+  }
+  const ip =
+    request.headers.get('cf-connecting-ip')
+    ?? request.headers.get('x-forwarded-for')?.split(',')[0]
+    ?? 'unknown';
+  if (!rateLimit(scope + ':' + ip, RATE_LIMITS[scope], 60_000)) {
+    return json({ error: 'rate limited' }, 429);
+  }
+  return null;
 }
 
 export function isHttpUrl(target: string | null): target is string {

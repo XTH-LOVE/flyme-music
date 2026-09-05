@@ -1,5 +1,7 @@
 import type { MusicTrack } from './types';
 import { getTrackProvider } from './factory';
+import { getStreamUrl } from '@/library/offlineCache';
+import { getLocalStreamUrl } from '@/library/localLibrary';
 
 /**
  * Cached resolution of remote media (stream url / cover).
@@ -61,10 +63,19 @@ function read<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null | und
 }
 
 export async function resolveTrackUrl(track: MusicTrack, br = 320): Promise<string | null> {
+  // Mock tracks are simulated only; local files stream straight from IndexedDB.
   if (track.source === 'mock') return null;
+  if (track.source === 'local') return getLocalStreamUrl(track);
   const key = track.source + ':' + track.url_id + ':' + br;
   const cached = read(urlCache, key);
   if (cached !== undefined) return cached;
+  // Offline cache first: an IDB hit needs no network at all and answers with
+  // a same-origin blob: URL (which also keeps the Web Audio graph untainted).
+  const offline = await getStreamUrl(track);
+  if (offline) {
+    urlCache.set(key, { value: offline, expiresAt: Date.now() + URL_TTL_MS });
+    return offline;
+  }
   const pending = urlInflight.get(key);
   if (pending) return pending;
   const promise = (async () => {
@@ -100,7 +111,7 @@ export async function resolveTrackUrl(track: MusicTrack, br = 320): Promise<stri
 
 export async function resolveTrackPic(track: MusicTrack, size = 500): Promise<string | null> {
   if (track.picUrl) return track.picUrl;
-  if (track.source === 'mock') return null;
+  if (track.source === 'mock' || track.source === 'local') return null;
   const key = track.source + ':' + track.pic_id;
   const cached = read(picCache, key);
   if (cached !== undefined) return cached;

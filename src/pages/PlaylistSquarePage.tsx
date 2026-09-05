@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NetPlaylistCard } from '@/components/NetPlaylistCard';
 import { Chip } from '@/design-system/components/Chip';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
 import { getHighQualityPlaylists, type NetPlaylistSummary } from '@/music/netease/netease-api';
+import { useNeteaseCollections } from '@/store/useNeteaseCollections';
 import './pages.css';
 import './pages-extra.css';
 
@@ -17,6 +18,8 @@ const CATS = [
 /** 歌单广场：真实精品歌单，分类可切换，可翻页。 */
 export function PlaylistSquarePage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const collections = useNeteaseCollections((s) => s.items);
   const cat = searchParams.get('cat') || '全部';
   const [items, setItems] = useState<NetPlaylistSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +60,19 @@ export function PlaylistSquarePage() {
   return (
     <div className="page">
       <h1 className="page-title">歌单广场</h1>
-      <div className="chip-row chip-row--wrap">
+      {collections.length ? (
+        <>
+          <h2 className="am-section-header">我收藏的歌单</h2>
+          <div className="chip-row chip-row--wrap">
+            {collections.map((c) => (
+              <Chip key={c.id} onClick={() => navigate('/ne-playlist/' + c.id)}>
+                {c.name}
+              </Chip>
+            ))}
+          </div>
+        </>
+      ) : null}
+      <div className="chip-row chip-row--wrap" style={{ marginTop: collections.length ? 0 : undefined }}>
         {CATS.map((c) => (
           <Chip
             key={c}

@@ -24,6 +24,8 @@ interface PlaylistState {
   /** Accepts the track itself: removal matches by source:id, never bare id. */
   removeTrack: (playlistId: string, track: Pick<MusicTrack, 'id' | 'source'>) => void;
   reorderTracks: (playlistId: string, tracks: MusicTrack[]) => void;
+  /** Bulk rehydrate (cloud sync / backup restore). */
+  hydratePlaylists: (playlists: UserPlaylist[]) => void;
 }
 
 const STORAGE_KEY = 'aurora.playlists';
@@ -124,5 +126,10 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     );
     persist(next);
     set({ playlists: next });
+  },
+
+  hydratePlaylists: (playlists) => {
+    persist(playlists);
+    set({ playlists });
   },
 }));

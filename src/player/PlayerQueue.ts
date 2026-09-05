@@ -8,6 +8,12 @@ export class PlayerQueue {
   private items: MusicTrack[] = [];
   private index = -1;
   private shuffled = false;
+  /**
+   * Visited indices in shuffle mode, so previous() can actually walk back
+   * instead of landing on a random song. Capped to bound long sessions.
+   */
+  private shuffleHistory: number[] = [];
+  private static readonly SHUFFLE_HISTORY_CAP = 100;
 
   get list(): MusicTrack[] {
     // Snapshots must not retain a mutable reference to the internal queue.
@@ -31,6 +37,7 @@ export class PlayerQueue {
   load(tracks: MusicTrack[], startIndex = 0): void {
     this.items = [...tracks];
     this.index = tracks.length ? Math.min(startIndex, tracks.length - 1) : -1;
+    this.shuffleHistory = [];
   }
 
   /** Append tracks to the end of the queue (AI "queue similar" feature). */
@@ -52,6 +59,10 @@ export class PlayerQueue {
 
   jumpTo(i: number): MusicTrack | null {
     if (i < 0 || i >= this.items.length) return null;
+    // Record where we came from so shuffle-mode previous() can return here.
+    if (this.shuffled && this.index >= 0 && i !== this.index) {
+      this.pushHistory(this.index);
+    }
     this.index = i;
     return this.items[i];
   }
@@ -66,21 +77,34 @@ export class PlayerQueue {
       nextIndex = candidates.length
         ? candidates[Math.floor(Math.random() * candidates.length)]
         : this.index;
+      if (nextIndex !== this.index) this.pushHistory(this.index);
     } else {
       nextIndex = (this.index + 1) % this.items.length;
     }
-    return this.jumpTo(nextIndex);
+    return this.jumpToWithoutHistory(nextIndex);
   }
 
   previous(): MusicTrack | null {
     if (!this.items.length) return null;
-    const prevIndex = this.shuffled
-      ? Math.floor(Math.random() * this.items.length)
-      : (this.index - 1 + this.items.length) % this.items.length;
-    return this.jumpTo(prevIndex);
+    if (this.shuffled) {
+      const prev = this.shuffleHistory.pop();
+      if (prev !== undefined && prev < this.items.length) {
+        return this.jumpToWithoutHistory(prev);
+      }
+      // History exhausted: land on a different song rather than replaying one.
+      const candidates = this.items
+        .map((_, i) => i)
+        .filter((i) => i !== this.index);
+      if (!candidates.length) return this.current;
+      const fallback = candidates[Math.floor(Math.random() * candidates.length)];
+      return this.jumpToWithoutHistory(fallback);
+    }
+    const prevIndex = (this.index - 1 + this.items.length) % this.items.length;
+    return this.jumpToWithoutHistory(prevIndex);
   }
 
   setShuffled(value: boolean): void {
+    if (value !== this.shuffled) this.shuffleHistory = [];
     this.shuffled = value;
   }
 
@@ -91,6 +115,10 @@ export class PlayerQueue {
     else if (i === this.index && this.index >= this.items.length) {
       this.index = this.items.length - 1;
     }
+    // History entries past the removed slot shift up; the removed song drops out.
+    this.shuffleHistory = this.shuffleHistory
+      .filter((h) => h !== i)
+      .map((h) => (h > i ? h - 1 : h));
   }
 
   /** Reorder without losing the currently playing track. */
@@ -109,10 +137,32 @@ export class PlayerQueue {
     if (from === this.index) this.index = to;
     else if (from < this.index && to >= this.index) this.index -= 1;
     else if (from > this.index && to <= this.index) this.index += 1;
+    // Apply the same index remap to the shuffle history.
+    this.shuffleHistory = this.shuffleHistory.map((h) => {
+      if (h === from) return to;
+      if (from < h && to >= h) return h - 1;
+      if (from > h && to <= h) return h + 1;
+      return h;
+    });
   }
 
   clear(): void {
     this.items = [];
     this.index = -1;
+    this.shuffleHistory = [];
+  }
+
+  private pushHistory(i: number): void {
+    this.shuffleHistory.push(i);
+    if (this.shuffleHistory.length > PlayerQueue.SHUFFLE_HISTORY_CAP) {
+      this.shuffleHistory.splice(0, this.shuffleHistory.length - PlayerQueue.SHUFFLE_HISTORY_CAP);
+    }
+  }
+
+  /** Index assignment without recording a history entry (used by next/previous). */
+  private jumpToWithoutHistory(i: number): MusicTrack | null {
+    if (i < 0 || i >= this.items.length) return null;
+    this.index = i;
+    return this.items[i];
   }
 }

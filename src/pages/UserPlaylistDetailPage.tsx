@@ -3,10 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { TrackListItem } from '@/components/TrackListItem';
 import { TrackCover } from '@/components/TrackCover';
+import { PlaylistArt } from '@/components/PlaylistArt';
 import { Dialog } from '@/design-system/components/Dialog';
 import { EmptyState } from '@/design-system/components/EmptyState';
-import { fallbackPalette } from '@/utils/palette';
-import { Cover } from '@/design-system/components/Cover';
 import { playerController } from '@/player';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import './pages.css';
@@ -34,7 +33,7 @@ export function UserPlaylistDetailPage() {
           {first ? (
             <TrackCover track={first} radius="var(--am-radius-xl)" title={playlist.name} />
           ) : (
-            <Cover palette={fallbackPalette(playlist.id)} title={playlist.name} radius="var(--am-radius-xl)" />
+            <PlaylistArt name={playlist.name} seed={playlist.id} radius="var(--am-radius-xl)" />
           )}
         </div>
         <div className="detail-hero__info">

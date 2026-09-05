@@ -21,6 +21,7 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ de
 const MePage = lazy(() => import('@/pages/MePage').then((m) => ({ default: m.MePage })));
 const StatsPage = lazy(() => import('@/pages/StatsPage').then((m) => ({ default: m.StatsPage })));
 const AiPage = lazy(() => import('@/pages/AiPage').then((m) => ({ default: m.AiPage })));
+const LocalMusicPage = lazy(() => import('@/pages/LocalMusicPage').then((m) => ({ default: m.LocalMusicPage })));
 // Polish layer loaded last so it wins cascade ties; Monet + Miuix above all.
 import '@/styles/ui-refresh.css';
 import '@/styles/monet.css';
@@ -60,6 +61,7 @@ export function App() {
             <Route path="/me" element={<MePage />} />
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/ai" element={<AiPage />} />
+            <Route path="/local" element={<LocalMusicPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

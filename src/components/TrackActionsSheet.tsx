@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { playerController } from '@/player';
 import { downloadTrack } from '@/utils/download';
+import { cacheTrackAudio, isTrackCached, removeCachedTrack } from '@/library/offlineCache';
+import { resolveTrackUrl } from '@/music/source/track-resolver';
 import type { MusicTrack } from '@/music/source/types';
 import { CommentsSheet } from './CommentsSheet';
 import './actions.css';
@@ -15,7 +17,7 @@ interface TrackActionsSheetProps {
 }
 
 /**
- * Track "more" menu: download / comments / add-to-playlist.
+ * Track "more" menu: download / offline cache / comments / add-to-playlist.
  * Replaces the old playlist-only picker for every track row.
  */
 export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetProps) {
@@ -27,9 +29,45 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
   const [downloading, setDownloading] = useState(false);
   const [downloadMsg, setDownloadMsg] = useState<string | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [caching, setCaching] = useState(false);
+  const [cached, setCached] = useState<boolean | null>(null);
 
-  const canDownload = track ? track.source !== 'mock' : false;
+  const canCache = track ? track.source !== 'mock' && track.source !== 'local' : false;
+  const canDownload = canCache;
   const canComment = track?.source === 'netease';
+
+  const refreshCached = () => {
+    if (track && canCache) void isTrackCached(track).then(setCached);
+    else setCached(false);
+  };
+  // Re-check cache state each time the sheet opens for a (new) track.
+  useEffect(() => {
+    if (open) refreshCached();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, track?.source, track?.id]);
+
+  const handleCache = async () => {
+    if (!track || caching) return;
+    setCaching(true);
+    setDownloadMsg(null);
+    try {
+      if (cached) {
+        await removeCachedTrack(track);
+        setCached(false);
+        setDownloadMsg('已移除离线缓存');
+      } else {
+        const url = await resolveTrackUrl(track);
+        if (!url || url.startsWith('blob:')) throw new Error('暂时无法获取音频地址');
+        await cacheTrackAudio(track, url);
+        setCached(true);
+        setDownloadMsg('已缓存，离线也能听');
+      }
+    } catch (e) {
+      setDownloadMsg(e instanceof Error ? e.message : '缓存失败');
+    } finally {
+      setCaching(false);
+    }
+  };
 
   const handleAdd = (playlistId: string) => {
     if (!track) return;
@@ -98,6 +136,16 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
                   <span>本地演示曲目不支持下载</span>
                 </div>
               )}
+              {canCache ? (
+                <button className="action-row" disabled={caching} onClick={() => void handleCache()}>
+                  <div className="action-row__icon">
+                    <Icon name="clock" size={18} />
+                  </div>
+                  <span>
+                    {caching ? '缓存中…' : cached ? '移除离线缓存' : '缓存离线收听'}
+                  </span>
+                </button>
+              ) : null}
               {canComment ? (
                 <button className="action-row" onClick={() => setCommentsOpen(true)}>
                   <div className="action-row__icon">

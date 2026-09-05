@@ -8,6 +8,8 @@ import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { useExtrasStore } from '@/store/useExtrasStore';
+import { useIsDesktop } from '@/hooks/useMediaQuery';
+import { useCrossfadeStack } from '@/hooks/useCrossfadeStack';
 import { downloadTrack } from '@/utils/download';
 import { notify } from '@/utils/notify';
 import { formatTime } from '@/utils/format';
@@ -20,6 +22,7 @@ import { LyricsView } from './LyricsView';
 import { QueueSheet } from './QueueSheet';
 import { Visualizer } from './Visualizer';
 import { pipSupported, openPiPLyrics, closePiPLyrics, isPipOpen } from './PiPLyrics';
+import { EQ_PRESETS, getEqPreset, isWired, setEqPreset } from '@/player/webAudio';
 import './fullplayer.css';
 import './halcyon.css';
 import './QueueEnhance.css';
@@ -56,16 +59,26 @@ function HcBgLayer({ t, top }: { t: MusicTrack; top: boolean }) {
   );
 }
 
-/** Halcyon background: two stacked gradient layers crossfade on track change. */
-function HalcyonBg({ track }: { track: MusicTrack }) {
-  const [stack, setStack] = useState<MusicTrack[]>([track]);
+/** Lyrics for the current track, shared by the immersive and mobile strips. */
+function useLyricLines(track: MusicTrack): MiniLyricLine[] {
+  const [lines, setLines] = useState<MiniLyricLine[]>([]);
 
   useEffect(() => {
-    setStack((prev) => {
-      if (prev.length && prev[prev.length - 1].id === track.id) return prev;
-      return [...prev, track].slice(-2);
+    let alive = true;
+    void fetchLyricLines(track).then((l) => {
+      if (alive) setLines(l);
     });
-  }, [track.id, track]);
+    return () => {
+      alive = false;
+    };
+  }, [track.id, track.source]);
+
+  return lines;
+}
+
+/** Halcyon background: two stacked gradient layers crossfade on track change. */
+function HalcyonBg({ track }: { track: MusicTrack }) {
+  const stack = useCrossfadeStack(track);
 
   return (
     <div className="hc-bg">
@@ -80,14 +93,7 @@ function HalcyonBg({ track }: { track: MusicTrack }) {
 
 /** Full-bleed immersive cover: artwork fills the whole player, crossfading. */
 function ImmersiveCover({ track }: { track: MusicTrack }) {
-  const [stack, setStack] = useState<MusicTrack[]>([track]);
-
-  useEffect(() => {
-    setStack((prev) => {
-      if (prev.length && prev[prev.length - 1].id === track.id) return prev;
-      return [...prev, track].slice(-2);
-    });
-  }, [track.id, track]);
+  const stack = useCrossfadeStack(track);
 
   return (
     <>
@@ -107,35 +113,14 @@ function ImmersiveCover({ track }: { track: MusicTrack }) {
 
 /** Active lyric line for the immersive mini-lyric strip. */
 function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
-  const [lines, setLines] = useState<MiniLyricLine[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    void fetchLyricLines(track).then((l) => {
-      if (alive) setLines(l);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [track.id, track.source]);
-
+  const lines = useLyricLines(track);
   const line = lyricLineAt(lines, currentTime);
   return <div className="hc-imm__lyric">{line?.text ?? ''}</div>;
 }
 
 /** Mobile cover page: single active lyric line right below the cover. */
 function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
-  const [lines, setLines] = useState<MiniLyricLine[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    void fetchLyricLines(track).then((l) => {
-      if (alive) setLines(l);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [track.id, track.source]);
+  const lines = useLyricLines(track);
 
   let active = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -155,14 +140,7 @@ function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime
 
 /** Cover that crossfades between the previous and current track. */
 function CoverSwap({ track }: { track: MusicTrack }) {
-  const [stack, setStack] = useState<MusicTrack[]>([track]);
-
-  useEffect(() => {
-    setStack((prev) => {
-      if (prev.length && prev[prev.length - 1].id === track.id) return prev;
-      return [...prev, track].slice(-2);
-    });
-  }, [track.id, track]);
+  const stack = useCrossfadeStack(track);
 
   return (
     <div className="fp-cover-swap hc-swap">
@@ -204,10 +182,50 @@ function GlowProgress({
     return Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * max;
   };
 
+  // Keyboard parity with the pointer scrub: arrows step ~5s, Home/End jump.
+  const keySeek = (delta: number) => {
+    const next = Math.min(max, Math.max(0, value + delta));
+    onScrub(next);
+    onCommit(next);
+  };
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = max > 0 ? Math.max(5, max / 40) : 5;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      keySeek(-step);
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      keySeek(step);
+    } else if (e.key === 'PageDown') {
+      e.preventDefault();
+      keySeek(-step * 4);
+    } else if (e.key === 'PageUp') {
+      e.preventDefault();
+      keySeek(step * 4);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      onScrub(0);
+      onCommit(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      onScrub(max);
+      onCommit(max);
+    }
+  };
+
   return (
     <div
       ref={ref}
       className={'hc-glow' + (active ? ' hc-glow--active' : '')}
+      role="slider"
+      tabIndex={0}
+      aria-label="播放进度"
+      aria-orientation="horizontal"
+      aria-valuemin={0}
+      aria-valuemax={Math.round(max)}
+      aria-valuenow={Math.round(value)}
+      aria-valuetext={formatTime(value) + ' / ' + formatTime(max)}
+      onKeyDown={onKeyDown}
       onPointerDown={(e) => {
         dragging.current = true;
         setActive(true);
@@ -271,12 +289,16 @@ export function FullPlayer() {
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [pipOpen, setPipOpen] = useState(isPipOpen());
+  const [eqPreset, setEqPresetState] = useState(() => getEqPreset());
   const [dragX, setDragX] = useState(0);
   const [dismissY, setDismissY] = useState(0);
   const [dismissX, setDismissX] = useState(0);
   const [dismissActive, setDismissActive] = useState(false);
   const dragRef = useRef({ startX: 0, dx: 0, active: false });
   const dismissRef = useRef({ startX: 0, startY: 0, dx: 0, dy: 0, edge: false, active: false });
+  // Reactive media query: a render-time matchMedia read would freeze the
+  // layout when the window is resized or rotated while the player is closed.
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     if (!open) {
@@ -292,7 +314,6 @@ export function FullPlayer() {
   const fav = favorites.includes(current.id);
   const playing = status === 'playing';
   const shown = scrub ?? currentTime;
-  const isDesktop = window.matchMedia('(min-width: 960px)').matches;
 
   const handleDownload = async () => {
     if (downloading) return;
@@ -538,6 +559,22 @@ export function FullPlayer() {
                 onClick={() => setSpeed(v)}
               >
                 {v}x
+              </button>
+            ))}
+          </div>
+
+          <div className="hc-more__label">均衡器{isWired() ? '' : ' · 当前音源不支持'}</div>
+          <div className="hc-more__chips">
+            {EQ_PRESETS.map((p) => (
+              <button
+                key={p.key}
+                className={'hc-chip' + (eqPreset === p.key ? ' hc-chip--on' : '')}
+                onClick={() => {
+                  setEqPreset(p.key);
+                  setEqPresetState(p.key);
+                }}
+              >
+                {p.label}
               </button>
             ))}
           </div>

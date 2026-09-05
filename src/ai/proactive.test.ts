@@ -99,4 +99,38 @@ describe('evaluateTriggers', () => {
     }));
     expect(out).toEqual([]);
   });
+
+  it('dj: fires every 5 session tracks, then waits for 5 more', () => {
+    const mkSession = (djCount: number | undefined, n: number) => ({
+      startedAt: Date.parse('2026-09-03T09:00:00'),
+      artists: Array.from({ length: n }, (_, i) => '歌手' + i),
+      // Milestone kinds saturated so the DJ assertions stay isolated.
+      milestoneKinds: ['milestone:minutes', 'milestone:artist'],
+      ...(djCount === undefined ? {} : { djCount }),
+    });
+    const mount = { greetingDay: dayKey(Date.parse('2026-09-03T10:00:00')), lastWeekly: Date.parse('2026-09-01T10:00:00') };
+    // 4 tracks: below the interval.
+    expect(evaluateTriggers(base({ session: mkSession(undefined, 4), ...mount }))).toEqual([]);
+    // 5 tracks since session start: fires.
+    expect(evaluateTriggers(base({ session: mkSession(undefined, 5), ...mount }))).toContain('dj');
+    // Fired at 5 (djCount=5): not again at 7.
+    expect(evaluateTriggers(base({ session: mkSession(5, 7), ...mount }))).toEqual([]);
+    // Fired at 5: fires again at 10.
+    expect(evaluateTriggers(base({ session: mkSession(5, 10), ...mount }))).toContain('dj');
+  });
+
+  it('dj: respects the global cooldown', () => {
+    const s = {
+      startedAt: Date.parse('2026-09-03T09:00:00'),
+      artists: ['a', 'b', 'c', 'd', 'e'],
+      milestoneKinds: [],
+    };
+    const out = evaluateTriggers(base({
+      session: s,
+      lastGlobal: Date.parse('2026-09-03T09:45:00'),
+      greetingDay: dayKey(Date.parse('2026-09-03T10:00:00')),
+      lastWeekly: Date.parse('2026-09-01T10:00:00'),
+    }));
+    expect(out).toEqual([]);
+  });
 });

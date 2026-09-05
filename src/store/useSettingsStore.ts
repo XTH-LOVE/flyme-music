@@ -5,10 +5,8 @@ export type AudioQuality = 'standard' | 'high' | 'lossless';
 interface SettingsState {
   quality: AudioQuality;
   autoplayNext: boolean;
-  autoDownloadWifi: boolean;
   setQuality: (q: AudioQuality) => void;
   setAutoplayNext: (v: boolean) => void;
-  setAutoDownloadWifi: (v: boolean) => void;
 }
 
 // v2: bumped so the default quality becomes lossless (highest available);
@@ -18,7 +16,6 @@ const SETTINGS_KEY = 'aurora.settings.v2';
 interface PersistedSettings {
   quality?: AudioQuality;
   autoplayNext?: boolean;
-  autoDownloadWifi?: boolean;
 }
 
 function loadSettings(): PersistedSettings {
@@ -43,7 +40,6 @@ const persisted = loadSettings();
 export const useSettingsStore = create<SettingsState>((set) => ({
   quality: persisted.quality ?? 'lossless',
   autoplayNext: persisted.autoplayNext ?? true,
-  autoDownloadWifi: persisted.autoDownloadWifi ?? false,
   setQuality: (quality) => {
     saveSettings({ quality });
     set({ quality });
@@ -51,9 +47,5 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setAutoplayNext: (autoplayNext) => {
     saveSettings({ autoplayNext });
     set({ autoplayNext });
-  },
-  setAutoDownloadWifi: (autoDownloadWifi) => {
-    saveSettings({ autoDownloadWifi });
-    set({ autoDownloadWifi });
   },
 }));

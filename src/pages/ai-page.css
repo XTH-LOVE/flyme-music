@@ -702,3 +702,36 @@
 .ai-memory-time { font-size: 11px; opacity: 0.5; }
 .ai-memory-del { border: 0; background: transparent; color: #e5484d; font-size: 12px; cursor: pointer; }
 .ai-memory-clear { margin-top: 8px; width: 100%; padding: 9px 0; border-radius: 12px; border: 1px solid rgba(229, 72, 77, 0.5); background: transparent; color: #e5484d; cursor: pointer; }
+
+/* ---------- voice input ---------- */
+.ai-inputbar__mic {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--am-surface-3, rgba(128, 128, 128, 0.16));
+  color: var(--am-text-1, inherit);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.ai-inputbar__mic--on {
+  background: var(--am-accent, #3d7bff);
+  color: #fff;
+  animation: ai-mic-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ai-mic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ---------- listen room card ---------- */
+.listen-card__actions { display: flex; gap: 8px; margin-top: 10px; }
+.listen-card__join { display: flex; gap: 8px; margin-top: 10px; }
+.listen-card__join .picker-create__input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: 2px; }
+.listen-card--on { border-color: var(--am-accent, #3d7bff); }
+.listen-card__peer { font-size: 12.5px; opacity: 0.72; margin-top: 6px; }
+.listen-card__leave { margin-top: 10px; }
+.listen-card__error { color: #e5484d; }

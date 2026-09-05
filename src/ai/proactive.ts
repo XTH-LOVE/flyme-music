@@ -4,7 +4,7 @@ import { PERSONA_PROMPTS, buildLocalReport } from './aiTools';
 import type { AiPersona } from '@/store/useAiStore';
 import type { PlayLogEntry } from '@/store/useLibraryStore';
 
-export type ProactiveKind = 'greeting' | 'weekly' | 'milestone';
+export type ProactiveKind = 'greeting' | 'weekly' | 'milestone' | 'dj';
 
 export interface SessionState {
   startedAt: number;
@@ -12,6 +12,8 @@ export interface SessionState {
   artists: string[];
   /** Milestone variants already fired this session. */
   milestoneKinds: string[];
+  /** artists.length at the last DJ interlude, so the next one waits DJ_EVERY_SONGS. */
+  djCount?: number;
 }
 
 export interface ProactiveInput {
@@ -28,6 +30,8 @@ const DAY = 86_400_000;
 const GLOBAL_COOLDOWN_MS = 30 * 60_000;
 const WEEK_MS = 7 * DAY;
 const SESSION_MINUTES_THRESHOLD = 60;
+/** Drop a DJ interlude every N session tracks (gated by the global cooldown too). */
+const DJ_EVERY_SONGS = 5;
 
 export function dayKey(ts: number): string {
   const d = new Date(ts);
@@ -63,6 +67,10 @@ export function evaluateTriggers(input: ProactiveInput): ProactiveKind[] {
         last3.length === 3 && last3.every((a) => a && a === last3[0]) && !s.milestoneKinds.includes('milestone:artist');
       if (streak) kinds.push('milestone');
     }
+  }
+  if (s && !cooling) {
+    const sinceDj = s.artists.length - (s.djCount ?? 0);
+    if (s.artists.length >= DJ_EVERY_SONGS && sinceDj >= DJ_EVERY_SONGS) kinds.push('dj');
   }
   return kinds;
 }
@@ -210,6 +218,17 @@ function localMilestone(minutes: boolean, artist: string | null): string {
     : '连着听好几首' + (artist ?? '同一位歌手') + '了，要不要我再多排几首？';
 }
 
+const DJ_LOCAL_LINES = [
+  '刚那首不错吧，我接着往下排了几首氛围相近的，不用管我，听就好。',
+  '这首听完我把节奏顺了顺，接下来交给运气和旋律。',
+  '我在这儿守着队列呢，切歌的事交给我，你只管听。',
+];
+
+function localDj(artist: string | null): string {
+  const line = DJ_LOCAL_LINES[Math.floor(Date.now() / 60000) % DJ_LOCAL_LINES.length];
+  return artist ? '刚才循环到' + artist + '，' + line : line;
+}
+
 async function generateText(
   kind: ProactiveKind,
   persona: AiPersona,
@@ -222,7 +241,9 @@ async function generateText(
       ? '写一句不超过 40 字的问候，自然结合时段与用户的听歌偏好。不要列表、不要 emoji。'
       : kind === 'milestone'
         ? '写 1-2 句关心或提议（连续听歌较久，或连续听了同一位歌手），口语化。不要列表和 emoji。'
-        : '根据数据写 4-6 句上周听歌报告：点名最常听的歌曲与歌手、发现的新口味，并结合长期偏好给一句鼓励或建议。语气自然有温度，不要列表和 emoji。';
+        : kind === 'dj'
+          ? '写 1-2 句电台串场：轻轻承接刚才的歌手或歌，再自然引出接下来继续听的音乐氛围。像电台 DJ 顺频道，不要报幕腔。不要列表和 emoji。'
+          : '根据数据写 4-6 句上周听歌报告：点名最常听的歌曲与歌手、发现的新口味，并结合长期偏好给一句鼓励或建议。语气自然有温度，不要列表和 emoji。';
   try {
     const text = await chatOnce(
       { model },
@@ -271,6 +292,11 @@ function buildDataText(
     const isStreak = streak.length === 3 && streak.every((a) => a && a === streak[0]);
     return '这个会话已经连续听了约 ' + minutes + ' 分钟' + (isStreak ? '，最近连续 3 首都是 ' + artist : '，当前歌手是 ' + artist) + '。';
   }
+  if (kind === 'dj' && session) {
+    const recent = session.artists.slice(-5).filter(Boolean);
+    const current = session.artists[session.artists.length - 1] ?? '';
+    return '这个会话刚听完 ' + session.artists.length + ' 首，最近的歌手依次是：' + (recent.join('、') || current) + '。现在在听 ' + (current || '（未知）') + '。';
+  }
   return weekDataText(aggregateWeek(playLog, now));
 }
 
@@ -291,6 +317,10 @@ export async function generateProactive(
     const minutes = opts.session ? (now - opts.session.startedAt) / 60_000 >= 60 : true;
     const artist = opts.session?.artists[opts.session.artists.length - 1] ?? null;
     return { text: localMilestone(minutes, artist), usedAi: false };
+  }
+  if (kind === 'dj') {
+    const artist = opts.session?.artists[opts.session.artists.length - 1] ?? null;
+    return { text: localDj(artist), usedAi: false };
   }
   return { text: buildLocalReport(opts.playLog), usedAi: false };
 }
@@ -321,6 +351,19 @@ export function milestoneTrigger(now: number, enabled: boolean, playLog: { ts: n
   }).includes('milestone');
 }
 
+/** Track-change gate check for DJ interludes. */
+export function djTrigger(now: number, enabled: boolean): boolean {
+  return evaluateTriggers({
+    now,
+    enabled,
+    greetingDay: readGreetingDay(),
+    lastWeekly: readWeekly(),
+    lastGlobal: readGlobal(),
+    session: readSession(),
+    playLog: [],
+  }).includes('dj');
+}
+
 /** Record that a proactive message of this kind was just shown. */
 export function markFired(kind: ProactiveKind, variant: string, now: number): void {
   markGlobal(now);
@@ -330,6 +373,13 @@ export function markFired(kind: ProactiveKind, variant: string, now: number): vo
     const s = readSession();
     if (s && !s.milestoneKinds.includes(variant)) {
       s.milestoneKinds.push(variant);
+      writeJson(sessionStorage, SESSION_KEY, s);
+    }
+  }
+  if (kind === 'dj') {
+    const s = readSession();
+    if (s) {
+      s.djCount = s.artists.length;
       writeJson(sessionStorage, SESSION_KEY, s);
     }
   }

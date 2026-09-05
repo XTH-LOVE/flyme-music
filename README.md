@@ -31,10 +31,10 @@ npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JA
 
 ### 已知限制
 
-- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.flyme.music/files/Download/FlymeMusic；写入公共 Download 需要 MediaStore，属后续增强
+- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.auroramusic.app/files/Download/AuroraMusic（品牌统一前安装的旧版本为 com.flyme.music/…/FlymeMusic，升级后新下载进入新目录）；写入公共 Download 需要 MediaStore，属后续增强
 - 打包应用内取消 AI 请求只会停止前端渲染，Rust 侧的上游请求会自然结束
 - 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
-- 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除
+- 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除；线上 /api 端点已把这两个 Origin 加入白名单
 
 ## 部署网页版到 Cloudflare Pages（flyme-music.pages.dev）
 

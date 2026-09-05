@@ -33,7 +33,16 @@ export function TrackListItem({ track, context, index, onRemove }: TrackListItem
     <>
       <div
         className={'song-item' + (active ? ' song-item--active' : '')}
+        role="button"
+        tabIndex={0}
+        aria-label={'播放 ' + track.name + ' - ' + track.artist.join(' / ')}
         onClick={() => playerController.playTrack(track, context)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            playerController.playTrack(track, context);
+          }
+        }}
       >
         {typeof index === 'number' ? <span className="song-item__index">{index + 1}</span> : null}
         <div className="song-item__cover">

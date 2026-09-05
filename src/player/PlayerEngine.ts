@@ -1,3 +1,5 @@
+import { ensureWired } from './webAudio';
+
 export type EngineEvent = 'tick' | 'ended';
 type EngineListener = (event: EngineEvent) => void;
 
@@ -86,6 +88,9 @@ export class PlayerEngine {
       }
     }
     this.simulated = false;
+    // Optional Web Audio graph (analyser + EQ): only wires safe same-origin /
+    // blob sources, cross-origin streams keep the plain element path.
+    ensureWired(el);
     // Respect a pause that happened while the URL was resolving.
     if (this.wanted) {
       void el.play().catch(() => {

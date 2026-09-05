@@ -106,7 +106,7 @@ export async function shareLyricCard(track: MusicTrack, currentTime: number): Pr
 
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '400 22px system-ui, "Microsoft YaHei", sans-serif';
-  ctx.fillText('Flyme Music', W / 2, H - 60);
+  ctx.fillText('Aurora Music', W / 2, H - 60);
 
   const fileName = track.name + '-歌词卡片.png';
   if (isTauri()) {

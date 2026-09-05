@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { TrackCover } from '@/components/TrackCover';
 import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
+import { speechSupported, startSpeechInput, type SpeechSession } from '@/utils/speechInput';
+import { ListenRoomCard } from '@/components/listen/ListenRoomCard';
 import { useAiStore, aiConfigured, nextAiMsgId, type AiMessage, type AiPersona } from '@/store/useAiStore';
 import { chatStreamWithFallback, type AiChatMessage } from '@/ai/aiClient';
 import {
@@ -256,6 +258,34 @@ export function AiPage() {
   const feedRef = useRef<HTMLDivElement>(null);
   /** Aborts the in-flight agent loop (stop button / unmount / new message). */
   const abortRef = useRef<AbortController | null>(null);
+  /** Voice input (Web Speech API), hidden entirely where unsupported. */
+  const canSpeak = useMemo(() => speechSupported(), []);
+  const [listening, setListening] = useState(false);
+  const speechRef = useRef<SpeechSession | null>(null);
+
+  const toggleMic = () => {
+    if (listening) {
+      speechRef.current?.stop();
+      speechRef.current = null;
+      setListening(false);
+      return;
+    }
+    const session = startSpeechInput({
+      onResult: (text) => setInput(text),
+      onEnd: () => {
+        speechRef.current = null;
+        setListening(false);
+      },
+    });
+    if (session) {
+      speechRef.current = session;
+      setListening(true);
+    }
+  };
+
+  useEffect(() => {
+    return () => speechRef.current?.stop();
+  }, []);
 
   const cfg = { model };
   const configured = aiConfigured(cfg);
@@ -531,6 +561,17 @@ export function AiPage() {
               if (e.key === 'Enter') void send();
             }}
           />
+          {canSpeak ? (
+            <button
+              className={'ai-inputbar__mic' + (listening ? ' ai-inputbar__mic--on' : '')}
+              onClick={toggleMic}
+              aria-label={listening ? '停止语音输入' : '语音输入'}
+              aria-pressed={listening}
+              title={listening ? '停止语音输入' : '语音输入'}
+            >
+              <Icon name="mic" size={16} />
+            </button>
+          ) : null}
           {busy ? (
             <button
               className="ai-inputbar__send ai-inputbar__send--stop"
@@ -583,6 +624,8 @@ export function AiPage() {
             AI 连接设置
           </Link>
         </div>
+
+        <ListenRoomCard />
 
         <div className="ai-side-card">
           <div className="ai-side-card__title">她会做什么</div>

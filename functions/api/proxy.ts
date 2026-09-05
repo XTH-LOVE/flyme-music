@@ -1,9 +1,11 @@
 // Cloudflare Pages Function: GET /api/proxy?url=<enc>&referer=<enc>
 // Generic forwarder with a caller-supplied Referer (QQ Music endpoints).
-import { PC_USER_AGENT, isHttpUrl, queryParam, errorJson, type PagesContext } from './_shared';
+import { PC_USER_AGENT, isHttpUrl, queryParam, errorJson, guard, type PagesContext } from './_shared';
 
 export async function onRequest(context: PagesContext): Promise<Response> {
   const request = context.request;
+  const blocked = guard(request, context.env, 'proxy');
+  if (blocked) return blocked;
   const target = queryParam(request, 'url');
   const referer = queryParam(request, 'referer') ?? '';
   if (!isHttpUrl(target)) {

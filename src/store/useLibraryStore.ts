@@ -28,6 +28,12 @@ interface LibraryState {
   addSearchKeyword: (keyword: string) => void;
   removeSearchKeyword: (keyword: string) => void;
   clearSearchHistory: () => void;
+  /** Bulk rehydrate (cloud sync / backup restore), persisting each slice. */
+  hydrateLibrary: (patch: {
+    recentTracks?: MusicTrack[];
+    favoriteSongIds?: string[];
+    playLog?: PlayLogEntry[];
+  }) => void;
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -116,5 +122,22 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   clearSearchHistory: () => {
     save('aurora.searchHistory', []);
     set({ searchHistory: [] });
+  },
+
+  hydrateLibrary: (patch) => {
+    const next: Partial<LibraryState> = {};
+    if (patch.recentTracks) {
+      save('aurora.recentTracks.v1', patch.recentTracks.slice(0, MAX_RECENT));
+      next.recentTracks = patch.recentTracks.slice(0, MAX_RECENT);
+    }
+    if (patch.favoriteSongIds) {
+      save('aurora.favorites', patch.favoriteSongIds);
+      next.favoriteSongIds = patch.favoriteSongIds;
+    }
+    if (patch.playLog) {
+      save('aurora.playLog.v1', patch.playLog.slice(0, MAX_PLAY_LOG));
+      next.playLog = patch.playLog.slice(0, MAX_PLAY_LOG);
+    }
+    if (Object.keys(next).length) set(next);
   },
 }));

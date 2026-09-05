@@ -5,6 +5,7 @@ import { useAiStore, aiConfigured, nextAiMsgId } from '@/store/useAiStore';
 import { notify } from '@/utils/notify';
 import {
   generateProactive,
+  djTrigger,
   markFired,
   milestoneTrigger,
   mountTriggers,
@@ -64,6 +65,11 @@ export function ProactiveEngine() {
       lastKey.current = next;
       if (!next || !s.current) return;
       const session = trackSession(s.current.artist[0] ?? null, Date.now());
+      if (djTrigger(Date.now(), proactive)) {
+        // DJ interlude rides on the session counter (every DJ_EVERY_SONGS tracks).
+        push('dj', 'dj', useLibraryStore.getState().playLog, session);
+        return;
+      }
       if (milestoneTrigger(Date.now(), proactive, useLibraryStore.getState().playLog)) {
         const variant = (Date.now() - session.startedAt) / 60_000 >= 60 ? 'milestone:minutes' : 'milestone:artist';
         push('milestone', variant, useLibraryStore.getState().playLog, session);

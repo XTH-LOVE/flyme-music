@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import './ds.css';
 
 interface BottomSheetProps {
@@ -15,6 +16,8 @@ interface BottomSheetProps {
 export function BottomSheet({ open, title, onClose, children, variant = 'sheet' }: BottomSheetProps) {
   const [visible, setVisible] = useState(open);
   const [closing, setClosing] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(sheetRef, open);
 
   useEffect(() => {
     if (open) {
@@ -50,9 +53,16 @@ export function BottomSheet({ open, title, onClose, children, variant = 'sheet' 
 
   return createPortal(
     <div className={cls}>
-      <div className="am-sheet-scrim" onClick={onClose} />
-      <div className="am-sheet">
-        <div className="am-sheet__grab" />
+      <div className="am-sheet-scrim" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={sheetRef}
+        className="am-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+      >
+        <div className="am-sheet__grab" aria-hidden="true" />
         {title ? <div className="am-sheet__title">{title}</div> : null}
         <div className="am-sheet__body">{children}</div>
       </div>

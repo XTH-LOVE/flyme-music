@@ -1,9 +1,11 @@
 // Cloudflare Pages Function: GET /api/img?url=<enc>
 // Remote-image proxy - bypasses CDN hotlink / referrer blocks (covers).
-import { PC_USER_AGENT, isHttpUrl, queryParam, type PagesContext } from './_shared';
+import { PC_USER_AGENT, isHttpUrl, queryParam, guard, type PagesContext } from './_shared';
 
 export async function onRequest(context: PagesContext): Promise<Response> {
   const request = context.request;
+  const blocked = guard(request, context.env, 'img');
+  if (blocked) return blocked;
   const target = queryParam(request, 'url');
   if (!isHttpUrl(target)) {
     return new Response('bad url', { status: 400 });

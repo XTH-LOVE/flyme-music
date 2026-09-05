@@ -5,7 +5,7 @@
  */
 import type { Song } from '../types';
 
-export type MusicSource = 'netease' | 'joox' | 'qq' | 'mock';
+export type MusicSource = 'netease' | 'joox' | 'qq' | 'mock' | 'local';
 
 export interface MusicTrack {
   id: string;
@@ -67,6 +67,7 @@ export const sourceLabels: Record<MusicSource, string> = {
   qq: 'QQ',
   joox: 'Joox',
   mock: '本地',
+  local: '文件',
 };
 
 /** Every Song in this app is also a MusicTrack (local songs use source 'mock'). */

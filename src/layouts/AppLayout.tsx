@@ -8,18 +8,36 @@ import { AiCompanion } from '@/components/ai/AiCompanion';
 import { ProactiveEngine } from '@/ai/ProactiveEngine';
 import { MonetAccent } from '@/components/MonetAccent';
 import { usePlaybackSync } from '@/hooks/usePlaybackSync';
+import { useMediaSession } from '@/hooks/useMediaSession';
 import { useSleepTimer } from '@/hooks/useSleepTimer';
 import { usePrefetch } from '@/hooks/usePrefetch';
 import { getAiStatus } from '@/ai/aiClient';
 import { useAiStore } from '@/store/useAiStore';
 import './layout.css';
 import { registerAppNavigation } from '@/app/navigation';
+import { startLibrarySync } from '@/sync/librarySync';
+import { useListenRoom } from '@/hooks/useListenRoom';
 import { useEffect } from 'react';
 
 export function AppLayout() {
   usePlaybackSync();
+  useMediaSession();
   useSleepTimer();
   usePrefetch();
+  useListenRoom();
+  useEffect(() => {
+    startLibrarySync();
+    let unlistenMedia: (() => void) | null = null;
+    // Global media shortcuts only exist in the packaged app.
+    void import('@/lib/globalMediaKeys').then((m) =>
+      m.mountGlobalMediaKeys().then((unlisten) => {
+        unlistenMedia = unlisten;
+      }),
+    );
+    return () => {
+      unlistenMedia?.();
+    };
+  }, []);
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => registerAppNavigation(navigate), [navigate]);

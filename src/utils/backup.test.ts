@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BACKUP_VERSION, backupFileName, buildBackup, parseBackup } from './backup';
+import { BACKUP_APP, BACKUP_VERSION, backupFileName, buildBackup, parseBackup } from './backup';
 import type { MusicTrack } from '@/music/source/types';
 
 const tr = (id: string): MusicTrack => ({
@@ -22,7 +22,7 @@ describe('buildBackup', () => {
       dislikes: ['周杰伦'],
       playlists: [],
     });
-    expect(b.app).toBe('flyme-music');
+    expect(b.app).toBe(BACKUP_APP);
     expect(b.schema).toBe(BACKUP_VERSION);
     expect(b.favorites).toEqual(['1', '2']);
     expect(b.dislikes).toEqual(['周杰伦']);
@@ -44,10 +44,17 @@ describe('backupFileName', () => {
 });
 
 describe('parseBackup', () => {
-  it('rejects non-flyme-music payloads', () => {
+  it('rejects foreign payloads', () => {
     expect(parseBackup({ app: 'other' })).toBeNull();
     expect(parseBackup(null)).toBeNull();
     expect(parseBackup('x')).toBeNull();
+  });
+
+  it('accepts the legacy pre-rename app marker', () => {
+    const parsed = parseBackup({ app: 'flyme-music', favorites: ['1'] });
+    expect(parsed).not.toBeNull();
+    expect(parsed!.app).toBe(BACKUP_APP);
+    expect(parsed!.favorites).toEqual(['1']);
   });
 
   it('round-trips a valid backup', () => {
@@ -66,7 +73,7 @@ describe('parseBackup', () => {
   });
 
   it('coerces malformed array fields to empty arrays', () => {
-    const parsed = parseBackup({ app: 'flyme-music', favorites: 'nope', dislikes: 42 });
+    const parsed = parseBackup({ app: 'aurora-music', favorites: 'nope', dislikes: 42 });
     expect(parsed!.favorites).toEqual([]);
     expect(parsed!.dislikes).toEqual([]);
   });

@@ -18,6 +18,15 @@ function mapUser(user: { id: string; email?: string; user_metadata?: Record<stri
   return { id: user.id, username: String(meta.username || user.email || ''), nickname: String(meta.nickname || meta.display_name || user.email?.split('@')[0] || 'Aurora 听友'), avatarUrl: typeof meta.avatarUrl === 'string' ? meta.avatarUrl : undefined };
 }
 const normalizeUsername = (username: string) => username.trim().toLowerCase();
+/**
+ * New accounts: 8-64 chars with at least one letter and one digit - a 6-digit
+ * numeric password has only 10^6 combinations and is brute-forceable. The
+ * account-auth edge function enforces the same rule at registration.
+ */
+const STRONG_PASSWORD = /^(?=.*\p{L})(?=.*\d).{8,64}$/u;
+/** Accounts created under the legacy 6-digit numeric policy may still log in. */
+const LEGACY_PASSWORD = /^\d{6}$/;
+const PASSWORD_MESSAGE = '密码需要 8-64 位，且同时包含字母和数字';
 // Keep the historical address for ASCII accounts; encode Unicode names so they remain valid emails.
 const internalEmail = (username: string) => {
   const normalized = normalizeUsername(username);
@@ -32,7 +41,7 @@ const internalEmail = (username: string) => {
 export const useAuthStore = create<AuthState>()(persist((set, get) => ({
   user: null, token: '', ready: false,
   register: async (email, password) => {
-    if (!/^\d{6}$/.test(password)) return { ok: false, message: '密码必须是 6 位数字' };
+    if (!STRONG_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
     if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
     const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
     if (error) return { ok: false, message: error.message };
@@ -40,7 +49,7 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
     return { ok: true, message: data.session ? '注册成功' : '注册成功，请查收验证邮件后登录' };
   },
   login: async (email, password) => {
-    if (!/^\d{6}$/.test(password)) return { ok: false, message: '密码必须是 6 位数字' };
+    if (!STRONG_PASSWORD.test(password) && !LEGACY_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
     if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error || !data.user || !data.session) return { ok: false, message: error?.message || '登录失败' };
@@ -51,14 +60,14 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
     if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
     const normalized = normalizeUsername(username);
     if (!/^[\p{L}\p{N}_]{2,20}$/u.test(normalized)) return { ok: false, message: '账号名需要 2-20 位中文、字母、数字或下划线' };
-    if (!/^\d{6}$/.test(password)) return { ok: false, message: '密码必须是 6 位数字' };
+    if (!STRONG_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
     const { data, error } = await supabase.functions.invoke('account-auth', { body: { action: 'register', displayName: displayName.trim() || 'Aurora 听友', username: normalized, password } });
     if (error || data?.error) return { ok: false, message: data?.error || error?.message || '注册失败' };
     return get().loginUsername(normalized, password);
   },
   loginUsername: async (username, password) => {
     if (supabase) {
-      if (!/^\d{6}$/.test(password)) return { ok: false, message: '密码必须是 6 位数字' };
+      if (!STRONG_PASSWORD.test(password) && !LEGACY_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
       const { data, error } = await supabase.auth.signInWithPassword({ email: internalEmail(username), password });
       if (error || !data.user || !data.session) return { ok: false, message: error?.message || '账号或密码错误' };
       set({ user: mapUser(data.user), token: data.session.access_token }); return { ok: true };

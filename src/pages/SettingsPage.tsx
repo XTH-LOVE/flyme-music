@@ -14,6 +14,11 @@ import {
 import './pages.css';
 import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
 import { checkNeteaseQr, getNeteaseQrKey, getNeteaseUser } from '@/music/netease/netease-auth';
+import {
+  notificationsSupported,
+  nowPlayingPermission,
+  requestNowPlayingPermission,
+} from '@/utils/nowPlayingNotify';
 
 const themeOptions: { key: ThemeMode; label: string; icon: IconName }[] = [
   { key: 'light', label: '浅色', icon: 'sun' },
@@ -51,6 +56,9 @@ export function SettingsPage() {
   const [neteaseQrKey, setNeteaseQrKey] = useState('');
   const [neteaseQrState, setNeteaseQrState] = useState<'idle' | 'loading' | 'waiting' | 'scanned' | 'expired' | 'success' | 'error'>('idle');
   const [neteaseQrVersion, setNeteaseQrVersion] = useState(0);
+  const [notificationPermission, setNotificationPermission] = useState(
+    () => (notificationsSupported() ? (nowPlayingPermission() as ReturnType<typeof nowPlayingPermission>) : 'unsupported'),
+  );
 
   useEffect(() => {
     if (neteaseAuth.user) return;
@@ -358,16 +366,33 @@ export function SettingsPage() {
             ))}
           </div>
         </div>
-      </div>
-
-      <SectionHeader title="下载" />
-      <div className="settings-card">
         <div className="settings-row">
           <div className="settings-row__body">
-            <div className="settings-row__title">仅在 Wi-Fi 下自动下载</div>
-            <div className="settings-row__desc">避免消耗移动数据</div>
+            <div className="settings-row__title">切歌桌面通知</div>
+            <div className="settings-row__desc">
+              {notificationPermission === 'granted'
+                ? '应用在后台时通知当前歌曲（可在系统权限中关闭）'
+                : notificationPermission === 'denied'
+                  ? '通知权限已被拒绝，请在浏览器/系统设置中放行'
+                  : '应用切到后台时通知当前歌曲'}
+            </div>
           </div>
-          <Switch checked={settings.autoDownloadWifi} onChange={settings.setAutoDownloadWifi} />
+          {notificationPermission === 'granted' ? (
+            <span className="settings-row__value">已开启</span>
+          ) : notificationPermission === 'denied' ? (
+            <span className="settings-row__value">已阻止</span>
+          ) : notificationPermission === 'unsupported' ? null : (
+            <button
+              className="am-btn am-btn--secondary am-btn--sm"
+              onClick={() => {
+                void requestNowPlayingPermission().then((p) => {
+                  if (notificationsSupported()) setNotificationPermission(p);
+                });
+              }}
+            >
+              开启
+            </button>
+          )}
         </div>
       </div>
 
@@ -375,7 +400,7 @@ export function SettingsPage() {
       <div className="settings-card">
         <div className="settings-row">
           <div className="settings-row__body">
-            <div className="settings-row__title">Flyme Music</div>
+            <div className="settings-row__title">Aurora Music</div>
             <div className="settings-row__desc">版本 0.3.0 · HyperOS 风格现代音乐播放器 · Aurora AI 伴侣</div>
           </div>
         </div>

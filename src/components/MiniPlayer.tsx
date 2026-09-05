@@ -5,20 +5,14 @@ import { TrackCover } from '@/components/TrackCover';
 import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
+import { useCrossfadeStack } from '@/hooks/useCrossfadeStack';
 import { fetchLyricLines, lyricLineAt, type MiniLyricLine } from '@/utils/currentLyric';
 import type { MusicTrack } from '@/music/source/types';
 import './components.css';
 import './mini-glass.css';
 
 function MiniCoverSwap({ track }: { track: MusicTrack }) {
-  const [stack, setStack] = useState<MusicTrack[]>([track]);
-
-  useEffect(() => {
-    setStack((prev) => {
-      if (prev.length && prev[prev.length - 1].id === track.id) return prev;
-      return [...prev, track].slice(-2);
-    });
-  }, [track.id, track]);
+  const stack = useCrossfadeStack(track);
 
   return (
     <>

@@ -6,13 +6,12 @@ import { TrackListItem } from '@/components/TrackListItem';
 import { MusicCard } from '@/components/MusicCard';
 import { ArtistCard } from '@/components/ArtistCard';
 import { TrackCover } from '@/components/TrackCover';
+import { PlaylistArt } from '@/components/PlaylistArt';
 import { NetPlaylistCard } from '@/components/NetPlaylistCard';
 import { Chip } from '@/design-system/components/Chip';
 import { Dialog } from '@/design-system/components/Dialog';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
-import { Cover } from '@/design-system/components/Cover';
-import { fallbackPalette } from '@/utils/palette';
 import { useSongs, useAllAlbums, useAllArtists } from '@/music/musicStore';
 import { useNeteaseRecommend } from '@/music/netease/useNetease';
 import { songToTrack, type MusicTrack } from '@/music/source/types';
@@ -315,6 +314,10 @@ export function MePage() {
 
         {tab === 'mine' && (
           <>
+            <button className="am-btn am-btn--secondary am-btn--md create-pl-btn" onClick={() => navigate('/local')}>
+              <Icon name="music" size={16} />
+              本地音乐
+            </button>
             <button className="am-btn am-btn--secondary am-btn--md create-pl-btn" onClick={() => { setNewName(''); setCreateOpen(true); }}>
               <Icon name="more" size={16} />
               新建歌单
@@ -329,7 +332,7 @@ export function MePage() {
                         {first ? (
                           <TrackCover track={first} radius="0" bare />
                         ) : (
-                          <Cover palette={fallbackPalette(pl.id)} title={pl.name} radius="0" />
+                          <PlaylistArt name={pl.name} seed={pl.id} radius="0" />
                         )}
                       </div>
                       <div className="user-pl-card__title">{pl.name}</div>
@@ -437,7 +440,7 @@ export function MePage() {
           <div className="settings-account-tabs"><button className={'quality-chip' + (authType === 'username' ? ' quality-chip--active' : '')} onClick={() => setAuthType('username')}>账号密码</button><button className={'quality-chip' + (authType === 'email' ? ' quality-chip--active' : '')} onClick={() => setAuthType('email')}>邮箱密码</button></div>
           {authMode === 'register' && authType === 'username' ? <label className="auth-field"><span>昵称（可选）</span><input className="picker-create__input" value={authDisplayName} placeholder="默认显示 Aurora 听友" onChange={(e) => setAuthDisplayName(e.target.value)} /></label> : null}
           <label className="auth-field"><span>{authType === 'username' ? '账号名' : '邮箱'}</span><input className="picker-create__input" type={authType === 'email' ? 'email' : 'text'} value={authUsername} placeholder={authType === 'username' ? '支持中文、字母、数字或下划线' : 'you@example.com'} autoComplete={authType === 'email' ? 'email' : 'username'} onChange={(e) => setAuthUsername(e.target.value)} /></label>
-          <label className="auth-field"><span>密码</span><input className="picker-create__input" type="password" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} placeholder="6 位数字" onChange={(e) => setAuthPassword(e.target.value.replace(/\D/g, '').slice(0, 6))} /></label>
+          <label className="auth-field"><span>密码</span><input className="picker-create__input" type="password" maxLength={64} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} placeholder={authMode === 'login' ? '至少 8 位（旧版 6 位数字也可）' : '8 位以上，含字母和数字'} onChange={(e) => setAuthPassword(e.target.value)} /></label>
           <button className="am-btn am-btn--primary am-btn--block" onClick={() => void submitAuth()}>{authMode === 'login' ? '登录' : '注册并登录'}</button>
           {authMsg ? <div className="settings-account-note">{authMsg}</div> : null}
           <button className="am-btn am-btn--ghost am-btn--block" onClick={() => { setAuthOpen(false); navigate('/settings'); }}>使用网易云扫码登录</button>

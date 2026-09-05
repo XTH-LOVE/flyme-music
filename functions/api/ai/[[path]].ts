@@ -9,11 +9,14 @@ import {
   AI_DEFAULT_MODEL,
   json,
   errorJson,
+  guard,
   type PagesContext,
 } from '../_shared';
 
 export async function onRequest(context: PagesContext): Promise<Response> {
   const request = context.request;
+  const blocked = guard(request, context.env, 'ai');
+  if (blocked) return blocked;
   const endpoint = (context.env.AURORA_AI_ENDPOINT || AI_DEFAULT_ENDPOINT).replace(/\/$/, '');
   const apiKey = context.env.AURORA_AI_API_KEY?.trim() ?? '';
   const configuredModel = context.env.AURORA_AI_MODEL?.trim() || AI_DEFAULT_MODEL;

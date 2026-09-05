@@ -12,8 +12,13 @@ import { saveBlobInBrowser } from '@/utils/saveBlob';
 
 export const BACKUP_VERSION = 1;
 
+/** Marker written into every new backup file. */
+export const BACKUP_APP = 'aurora-music';
+/** Marker from before the Flyme→Aurora rename; still accepted on import. */
+const LEGACY_BACKUP_APP = 'flyme-music';
+
 export interface AuroraBackup {
-  app: 'flyme-music';
+  app: typeof BACKUP_APP;
   schema: number;
   exportedAt: number;
   favorites: string[];
@@ -33,7 +38,7 @@ export interface BackupPayload {
 
 export function buildBackup(payload: BackupPayload): AuroraBackup {
   return {
-    app: 'flyme-music',
+    app: BACKUP_APP,
     schema: BACKUP_VERSION,
     exportedAt: Date.now(),
     favorites: payload.favorites ?? [],
@@ -60,10 +65,12 @@ export function backupFileName(now = new Date()): string {
 export function parseBackup(raw: unknown): AuroraBackup | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
-  if (o.app !== 'flyme-music') return null;
+  // Accept the current marker and the pre-rename legacy marker; normalize to
+  // the current one so old exports keep importing after the rebrand.
+  if (o.app !== BACKUP_APP && o.app !== LEGACY_BACKUP_APP) return null;
   const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
   return {
-    app: 'flyme-music',
+    app: BACKUP_APP,
     schema: typeof o.schema === 'number' ? o.schema : 0,
     exportedAt: typeof o.exportedAt === 'number' ? o.exportedAt : Date.now(),
     favorites: arr(o.favorites).map(String),

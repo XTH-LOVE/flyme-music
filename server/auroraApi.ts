@@ -12,6 +12,13 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import {
+  isAllowedRequest,
+  rateLimit,
+  RATE_LIMITS,
+  AI_DEFAULT_ENDPOINT,
+  AI_DEFAULT_MODEL,
+} from '../src/lib/apiGuard';
 
 const PC_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -44,6 +51,41 @@ function isHttpUrl(target: string | null): target is string {
   return Boolean(target && /^https?:\/\//.test(target));
 }
 
+/**
+ * Same-origin fence + per-IP rate limit for every handler. The browser app
+ * always sends Origin (fetch) or Referer (img/media tags), so this only
+ * blocks non-browser free-riding: scripts hitting /api/ai to burn the
+ * server-owned key, or using the proxies as an open relay. Extra origins can
+ * be whitelisted via the AURORA_ALLOWED_ORIGINS env var (comma separated).
+ */
+function guardRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  scope: keyof typeof RATE_LIMITS,
+): boolean {
+  const originHeader = req.headers.origin;
+  const refererHeader = req.headers.referer;
+  const allowed = isAllowedRequest({
+    host: String(req.headers.host ?? ''),
+    origin: typeof originHeader === 'string' ? originHeader : null,
+    referer: typeof refererHeader === 'string' ? refererHeader : null,
+    extraAllowed: (process.env.AURORA_ALLOWED_ORIGINS ?? '').split(','),
+  });
+  if (!allowed) {
+    res.statusCode = 403;
+    res.end(JSON.stringify({ error: 'origin not allowed' }));
+    return false;
+  }
+  const ip = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || 'unknown';
+  if (!rateLimit(scope + ':' + ip, RATE_LIMITS[scope], 60_000)) {
+    res.statusCode = 429;
+    res.setHeader('Retry-After', '60');
+    res.end(JSON.stringify({ error: 'rate limited' }));
+    return false;
+  }
+  return true;
+}
+
 async function streamUpstreamBody(
   res: ServerResponse,
   body: ReadableStream<Uint8Array>,
@@ -70,6 +112,7 @@ function upstreamFailure(res: ServerResponse, e: unknown, raw = false): void {
 /** Generic forwarder with a caller-supplied Referer (QQ Music endpoints).
  * The packaged Tauri app uses plugin-http instead, so this never ships there. */
 export async function handleProxy(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!guardRequest(req, res, 'proxy')) return;
   const query = parseQuery(req);
   const target = query.get('url');
   const referer = query.get('referer') ?? '';
@@ -96,6 +139,7 @@ export async function handleProxy(req: IncomingMessage, res: ServerResponse): Pr
 
 /** Remote-image proxy - bypasses CDN hotlink / referrer blocks (covers). */
 export async function handleImg(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!guardRequest(req, res, 'img')) return;
   const target = parseQuery(req).get('url');
   if (!isHttpUrl(target)) {
     badUrl(res);
@@ -123,6 +167,7 @@ export async function handleImg(req: IncomingMessage, res: ServerResponse): Prom
 
 /** Streams remote media through the server so downloads bypass CORS. */
 export async function handleMediaProxy(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!guardRequest(req, res, 'media-proxy')) return;
   const target = parseQuery(req).get('url');
   if (!isHttpUrl(target)) {
     badUrl(res);
@@ -154,6 +199,7 @@ export async function handleMediaProxy(req: IncomingMessage, res: ServerResponse
  * src/music/netease/weapi.ts, we only relay the form and return the upstream
  * body plus any Set-Cookie session values. */
 export async function handleNeteaseWeapi(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!guardRequest(req, res, 'weapi')) return;
   if (req.method !== 'POST') {
     res.statusCode = 405;
     res.end(JSON.stringify({ error: 'method not allowed' }));
@@ -171,18 +217,26 @@ export async function handleNeteaseWeapi(req: IncomingMessage, res: ServerRespon
       res.end(JSON.stringify({ error: 'bad path or form' }));
       return;
     }
-    const upstream = await fetch('https://music.163.com' + apiPath, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': PC_USER_AGENT,
-        Referer: 'https://music.163.com',
-        Origin: 'https://music.163.com',
-        Cookie: typeof cookie === 'string' ? cookie.replace(/[\r\n]/g, '').slice(0, 12000) : '',
-      },
-      body: form,
-    });
-    const text = await upstream.text();
+    const relay = () =>
+      fetch('https://music.163.com' + apiPath, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': PC_USER_AGENT,
+          Referer: 'https://music.163.com',
+          Origin: 'https://music.163.com',
+          Cookie: typeof cookie === 'string' ? cookie.replace(/[\r\n]/g, '').slice(0, 12000) : '',
+        },
+        body: form,
+      });
+    // Netease risk control (-462 etc.) is per-egress-IP and intermittent; one
+    // same-identity retry often rides a different egress and clears it.
+    let upstream = await relay();
+    let text = await upstream.text();
+    if (isRiskBody(text)) {
+      upstream = await relay();
+      text = await upstream.text();
+    }
     const joined = getResponseCookie(upstream.headers);
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ body: text, cookies: joined ? joined.split('; ') : [] }));
@@ -192,12 +246,22 @@ export async function handleNeteaseWeapi(req: IncomingMessage, res: ServerRespon
   }
 }
 
+function isRiskBody(text: string): boolean {
+  try {
+    const code = (JSON.parse(text) as { code?: number }).code;
+    return code === -462 || code === 462 || code === -460 || code === 460 || code === 512;
+  } catch {
+    return false;
+  }
+}
+
 /** OpenAI-compatible AI pass-through. Credentials come from runtime
  * environment variables and are never accepted from browser requests. */
 export async function handleAi(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const endpoint = (process.env.AURORA_AI_ENDPOINT || 'https://opencode.ai/zen/v1').replace(/\/$/, '');
+  if (!guardRequest(req, res, 'ai')) return;
+  const endpoint = (process.env.AURORA_AI_ENDPOINT || AI_DEFAULT_ENDPOINT).replace(/\/$/, '');
   const apiKey = process.env.AURORA_AI_API_KEY?.trim() ?? '';
-  const configuredModel = process.env.AURORA_AI_MODEL?.trim() ?? '';
+  const configuredModel = process.env.AURORA_AI_MODEL?.trim() || AI_DEFAULT_MODEL;
   const allowedPaths = new Set(['/models', '/chat/completions']);
 
   // Vercel catch-all: req.url is the full path (e.g. "/api/ai/chat/completions").

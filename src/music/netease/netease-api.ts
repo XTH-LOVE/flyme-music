@@ -8,6 +8,15 @@ import { neteaseWeapi } from './neteaseWeapi';
  * Covers: recommend playlists, playlist detail, playlist square (by category),
  * new songs and hot comments - all real online data.
  */
+/** Business error with a human hint for Netease risk-control codes (-462 etc.). */
+function codeError(what: string, code: number | undefined): Error {
+  if (code !== undefined && [-462, 462, -460, 460, 512].includes(code)) {
+    return new Error(
+      '网易云暂时拦截了该请求（' + code + '），稍等片刻重试即可恢复；在「我的」登录网易云账号可大幅降低出现概率',
+    );
+  }
+  return new Error(what + ' code ' + code);
+}
 export async function callWeapi<T>(
   path: string,
   data: Record<string, unknown>,
@@ -46,7 +55,7 @@ export async function getRecommendPlaylists(
     { limit: 30, total: true, n: 1000 },
     signal,
   );
-  if (!r.result) throw new Error('netease recommend code ' + r.code);
+  if (!r.result) throw codeError('netease recommend', r.code);
   return r.result.map((p) => ({
     id: String(p.id),
     name: p.name,
@@ -91,7 +100,7 @@ export async function getHighQualityPlaylists(
     { cat, limit, lasttime, total: true },
     signal,
   );
-  if (r.code !== 200) throw new Error('netease highquality code ' + r.code);
+  if (r.code !== 200) throw codeError('netease highquality', r.code);
   const items = (r.playlists ?? []).map((p) => ({
     id: String(p.id),
     name: p.name,
@@ -130,7 +139,7 @@ export async function getNeteaseUserPlaylists(
     code: number;
     playlist?: Array<{ id: number; name: string; coverImgUrl?: string; playCount?: number; trackCount?: number; description?: string }>;
   }>('/weapi/user/playlist', { uid, limit: 100, offset: 0, includeVideo: true }, signal);
-  if (r.code !== 200) throw new Error('netease user playlist code ' + r.code);
+  if (r.code !== 200) throw codeError('netease user playlist', r.code);
   return (r.playlist ?? []).map((p) => ({
     id: String(p.id),
     name: p.name,
@@ -149,7 +158,7 @@ export async function getNeteaseCloudSongs(
     code: number;
     data?: Array<{ song?: RawSong; simpleSong?: RawSong; fileSize?: number; bitrate?: number }>;
   }>('/weapi/v1/cloud/get', { limit: 100, offset: 0, csrf_token: '' }, signal);
-  if (r.code !== 200) throw new Error('netease cloud code ' + r.code);
+  if (r.code !== 200) throw codeError('netease cloud', r.code);
   return (r.data ?? []).flatMap((item) => {
     const song = item.song ?? item.simpleSong;
     return song ? [{ track: toTrack(song), size: item.fileSize, bitrate: item.bitrate }] : [];
@@ -166,7 +175,7 @@ export async function getNeteaseLikedSongs(
     { uid, csrf_token: '' },
     signal,
   );
-  if (liked.code !== 200) throw new Error('netease liked songs code ' + liked.code);
+  if (liked.code !== 200) throw codeError('netease liked songs', liked.code);
   const ids = (liked.ids ?? []).slice(0, 300);
   if (!ids.length) return [];
   const songs = await callWeapi<{ code: number; songs?: RawSong[] }>(
@@ -174,7 +183,7 @@ export async function getNeteaseLikedSongs(
     { c: JSON.stringify(ids.map((id) => ({ id }))), ids: JSON.stringify(ids) },
     signal,
   );
-  if (songs.code !== 200) throw new Error('netease liked detail code ' + songs.code);
+  if (songs.code !== 200) throw codeError('netease liked detail', songs.code);
   return (songs.songs ?? []).map(toTrack);
 }
 
@@ -224,7 +233,7 @@ export async function getNeteasePlaylistDetail(
     signal,
   );
   const pl = detail.playlist;
-  if (!pl) throw new Error('netease playlist detail code ' + detail.code);
+  if (!pl) throw codeError('netease playlist detail', detail.code);
 
   const ids = (pl.trackIds ?? []).slice(0, 300).map((t) => t.id);
   const tracks: MusicTrack[] = [];
@@ -270,7 +279,7 @@ export async function getNewSongs(signal?: AbortSignal): Promise<MusicTrack[]> {
     { areaId: 0, total: true },
     signal,
   );
-  if (r.code !== 200 || !r.data) throw new Error('netease new songs code ' + r.code);
+  if (r.code !== 200 || !r.data) throw codeError('netease new songs', r.code);
   return r.data.slice(0, 50).map((s) => ({
     id: String(s.id),
     name: s.name,
@@ -313,7 +322,7 @@ export async function getHotComments(
     { rid, limit, offset: 0, beforeTime: 0 },
     signal,
   );
-  if (r.code !== 200) throw new Error('netease comments code ' + r.code);
+  if (r.code !== 200) throw codeError('netease comments', r.code);
   return (r.hotComments ?? []).map((c) => ({
     nickname: c.user?.nickname ?? '',
     avatarUrl: (c.user?.avatarUrl ?? '') + '?param=80y80',
@@ -338,7 +347,7 @@ export async function getNeteaseSearch(
     { s: query, type: 1, limit: count, offset: (page - 1) * count, csrf_token: '' },
     signal,
   );
-  if (r.code !== 200) throw new Error('netease search code ' + r.code);
+  if (r.code !== 200) throw codeError('netease search', r.code);
   const songs = r.result?.songs ?? [];
   return { items: songs.map(toTrack), hasMore: songs.length === count };
 }

@@ -19,7 +19,7 @@ export async function onRequest(context: PagesContext): Promise<Response> {
     if (!apiPath || !apiPath.startsWith('/weapi/') || typeof form !== 'string') {
       return json({ error: 'bad path or form' }, 400);
     }
-    const relay = () =>
+    const relay = (attempt: number) =>
       fetch('https://music.163.com' + apiPath, {
         method: 'POST',
         headers: {
@@ -27,18 +27,21 @@ export async function onRequest(context: PagesContext): Promise<Response> {
           'User-Agent': PC_USER_AGENT,
           Referer: 'https://music.163.com',
           Origin: 'https://music.163.com',
-          Cookie: typeof cookie === 'string' ? cookie.replace(/[\r\n]/g, '').slice(0, 12000) : '',
+          Cookie: attempt === 0
+            ? typeof cookie === 'string' ? cookie.replace(/[\r\n]/g, '').slice(0, 12000) : ''
+            : reIdCookie(typeof cookie === 'string' ? cookie : ''),
         },
         body: form,
       });
-    // Netease risk control (-462 etc.) is per-egress-IP and intermittent;
-    // repeated attempts often ride a different egress and clear it.
-    let upstream = await relay();
+    // Netease risk control (-462, sometimes with a verify challenge bound to
+    // the request's _ntes_nuid) is per-egress-IP/identity and intermittent;
+    // retries with fresh identities often clear it.
+    let upstream = await relay(0);
     let text = await upstream.text();
-    for (const delay of [250, 700, 1500]) {
+    for (const [i, delay] of [250, 700, 1500].entries()) {
       if (!isRiskBody(text)) break;
       await new Promise((r) => setTimeout(r, delay));
-      upstream = await relay();
+      upstream = await relay(i + 1);
       text = await upstream.text();
     }
     const cookies = getResponseCookies(upstream.headers);
@@ -57,4 +60,13 @@ function isRiskBody(text: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Fresh random visitor identity for retry attempts (challenges bind to it). */
+function reIdCookie(cookie: string): string {
+  let nid = '';
+  for (let i = 0; i < 32; i++) nid += '012345679abcdef'[Math.floor(Math.random() * 16)];
+  return cookie
+    .replace(/_ntes_nuid=[^;]*/, '_ntes_nuid=' + nid)
+    .replace(/_ntes_nnid3=[^,;]*/, '_ntes_nnid3=' + nid + ',' + Date.now());
 }

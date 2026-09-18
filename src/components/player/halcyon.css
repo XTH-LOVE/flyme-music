@@ -399,6 +399,13 @@
   visibility: visible;
   transition: visibility 0s;
 }
+/* Wraps the toggle and the panel so hover can cover both - moving the pointer
+   from one to the other must not leave the zone. */
+.hc-secondary-zone {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
 .hc-secondary-row {
   display: flex;
   justify-content: flex-end;

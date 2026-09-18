@@ -303,8 +303,38 @@ export function FullPlayer() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   // Volume + spectrum are secondary: collapsed by default so the left column
-  // reads as an album rather than a control panel.
-  const [secondaryOpen, setSecondaryOpen] = useState(false);
+  // reads as an album rather than a control panel. `pinned` is an explicit
+  // click-to-stay-open; `hovering` is a transient mouse convenience.
+  const [pinned, setPinned] = useState(false);
+  const [hovering, setHovering] = useState(false);
+  const secondaryOpen = pinned || hovering;
+  const hoverTimer = useRef<number | null>(null);
+
+  const openHover = () => {
+    if (hoverTimer.current !== null) {
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+    setHovering(true);
+  };
+
+  /*
+   * Delayed on purpose. Collapsed, the panel is 0px tall, so moving the pointer
+   * down from the toggle briefly leaves the zone before the panel has grown -
+   * closing immediately would snap it shut mid-open. The delay covers the
+   * expand transition; once open, the panel keeps the pointer inside.
+   */
+  const closeHover = () => {
+    if (hoverTimer.current !== null) window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => setHovering(false), 260);
+  };
+
+  useEffect(
+    () => () => {
+      if (hoverTimer.current !== null) window.clearTimeout(hoverTimer.current);
+    },
+    [],
+  );
   const [scrub, setScrub] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -712,10 +742,33 @@ export function FullPlayer() {
             {progressBlock}
             {transportRow}
 
-            <div className="hc-secondary-row">
+            {/* Hovering the zone opens the panel for mouse users, so adjusting
+                volume does not require finding the toggle first. Pointer type is
+                checked because touch fires pointerenter on tap too, which would
+                make it open on every accidental brush. Clicking pins it open. */}
+            <div
+              className="hc-secondary-zone"
+              onPointerEnter={(e) => {
+                if (e.pointerType === 'mouse') openHover();
+              }}
+              onPointerLeave={(e) => {
+                if (e.pointerType === 'mouse') closeHover();
+              }}
+            >
+              <div className="hc-secondary-row">
               <button
-                className={'hc-minibtn' + (secondaryOpen ? ' hc-minibtn--on' : '')}
-                onClick={() => setSecondaryOpen((v) => !v)}
+                className={'hc-minibtn' + (pinned ? ' hc-minibtn--on' : '')}
+                onClick={() => {
+                  // Clearing hover too: otherwise un-pinning while the pointer
+                  // is still inside would leave it open and the click would
+                  // look like it did nothing.
+                  setPinned((v) => !v);
+                  if (hoverTimer.current !== null) {
+                    window.clearTimeout(hoverTimer.current);
+                    hoverTimer.current = null;
+                  }
+                  setHovering(false);
+                }}
                 aria-expanded={secondaryOpen}
                 aria-label={secondaryOpen ? '收起音量与频谱' : '展开音量与频谱'}
               >
@@ -742,6 +795,7 @@ export function FullPlayer() {
                   />
                 </div>
               </div>
+            </div>
             </div>
           </div>
 

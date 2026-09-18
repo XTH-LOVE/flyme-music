@@ -775,6 +775,10 @@
 [data-theme='light'] .hc:not(.hc--imm) .hc-right .lyrics__line--active,
 [data-theme='light'] .hc:not(.hc--imm) .hc-p-lyrics .lyrics__line--active {
   color: #171a20;
+  /* Light (paper) player: dark ink instead of white - see the note in
+     fullplayer.css. Both the desktop panel and the mobile page are covered. */
+  --lyric-wipe-on: #171a20;
+  --lyric-wipe-off: rgba(36, 40, 49, 0.26);
   text-shadow: 0 2px 18px rgba(40, 50, 70, 0.14);
 }
 

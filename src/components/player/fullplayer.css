@@ -432,6 +432,12 @@
 }
 .lyrics__line--active {
   color: #fff;
+  /* Wipe colours are declared next to `color` on purpose, so the sung/unsung
+     halves always follow whatever this theme says the text is. Hardcoding them
+     separately made the active line white even on the light (paper) player,
+     where it was invisible. */
+  --lyric-wipe-on: #fff;
+  --lyric-wipe-off: rgba(255, 255, 255, 0.28);
   font-size: calc(19px * var(--lyric-scale, 1));
   font-weight: 700;
   letter-spacing: -0.01em;

@@ -10,6 +10,10 @@ npm-debug.log*
 .env.*
 !.env.example
 
+# 临时构建产物（验证用，不入库）
+.build-check/
+.build-check2/
+
 # TypeScript 增量编译缓存（tsc -b 产物）
 *.tsbuildinfo
 

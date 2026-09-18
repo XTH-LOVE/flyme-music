@@ -3,6 +3,7 @@ import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
 import type { MusicTrack } from '@/music/source/types';
+import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
 import './fullplayer.css';
 import './lyrics-trans.css';
 
@@ -23,6 +24,12 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   const [scrubIdx, setScrubIdx] = useState<number | null>(null);
   const touching = useRef(false);
   const hideTimer = useRef<number | null>(null);
+  // Subscribed (not read via getState) so nudging the offset re-renders and the
+  // highlight moves immediately, without refetching the lyrics.
+  const offset = useLyricStore((s) => s.offset);
+  const setOffset = useLyricStore((s) => s.setOffset);
+  const nudgeOffset = useLyricStore((s) => s.nudge);
+  const [offsetOpen, setOffsetOpen] = useState(false);
   // Single-click seek only where a real mouse exists; on touch screens a
   // single tap must not seek (too easy to trigger while scrolling).
   const seekable =
@@ -72,7 +79,7 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
 
   let activeIndex = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].time <= currentTime) activeIndex = i;
+    if (lines[i].time + offset <= currentTime) activeIndex = i;
     else break;
   }
 
@@ -148,13 +155,13 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
             seekable
               ? (e) => {
                   e.stopPropagation();
-                  playerController.seek(line.time);
+                  playerController.seek(line.time + offset);
                 }
               : (e) => {
                   // Touch: require a deliberate double-tap to seek.
                   if (e.detail < 2) return;
                   e.stopPropagation();
-                  playerController.seek(line.time);
+                  playerController.seek(line.time + offset);
                 }
           }
         >
@@ -215,7 +222,33 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
         >
           译
         </button>
+        <button
+          className={'lyrics__ctl-btn' + (offset !== 0 ? ' lyrics__ctl-btn--on' : '')}
+          aria-label="歌词时间偏移调整"
+          aria-pressed={offsetOpen}
+          onClick={(e) => { e.stopPropagation(); setOffsetOpen((v) => !v); }}
+        >
+          偏移
+        </button>
       </div>
+
+      {offsetOpen ? (
+        <div className="lyrics__offset" onClick={(e) => e.stopPropagation()}>
+          <div className="lyrics__offset-row">
+            <button className="lyrics__ctl-btn" aria-label="歌词提前" onClick={() => nudgeOffset(-1)}>
+              −{LYRIC_OFFSET_STEP}s
+            </button>
+            <span className="lyrics__offset-val">{(offset > 0 ? '+' : '') + offset.toFixed(1)}s</span>
+            <button className="lyrics__ctl-btn" aria-label="歌词延后" onClick={() => nudgeOffset(1)}>
+              +{LYRIC_OFFSET_STEP}s
+            </button>
+            <button className="lyrics__ctl-btn" onClick={() => setOffset(0)}>
+              重置
+            </button>
+          </div>
+          <div className="lyrics__offset-hint">歌词比声音早，就按 +</div>
+        </div>
+      ) : null}
       {scrubIdx !== null && lines[scrubIdx] ? (
         <div className="lyrics__scrub">
           <span className="lyrics__scrub-line" />
@@ -224,7 +257,7 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
             aria-label="跳转到这句"
             onClick={(e) => {
               e.stopPropagation();
-              playerController.seek(lines[scrubIdx].time);
+              playerController.seek(lines[scrubIdx].time + offset);
               setScrubIdx(null);
             }}
           >

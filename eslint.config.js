@@ -26,6 +26,9 @@ export default tseslint.config(
       'src-tauri/**',
       'supabase/functions/**',
       '.dsh/**',
+      // Scratch build output (vite build --outDir .build-check): linting it
+      // produces thousands of errors from minified bundles.
+      '.build-check/**',
       '.wrangler/**',
       '.edgeone/**',
     ],

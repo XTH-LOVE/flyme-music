@@ -2,6 +2,7 @@ import { parseLrc } from '@/music/source/provider-utils';
 import { getTrackProvider } from '@/music/source/factory';
 import type { MusicTrack } from '@/music/source/types';
 import { neteaseWeapi } from '@/music/netease/neteaseWeapi';
+import { lyricOffset } from '@/store/useLyricStore';
 
 export interface MiniLyricLine {
   time: number;
@@ -106,9 +107,12 @@ export async function fetchLyricLines(track: MusicTrack): Promise<MiniLyricLine[
 
 /** Find the active lyric line for a timestamp. */
 export function lyricLineAt(lines: MiniLyricLine[], time: number): MiniLyricLine | null {
+  // The user's global timing correction applies here too, so the mini player,
+  // the lyrics view and the AI tools all agree on which line is current.
+  const offset = lyricOffset();
   let active: MiniLyricLine | null = null;
   for (const line of lines) {
-    if (line.time <= time) active = line;
+    if (line.time + offset <= time) active = line;
     else break;
   }
   return active;

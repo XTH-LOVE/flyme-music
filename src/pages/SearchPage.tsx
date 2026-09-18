@@ -10,6 +10,7 @@ import { getMusicProvider } from '@/music/musicService';
 import { getTrackProvider } from '@/music/source/factory';
 import { searchSourceOptions } from '@/music/source/types';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
+import { aggregateSearch } from '@/ai/musicSearch';
 import { useProviderData } from '@/music/musicStore';
 import { getNeteaseSearchMeta, type NetSearchMeta } from '@/music/netease/netease-api';
 import { useNavigate } from 'react-router-dom';
@@ -19,9 +20,23 @@ import './pages-extra.css';
 
 const PAGE_SIZE = 20;
 
+/**
+ * 'all' is a UI-only tab, not a MusicSource: it fans out to every provider and
+ * merges the results, so it must not leak into the source union (the provider
+ * factory would reject it).
+ */
+type SearchTab = MusicSource | 'all';
+
+const SEARCH_TABS: { source: SearchTab; label: string }[] = [
+  { source: 'all', label: '全部' },
+  ...searchSourceOptions,
+];
+
 export function SearchPage() {
   const navigate = useNavigate();
-  const [source, setSource] = useState<MusicSource>('netease');
+  // Defaults to the aggregate tab: searching once and seeing every catalogue
+  // beats guessing which of five tabs holds the song.
+  const [source, setSource] = useState<SearchTab>('all');
   const [keyword, setKeyword] = useState('');
   const [submitted, setSubmitted] = useState('');
   const [items, setItems] = useState<MusicTrack[]>([]);
@@ -38,14 +53,16 @@ export function SearchPage() {
   const clearHistory = useLibraryStore((s) => s.clearSearchHistory);
   const { data: hotKeywords } = useProviderData(() => getMusicProvider().getHotKeywords());
 
-  const runSearch = async (kw: string, src: MusicSource, pageNo: number, append: boolean) => {
+  const runSearch = async (kw: string, src: SearchTab, pageNo: number, append: boolean) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
     try {
-      const provider = getTrackProvider(src);
-      const res = await provider.search(kw, pageNo, PAGE_SIZE, controller.signal);
+      const res =
+        src === 'all'
+          ? await aggregateSearch(kw, pageNo, PAGE_SIZE, controller.signal)
+          : await getTrackProvider(src).search(kw, pageNo, PAGE_SIZE, controller.signal);
       if (controller.signal.aborted) return;
       setItems((prev) => (append ? [...prev, ...res.items] : res.items));
       setHasMore(res.hasMore);
@@ -59,7 +76,7 @@ export function SearchPage() {
     }
   };
 
-  const doSearch = (kw: string, src: MusicSource = source) => {
+  const doSearch = (kw: string, src: SearchTab = source) => {
     const value = kw.trim();
     if (!value) return;
     setKeyword(value);
@@ -78,7 +95,7 @@ export function SearchPage() {
       .catch(() => undefined);
   };
 
-  const switchSource = (src: MusicSource) => {
+  const switchSource = (src: SearchTab) => {
     setSource(src);
     if (submitted) void runSearch(submitted, src, 1, false);
   };
@@ -95,7 +112,7 @@ export function SearchPage() {
       />
 
       <div className="source-chips">
-        {searchSourceOptions.map((opt) => (
+        {SEARCH_TABS.map((opt) => (
           <Chip key={opt.source} active={source === opt.source} onClick={() => switchSource(opt.source)}>
             {opt.label}
           </Chip>
@@ -202,7 +219,7 @@ export function SearchPage() {
   );
 }
 
-function sourceLabel(src: MusicSource): string {
-  const opt = searchSourceOptions.find((o) => o.source === src);
+function sourceLabel(src: SearchTab): string {
+  const opt = SEARCH_TABS.find((o) => o.source === src);
   return opt ? opt.label : src;
 }

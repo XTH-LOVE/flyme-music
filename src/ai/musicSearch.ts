@@ -110,6 +110,58 @@ export async function searchAllSources(
   return merged.slice(0, count);
 }
 
+/** Sources behind the search page's "全部" tab, roughly by catalogue size. */
+export const AGGREGATE_SOURCES: MusicSource[] = ['netease', 'qq', 'kuwo', 'joox', 'higequ'];
+
+export interface AggregateSearchResult {
+  items: MusicTrack[];
+  hasMore: boolean;
+}
+
+/**
+ * Fan-out search for the search page's "全部" tab.
+ *
+ * Unlike searchAllSources this is page-aware and returns the whole merged list
+ * for that page rather than a relevance-trimmed top-N, so "加载更多" stays
+ * consistent: aggregate page N is page N of every source, merged.
+ *
+ * Hi歌 is included even though it is a scrape and noticeably slower than the
+ * rest - dropping it would silently hide the one provider that does not sit
+ * behind the GD aggregator, which is exactly the source worth having when that
+ * aggregator is having a bad day. A failed source is skipped rather than
+ * emptying the result.
+ */
+export async function aggregateSearch(
+  keyword: string,
+  page = 1,
+  count = 20,
+  signal?: AbortSignal,
+): Promise<AggregateSearchResult> {
+  const kw = keyword.trim();
+  if (!kw || signal?.aborted) return { items: [], hasMore: false };
+
+  const settled = await Promise.allSettled(
+    AGGREGATE_SOURCES.map((source) => getTrackProvider(source).search(kw, page, count, signal)),
+  );
+
+  const merged: MusicTrack[] = [];
+  const seen = new Set<string>();
+  let hasMore = false;
+  for (const result of settled) {
+    if (result.status !== 'fulfilled') continue;
+    if (result.value.hasMore) hasMore = true;
+    for (const track of result.value.items) {
+      const key = dedupeKey(track);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(track);
+    }
+  }
+
+  merged.sort((a, b) => scoreTrack(b, kw) - scoreTrack(a, kw));
+  return { items: merged, hasMore };
+}
+
 /** How many obvious covers/live versions were pushed down by ranking. */
 export function countSkippedCovers(tracks: MusicTrack[], query: string): number {
   return tracks.filter((t) => {

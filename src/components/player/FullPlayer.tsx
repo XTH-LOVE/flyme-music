@@ -8,6 +8,7 @@ import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { useExtrasStore } from '@/store/useExtrasStore';
+import { useLyricStore } from '@/store/useLyricStore';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useCrossfadeStack } from '@/hooks/useCrossfadeStack';
 import { downloadTrack } from '@/utils/download';
@@ -132,10 +133,13 @@ function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: 
 /** Mobile cover page: single active lyric line right below the cover. */
 function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
   const lines = useLyricLines(track);
+  // Same global timing correction the lyrics view applies, so the strip and the
+  // full lyric sheet never disagree about which line is current.
+  const offset = useLyricStore((s) => s.offset);
 
   let active = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].time <= currentTime) active = i;
+    if (lines[i].time + offset <= currentTime) active = i;
     else break;
   }
   if (!lines.length || active < 0) return null;

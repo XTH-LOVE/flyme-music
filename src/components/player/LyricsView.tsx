@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
@@ -127,6 +127,25 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     }, 1600);
   };
 
+  /**
+   * How far through the current line we are, 0..1. Timestamps are line-level,
+   * so the gap to the next line is the only span we have to fill across.
+   * Returns 0 when there is no next line (nothing to wipe toward).
+   */
+  const wipeFor = (index: number): number => {
+    if (index < 0 || index >= lines.length) return 0;
+    const next = lines[index + 1];
+    if (!next) return 0;
+    const start = lines[index].time + offset;
+    const span = next.time + offset - start;
+    // A huge gap means the sheet has a gap (instrumental, or a missing line);
+    // filling across it would look broken.
+    if (span <= 0 || span > 30) return 0;
+    return Math.min(1, Math.max(0, (currentTime - start) / span));
+  };
+
+  const wipe = wipeFor(activeIndex);
+
   const renderBody = () => {
     if (!lines.length) return <div className="lyrics__line">歌词加载中…</div>;
     return lines.map((line, i) => {
@@ -148,7 +167,7 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
           className={cls}
           style={
             i === activeIndex
-              ? undefined
+              ? ({ '--wipe': (wipe * 100).toFixed(1) + '%' } as CSSProperties)
               : { transform: 'rotateX(' + signed * -2.4 + 'deg)' }
           }
           onClick={

@@ -27,6 +27,7 @@
 .hc-bg__flow {
   position: absolute;
   inset: 0;
+  transform-origin: 50% 40%;
   background:
     radial-gradient(120% 62% at 50% -10%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 52%),
     radial-gradient(90% 60% at 82% 108%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 60%),
@@ -35,8 +36,44 @@
 .hc-bg__noise {
   position: absolute;
   inset: 0;
-  opacity: 0.045;
+  /* Raised from 0.045: at that level the grain was effectively invisible, and
+     the filmic texture is what keeps a large flat gradient from looking cheap. */
+  opacity: 0.07;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* ---------- Ambient motion ----------
+ * The player used to be completely static while playing: only entrance
+ * animations existed. A slow drift in the ambient gradient plus a breathing
+ * cover is what gives the page a sense of being alive.
+ *
+ * Both are gated behind prefers-reduced-motion at the bottom of this file.
+ */
+@keyframes hc-flow-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(1.5%, -1.2%, 0) scale(1.06);
+  }
+}
+.hc-bg__flow--live {
+  animation: hc-flow-drift 24s var(--am-ease-standard) infinite;
+}
+
+/* The standalone `scale` property is used on purpose: the cover element also
+   carries an inline `transform: translateX()` while being dragged, and a
+   keyframed `transform` would override it mid-animation and break the drag.
+   `scale` composes with `transform`, so both can coexist. */
+@keyframes hc-breathe {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.015;
+  }
 }
 
 /* ---------- Shared bits ---------- */
@@ -96,8 +133,8 @@
   padding: 30px 44px 24px;
 }
 .hc-left {
-  width: 38%;
-  min-width: 350px;
+  width: 42%;
+  min-width: 380px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -114,20 +151,23 @@
   min-width: 0;
 }
 .hc-title {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  /* Widened the gap between title and artist on purpose: at 20px/12.5px the two
+     read as the same tier, which is what made the header feel flat. */
+  font-size: 30px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .hc-title--p {
-  font-size: 22px;
+  font-size: 26px;
 }
 .hc-artist {
-  margin-top: 3px;
-  font-size: 12.5px;
-  opacity: 0.58;
+  margin-top: 5px;
+  font-size: 14px;
+  opacity: 0.66;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -142,13 +182,24 @@
   padding: 14px 0;
 }
 .hc-cover {
-  height: min(100%, 46vh);
+  /* Larger than the old 46vh: on a desktop screen the artwork should be the
+     subject of the page, not one control among many. */
+  height: min(100%, 54vh);
   aspect-ratio: 1;
   max-width: 100%;
   cursor: grab;
   touch-action: pan-y;
-  transition: transform 90ms linear;
+  transition: transform 90ms linear,
+    filter var(--am-motion-page) var(--am-ease-standard);
   will-change: transform;
+}
+.hc-cover--playing {
+  animation: hc-breathe 8s var(--am-ease-standard) infinite;
+}
+/* Paused reads as "resting": pulled back and slightly desaturated, so the
+   play/pause difference is visible without any UI chrome changing. */
+.hc-cover:not(.hc-cover--playing) {
+  filter: saturate(0.88) brightness(0.94);
 }
 .hc-cover:active {
   cursor: grabbing;
@@ -160,7 +211,7 @@
   border-radius: 14px;
 }
 .hc-swap .fp-cover-swap__layer--top {
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.32);
 }
 
 /* ---------- Glow progress ---------- */
@@ -307,6 +358,74 @@
     rgba(255, 255, 255, 0.9) var(--am-slider-fill, 0%),
     rgba(255, 255, 255, 0.18) var(--am-slider-fill, 0%)
   );
+}
+
+/* ---------- Collapsible secondary controls (volume + visualiser) ----------
+ * The left column used to stack meta / cover / progress / transport / spectrum
+ * / volume in one unbroken list, which reads as a control panel rather than an
+ * album. These two are secondary, so they collapse by default and the space
+ * becomes breathing room.
+ *
+ * 0fr -> 1fr animates height without hardcoding a pixel value.
+ */
+.hc-secondary {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-top: 0;
+  overflow: hidden;
+  transition: grid-template-rows var(--am-motion-page) var(--am-ease-standard),
+    opacity var(--am-motion-normal) var(--am-ease-standard),
+    margin-top var(--am-motion-page) var(--am-ease-standard);
+}
+.hc-secondary--open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 12px;
+}
+.hc-secondary__inner {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hc-secondary-row {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+.hc-minibtn {
+  border: none;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(30, 32, 38, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: background var(--am-motion-micro) var(--am-ease-standard),
+    transform var(--am-motion-micro) var(--am-ease-spring);
+}
+.hc-minibtn:active {
+  transform: scale(0.95);
+}
+.hc-minibtn--on {
+  background: rgba(255, 255, 255, 0.92);
+  color: #171a20;
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-minibtn {
+  color: #30343d;
+  background: rgba(255, 255, 255, 0.6);
+}
+[data-theme='light'] .hc:not(.hc--imm) .hc-minibtn--on {
+  background: #30343d;
+  color: #fff;
 }
 
 /* ---------- Right lyrics panel ---------- */
@@ -706,4 +825,21 @@
 [data-theme='light'] .hc:not(.hc--imm) .hc-bg__cover {
   opacity: 0.22;
   filter: blur(72px) saturate(120%) brightness(1.04);
+}
+
+/* ---- Respect the user's motion preference ----
+ * The breathing cover, the drifting ambience and the lyric wipe are all
+ * decorative. Users who ask for reduced motion get a still, perfectly usable
+ * page - not a stripped-down one.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .hc-cover--playing {
+    animation: none;
+  }
+  .hc-bg__flow--live {
+    animation: none;
+  }
+  .lyrics__line--active .lyrics__text {
+    transition: none;
+  }
 }

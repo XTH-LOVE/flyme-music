@@ -89,7 +89,7 @@ function useLyricLines(track: MusicTrack): MiniLyricLine[] {
 }
 
 /** Halcyon background: two stacked gradient layers crossfade on track change. */
-function HalcyonBg({ track }: { track: MusicTrack }) {
+function HalcyonBg({ track, live }: { track: MusicTrack; live: boolean }) {
   const stack = useCrossfadeStack(track);
 
   return (
@@ -97,7 +97,9 @@ function HalcyonBg({ track }: { track: MusicTrack }) {
       {stack.map((t, i) => (
         <HcBgLayer key={t.source + ':' + t.id} t={t} top={i === stack.length - 1} />
       ))}
-      <div className="hc-bg__flow" />
+      {/* The ambient drift only runs while playing - a moving background behind
+          a paused player looks like a bug, not a flourish. */}
+      <div className={'hc-bg__flow' + (live ? ' hc-bg__flow--live' : '')} />
       <div className="hc-bg__noise" />
     </div>
   );
@@ -300,6 +302,9 @@ export function FullPlayer() {
   const [queueOpen, setQueueOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  // Volume + spectrum are secondary: collapsed by default so the left column
+  // reads as an album rather than a control panel.
+  const [secondaryOpen, setSecondaryOpen] = useState(false);
   const [scrub, setScrub] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -668,7 +673,7 @@ export function FullPlayer() {
   if (isDesktop) {
     return (
       <div className="full-player hc" {...dismissProps}>
-        <HalcyonBg track={current} />
+        <HalcyonBg track={current} live={playing} />
         <button className="hc-collapse" onClick={close} aria-label="收起">
           <Icon name="chevronLeft" size={22} className="hc-collapse__icon" />
         </button>
@@ -692,7 +697,7 @@ export function FullPlayer() {
 
             <div className="hc-cover-wrap">
               <div
-                className="hc-cover"
+                className={'hc-cover' + (playing ? ' hc-cover--playing' : '')}
                 style={{ transform: dragX ? 'translateX(' + dragX + 'px)' : undefined }}
                 onPointerDown={coverPointerDown}
                 onPointerMove={coverPointerMove}
@@ -706,18 +711,34 @@ export function FullPlayer() {
 
             {progressBlock}
             {transportRow}
-            <Visualizer playing={playing} colors={trackPalette} className="hc-viz" />
+
+            <div className="hc-secondary-row">
+              <button
+                className={'hc-minibtn' + (secondaryOpen ? ' hc-minibtn--on' : '')}
+                onClick={() => setSecondaryOpen((v) => !v)}
+                aria-expanded={secondaryOpen}
+                aria-label={secondaryOpen ? '收起音量与频谱' : '展开音量与频谱'}
+              >
+                <Icon name="volume" size={15} />
+                {secondaryOpen ? '收起' : '音量 / 频谱'}
+              </button>
+            </div>
 
             <div
-              className="hc-volume"
-              onWheel={wheelVolume}
+              className={'hc-secondary' + (secondaryOpen ? ' hc-secondary--open' : '')}
+              aria-hidden={!secondaryOpen}
             >
-              <Icon name="volume" size={15} />
-              <Slider
-                value={Math.round(volume * 100)}
-                max={100}
-                onChange={(v) => playerController.setVolume(v / 100)}
-              />
+              <div className="hc-secondary__inner">
+                <Visualizer playing={playing} colors={trackPalette} className="hc-viz" />
+                <div className="hc-volume" onWheel={wheelVolume}>
+                  <Icon name="volume" size={15} />
+                  <Slider
+                    value={Math.round(volume * 100)}
+                    max={100}
+                    onChange={(v) => playerController.setVolume(v / 100)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -734,7 +755,7 @@ export function FullPlayer() {
   /* ---------------- Mobile: Halcyon portrait layout ---------------- */
   return (
     <div className={'full-player hc hc--p' + (lyricsMode ? ' hc--p-lyrics' : '')} {...dismissProps}>
-      <HalcyonBg track={current} />
+      <HalcyonBg track={current} live={playing} />
 
       <div className="hc-p-body" style={dismissStyle}>
         {lyricsMode ? (

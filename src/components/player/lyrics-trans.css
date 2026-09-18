@@ -19,3 +19,43 @@
     font-size: 0.58em;
   }
 }
+
+/* ---- Karaoke-style wipe on the current line ----
+ *
+ * This catalogue only has line-level timestamps (no per-word timing), so a true
+ * word-by-word highlight is not possible. Instead the active line fills from
+ * left to right over the time until the next line - which reads very much like
+ * per-word karaoke without needing data we do not have.
+ *
+ * --wipe is registered so it can be transitioned; browsers without @property
+ * simply step between updates instead of easing, which still looks fine.
+ */
+@property --wipe {
+  syntax: '<percentage>';
+  /* Must inherit: the value is set on the line button, but the gradient that
+     consumes it is painted on the inner .lyrics__text span. */
+  inherits: true;
+  initial-value: 100%;
+}
+
+.lyrics__line--active {
+  --lyric-wipe-on: #fff;
+  --lyric-wipe-off: rgba(255, 255, 255, 0.42);
+}
+[data-theme='light'] .hc-p-lyrics .lyrics__line--active {
+  --lyric-wipe-on: #1b1e26;
+  --lyric-wipe-off: rgba(27, 30, 38, 0.36);
+}
+
+.lyrics__line--active .lyrics__text {
+  background-image: linear-gradient(
+    90deg,
+    var(--lyric-wipe-on) 0 var(--wipe, 100%),
+    var(--lyric-wipe-off) var(--wipe, 100%) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Smoothes the steps between player time updates. */
+  transition: --wipe 180ms linear;
+}

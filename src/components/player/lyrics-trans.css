@@ -20,40 +20,11 @@
   }
 }
 
-/* ---- Karaoke-style wipe on the current line ----
+/* Removed: a karaoke-style wipe that filled the active line left-to-right.
  *
- * This catalogue only has line-level timestamps (no per-word timing), so a true
- * word-by-word highlight is not possible. Instead the active line fills from
- * left to right over the time until the next line - which reads very much like
- * per-word karaoke without needing data we do not have.
- *
- * --wipe is registered so it can be transitioned; browsers without @property
- * simply step between updates instead of easing, which still looks fine.
- */
-@property --wipe {
-  syntax: '<percentage>';
-  /* Must inherit: the value is set on the line button, but the gradient that
-     consumes it is painted on the inner .lyrics__text span. */
-  inherits: true;
-  initial-value: 100%;
-}
-
-/* No colours here on purpose. --lyric-wipe-on / --lyric-wipe-off are declared
-   alongside `color` in fullplayer.css (dark) and halcyon.css (light), so the
-   sung and unsung halves always match the theme's own text colour. Hardcoding
-   them in one place is what made the active line render white on the light
-   player, where it is invisible. */
-
-.lyrics__line--active .lyrics__text {
-  background-image: linear-gradient(
-    90deg,
-    var(--lyric-wipe-on) 0 var(--wipe, 100%),
-    var(--lyric-wipe-off) var(--wipe, 100%) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  /* No transition here on purpose: --wipe is written from a requestAnimationFrame
-     loop, so it already updates every frame. Interpolating toward a value that
-     changes 60 times a second would only lag behind it. */
-}
+ * The catalogue has no per-word timing - NetEase YRC came back empty for every
+ * song tried and three of the five sources have no such format - so the fill had
+ * to be estimated, and no estimate survived contact with real songs: it read as
+ * outrunning the voice, then as stuttering, and on the light player it painted
+ * the active line in the wrong colour. The plain highlighted line is what we
+ * went back to. */

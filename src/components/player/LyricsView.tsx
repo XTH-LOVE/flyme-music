@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
-import { usePlayerStore } from '@/store/usePlayerStore';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
 import type { MusicTrack } from '@/music/source/types';
 import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
@@ -31,9 +30,6 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   const setOffset = useLyricStore((s) => s.setOffset);
   const nudgeOffset = useLyricStore((s) => s.nudge);
   const [offsetOpen, setOffsetOpen] = useState(false);
-  // Only used to start/stop the per-frame wipe loop, so the store subscription
-  // costs nothing while playing (status changes are rare).
-  const playing = usePlayerStore((s) => s.status === 'playing');
   // Single-click seek only where a real mouse exists; on touch screens a
   // single tap must not seek (too easy to trigger while scrolling).
   const seekable =
@@ -130,97 +126,6 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
       if (!touching.current) setScrubIdx(null);
     }, 1600);
   };
-
-/**
- * Rough duration a lyric line is sung for, in seconds.
- *
- * Estimated from the text because the sheet has no per-word timing: roughly 5
- * CJK characters or 2.5 Latin words a second are ordinary singing rates. Only
- * used to pace the fill, so being approximate is fine - it just has to feel
- * like it keeps up with the voice.
- */
-const CJK = /[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]/g;
-
-/**
- * Coefficients fitted from real lyrics rather than guessed: 139 (chars, gap)
- * pairs taken from NetEase LRCs give `gap = 0.404 * chars` - about 2.5 CJK
- * characters per second. An earlier hand-picked 0.2s per character (5/s) was
- * twice as fast as real singing and the fill visibly outran the voice.
- *
- * Deliberately a little under the fitted slope: the gap also contains the pause
- * between lines, and filling across that pause is what looked wrong in the first
- * place. Landing at roughly 85-90% of the gap keeps the fill with the voice and
- * still leaves it finished before the next line arrives.
- */
-const SECONDS_PER_CJK = 0.32;
-/*
- * Derived, not measured: no usable English sample set came back from the lyric
- * API, so this is carried over from the measured CJK rate instead. A CJK
- * character is about one syllable (~0.4s from the fit) and an English word
- * averages roughly 1.4 syllables, giving ~0.56s per word. Treat it as a
- * reasonable carry-over rather than a fitted number.
- */
-const SECONDS_PER_WORD = 0.55;
-const SECONDS_BASE = 0.3;
-
-function sungSeconds(text: string): number {
-  const cjk = (text.match(CJK) ?? []).length;
-  const words = text.replace(CJK, ' ').split(/\s+/).filter(Boolean).length;
-  const seconds = cjk * SECONDS_PER_CJK + words * SECONDS_PER_WORD + SECONDS_BASE;
-  return Math.min(7, Math.max(1.2, seconds));
-}
-
-/**
- * How far through the current line we are at `time`, 0..1. Timestamps are
- * line-level, so the gap to the next line is the only span we can fill across.
- */
-  const wipeAt = (index: number, time: number): number => {
-    if (index < 0 || index >= lines.length) return 1;
-    const start = lines[index].time + offset;
-    const next = lines[index + 1];
-    // Fill across how long the line is actually sung, not across the gap to the
-    // next timestamp. Sheets usually leave a pause between lines, so filling to
-    // the next line kept creeping through the silence and landed after the
-    // voice had already moved on. The gap stays as an upper bound so the fill
-    // never runs past the next line.
-    const gap = next ? next.time + offset - start : Infinity;
-    const span = Math.min(gap, sungSeconds(lines[index].text));
-    // Broken ordering, or a gap so long the fill would crawl: show it lit.
-    if (span <= 0 || span > 30) return 1;
-    return Math.min(1, Math.max(0, (time - start) / span));
-  };
-
-  /**
-   * The wipe is painted per frame, not per React render.
-   *
-   * The player's currentTime only reaches React on the audio element's
-   * `timeupdate` event, which browsers fire about four times a second - driving
-   * the fill from that state made it visibly step. Instead the active line's
-   * --wipe is written straight to the DOM from a rAF loop, which reads a
-   * continuously advancing currentTime and costs no re-renders.
-   */
-  useEffect(() => {
-    const el = containerRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    if (!el || activeIndex < 0) return;
-    // Paint once immediately so a paused (or not-yet-started) line is still
-    // positioned correctly.
-    el.style.setProperty('--wipe', (wipeAt(activeIndex, currentTime) * 100).toFixed(1) + '%');
-    if (!playing || scrubIdx !== null) return;
-    // Reduced-motion users get a solid active line (see halcyon.css); skip the
-    // per-frame loop entirely rather than repainting a value nobody sees.
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return;
-    }
-
-    let raf = 0;
-    const tick = () => {
-      el.style.setProperty('--wipe', (wipeAt(activeIndex, playerController.currentTime) * 100).toFixed(1) + '%');
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- wipeAt is stable per (lines, offset)
-  }, [activeIndex, playing, scrubIdx, lines, offset]);
 
   const renderBody = () => {
     if (!lines.length) return <div className="lyrics__line">歌词加载中…</div>;

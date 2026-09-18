@@ -775,10 +775,6 @@
 [data-theme='light'] .hc:not(.hc--imm) .hc-right .lyrics__line--active,
 [data-theme='light'] .hc:not(.hc--imm) .hc-p-lyrics .lyrics__line--active {
   color: #171a20;
-  /* Light (paper) player: dark ink instead of white - see the note in
-     fullplayer.css. Both the desktop panel and the mobile page are covered. */
-  --lyric-wipe-on: #171a20;
-  --lyric-wipe-off: rgba(36, 40, 49, 0.26);
   text-shadow: 0 2px 18px rgba(40, 50, 70, 0.14);
 }
 
@@ -849,9 +845,9 @@
 }
 
 /* ---- Respect the user's motion preference ----
- * The breathing cover, the drifting ambience and the lyric wipe are all
- * decorative. Users who ask for reduced motion get a still, perfectly usable
- * page - not a stripped-down one.
+ * The breathing cover and the drifting ambience are decorative. Users who ask
+ * for reduced motion get a still, perfectly usable page - not a stripped-down
+ * one.
  */
 @media (prefers-reduced-motion: reduce) {
   .hc-cover--playing {
@@ -859,11 +855,5 @@
   }
   .hc-bg__flow--live {
     animation: none;
-  }
-  /* The wipe is continuous motion tied to playback; show the active line solid
-     instead of filling. (The rAF loop is also skipped - see LyricsView.) */
-  .lyrics__line--active .lyrics__text {
-    background-image: none;
-    color: var(--lyric-wipe-on);
   }
 }

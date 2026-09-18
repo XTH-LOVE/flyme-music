@@ -729,7 +729,10 @@ export function FullPlayer() {
               aria-hidden={!secondaryOpen}
             >
               <div className="hc-secondary__inner">
-                <Visualizer playing={playing} colors={trackPalette} className="hc-viz" />
+                {/* Only animate while actually on screen - a collapsed panel
+                    would otherwise keep driving requestAnimationFrame for a
+                    canvas nobody can see. */}
+                <Visualizer playing={playing && secondaryOpen} colors={trackPalette} className="hc-viz" />
                 <div className="hc-volume" onWheel={wheelVolume}>
                   <Icon name="volume" size={15} />
                   <Slider

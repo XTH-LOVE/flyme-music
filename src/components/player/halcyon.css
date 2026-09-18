@@ -388,6 +388,16 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* A clipped panel is still focusable: the volume slider would be invisible
+     yet reachable by Tab, inside an aria-hidden container. `visibility: hidden`
+     takes it out of the tab order. The delay keeps it visible for the length of
+     the collapse transition instead of blinking out immediately. */
+  visibility: hidden;
+  transition: visibility 0s linear var(--am-motion-page);
+}
+.hc-secondary--open .hc-secondary__inner {
+  visibility: visible;
+  transition: visibility 0s;
 }
 .hc-secondary-row {
   display: flex;

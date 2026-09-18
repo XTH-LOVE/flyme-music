@@ -1,5 +1,5 @@
 import type { MusicSource, MusicTrack, RawApiTrack, SearchPageResult, SongLyric } from './types';
-import { normalizeTrack, requestMusicApiJSON } from './provider-utils';
+import { normalizeTrack, requestMusicApiJSON, requestStreamUrl } from './provider-utils';
 import { toSimplified } from '@/utils/t2s';
 
 /**
@@ -34,13 +34,7 @@ export abstract class BaseMusicProvider {
   }
 
   async getUrl(track: MusicTrack, br = 192): Promise<string | null> {
-    const json = await requestMusicApiJSON<{ url?: string }>({
-      types: 'url',
-      source: this.source,
-      id: track.url_id,
-      br,
-    });
-    return json.url || null;
+    return requestStreamUrl(this.source, track.url_id, br);
   }
 
   async getPic(track: MusicTrack, size = 800): Promise<string | null> {

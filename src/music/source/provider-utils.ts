@@ -72,6 +72,57 @@ export async function requestMusicApiJSON<T>(
   throw lastError ?? new Error('No available music API endpoint');
 }
 
+/**
+ * Bitrates to step down through when the requested one yields nothing.
+ *
+ * Measurements against the aggregator's `url` endpoint, and what they imply:
+ *
+ * - Different bitrates can fail independently. In one window a single Joox
+ *   track resolved 0/8 at 999 (lossless) while the same track resolved 7/8 at
+ *   128. Since the app's default quality is lossless, that alone made playback
+ *   fail - so stepping down is worth doing.
+ * - Retrying the *same* bitrate is not. An interleaved test (12 rounds each)
+ *   gave 4/12 for a single 999 request and 4/12 for the full ladder, and six
+ *   different songs failed in the same window. Failures are largely temporal:
+ *   when the upstream is having a bad minute, every bitrate fails together.
+ *
+ * Hence one attempt per bitrate, four requests worst case. Burning more
+ * attempts would only add load to an endpoint that is already struggling.
+ */
+const URL_BR_LADDER = [999, 320, 192, 128];
+
+/**
+ * Resolve a stream url for a source, stepping the bitrate down when a rung
+ * yields nothing. Only ever steps downwards: silently returning a *higher*
+ * bitrate than the caller asked for would be a surprise, and the ladder covers
+ * the useful range.
+ */
+export async function requestStreamUrl(
+  source: MusicSource,
+  id: string,
+  br: number,
+): Promise<string | null> {
+  const ladder = URL_BR_LADDER.filter((candidate) => candidate <= br);
+  if (!ladder.includes(br)) ladder.unshift(br);
+
+  for (const candidate of ladder) {
+    try {
+      const json = await requestMusicApiJSON<{ url?: string }>({
+        types: 'url',
+        source,
+        id,
+        br: candidate,
+      });
+      if (json.url) return json.url;
+    } catch {
+      // The endpoint occasionally answers with an HTML error page instead of
+      // JSON, which throws on parse. Treat it as this rung failing rather than
+      // letting it abort the whole resolution.
+    }
+  }
+  return null;
+}
+
 /** [mm:ss.xxx] tagged LRC text -> timed lines. */
 export function parseLrc(lrc: string): { time: number; text: string }[] {
   if (!lrc) return [];

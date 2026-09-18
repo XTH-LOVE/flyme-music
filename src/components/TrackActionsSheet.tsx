@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
@@ -8,7 +8,9 @@ import { downloadTrack } from '@/utils/download';
 import { notify } from '@/utils/notify';
 import { cacheTrackAudio, isTrackCached, removeCachedTrack } from '@/library/offlineCache';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
+import { getPlaybackFailure } from '@/player/playbackFailure';
 import type { MusicTrack } from '@/music/source/types';
+import { sourceLabels } from '@/music/source/types';
 import { CommentsSheet } from './CommentsSheet';
 import './actions.css';
 
@@ -34,11 +36,18 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
   const [caching, setCaching] = useState(false);
   const [cached, setCached] = useState<boolean | null>(null);
   const [switching, setSwitching] = useState(false);
+  const [failureTick, setFailureTick] = useState(0);
 
   const canCache = track ? track.source !== 'mock' && track.source !== 'local' : false;
   const canDownload = canCache;
   const canComment = track?.source === 'netease';
   const canSwitch = canCache;
+  // Re-read on open and after a switch so the panel reflects the latest attempt.
+  const failure = useMemo(
+    () => (track ? getPlaybackFailure(track.source, track.id) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- failureTick / open are intentional refresh triggers
+    [track?.source, track?.id, failureTick, open],
+  );
 
   const handleSwitchSource = async () => {
     if (!track || switching) return;
@@ -47,6 +56,7 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
       const ok = await playFromAlternateSource(track);
       if (ok) {
         notify('已从其他音源播放《' + track.name + '》');
+        setFailureTick((v) => v + 1);
         onClose();
       } else {
         notify('其他音源没找到这首歌，试试手动搜索');
@@ -186,6 +196,11 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
               ) : null}
             </div>
             {downloadMsg ? <div className="action-msg">{downloadMsg}</div> : null}
+            {failure ? (
+              <div className="action-msg action-msg--warn">
+                上次在「{sourceLabels[failure.source]}」播放失败（{failure.message}），可以试试换源重试
+              </div>
+            ) : null}
 
             <div className="picker-section-title">添加到歌单</div>
             <div className="picker-create">

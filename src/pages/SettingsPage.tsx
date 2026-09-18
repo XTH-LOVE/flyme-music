@@ -7,6 +7,7 @@ import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { useSettingsStore, type AudioQuality } from '@/store/useSettingsStore';
 import { useAiStore, type AiPersona } from '@/store/useAiStore';
 import { getAiStatus, listAiModels } from '@/ai/aiClient';
+import { isLevelMatching, setLevelMatching } from '@/player/webAudio';
 import {
   DEFAULT_MUSIC_API_URL,
   getMusicApiUrls,
@@ -47,6 +48,7 @@ export function SettingsPage() {
   const themeResolved = useThemeStore((s) => s.resolved);
   const setThemePureBlack = useThemeStore((s) => s.setPureBlack);
   const settings = useSettingsStore();
+  const [levelMatching, setLevelMatchingState] = useState(isLevelMatching());
   const [apiUrl, setApiUrl] = useState(getMusicApiUrls()[0]);
   const [apiSaved, setApiSaved] = useState(false);
 
@@ -399,6 +401,19 @@ export function SettingsPage() {
             <div className="settings-row__desc">频谱随真实节奏跳动。开启后在线歌曲经服务器转发播放，网络不稳时可能卡顿；关闭为直连播放（最流畅）。离线缓存与本地歌曲始终使用真实频谱</div>
           </div>
           <Switch checked={settings.realSpectrum} onChange={settings.setRealSpectrum} />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">自动音量均衡</div>
+            <div className="settings-row__desc">让已接入真实频谱的本地/离线音频切歌时音量更平稳；直连跨域音源不生效</div>
+          </div>
+          <Switch
+            checked={levelMatching}
+            onChange={(value) => {
+              setLevelMatchingState(value);
+              setLevelMatching(value);
+            }}
+          />
         </div>
         <div className="settings-row">
           <div className="settings-row__body">

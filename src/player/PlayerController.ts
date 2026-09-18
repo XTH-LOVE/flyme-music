@@ -4,6 +4,7 @@ import type { Song } from '@/music/types';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { notify } from '@/utils/notify';
+import { setPlaybackFailure, clearPlaybackFailure } from './playbackFailure';
 import { isTauri } from '@/lib/apiTransport';
 import { PlayerEngine } from './PlayerEngine';
 import { PlayerQueue } from './PlayerQueue';
@@ -286,13 +287,14 @@ class PlayerController {
       cur !== null &&
       cur.source + ':' + cur.id + ':' + cur.url_id === trackKey;
     if (url && stillCurrent) {
+      clearPlaybackFailure(track.source, track.id);
       // Unless the user already dragged the progress bar, always start
       // the real stream from 0 - otherwise listeners miss the intro while
       // the URL was resolving.
       this.engine.attachSource(this.attachUrlFor(url), this.userSeeked ? undefined : 0);
       this.broadcast();
     } else if (!url && stillCurrent && track.source !== 'mock') {
-      // Remote providers go down for stretches at a time - the GD aggregator's
+      setPlaybackFailure(track.source, track.id, 'unavailable');
       // joox endpoint did exactly that, failing every song for minutes on end.
       // Stop the optimistic clock, then look for the same song elsewhere
       // instead of just giving up on the track.
@@ -313,6 +315,10 @@ class PlayerController {
     if (this.triedSources.size >= PlayerController.MAX_FALLBACK_SOURCES) return false;
     this.triedSources.add(track.source);
 
+    // The search can take a second or two (Hi歌 is a scrape), during which the
+    // player is silent. Say so, otherwise it reads as a hang.
+    notify('原音源暂时不可用，正在换源…');
+
     // Imported lazily on purpose: alternateSource imports the player singleton,
     // so a static import here would close a module cycle.
     const { findAlternateSource } = await import('@/player/alternateSource');
@@ -324,7 +330,7 @@ class PlayerController {
     // Swap the entry in place so the queue (and the source badge) stay truthful.
     this.queue.replaceCurrent(alt);
     this.persistQueue();
-    notify('原音源暂时不可用，已切到「' + sourceLabels[alt.source] + '」播放');
+    notify('已切到「' + sourceLabels[alt.source] + '」播放');
     this.broadcast();
     await this.startCurrent(true);
     return true;
@@ -345,13 +351,19 @@ class PlayerController {
       cur !== null &&
       cur.source + ':' + cur.id + ':' + cur.url_id === trackKey;
     if (url && stillCurrent) {
+      clearPlaybackFailure(track.source, track.id);
       this.engine.attachSource(this.attachUrlFor(url));
       this.broadcast();
     } else if (!url && stillCurrent) {
-      // No stream available: stop the silent simulated clock honestly.
+      setPlaybackFailure(track.source, track.id, 'unavailable');
+      // No stream available: stop the silent simulated clock, then try the same
+      // song on another provider rather than leaving the user stuck.
       this.engine.pause();
-      notify('《' + track.name + '》暂时无法播放，可在歌曲菜单里换源重试');
       this.broadcast();
+      const switched = await this.switchToAlternateSource(track, requestId);
+      if (!switched) {
+        notify('《' + track.name + '》暂时无法播放，可在歌曲菜单里换源重试');
+      }
     }
   }
 

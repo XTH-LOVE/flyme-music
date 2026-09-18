@@ -20,6 +20,91 @@ let high: BiquadFilterNode | null = null;
 let wiredElement: HTMLAudioElement | null = null;
 let tainted = false;
 
+/* ---------- Automatic level matching (AGC) ---------- */
+
+/**
+ * Target RMS, roughly -17 dBFS. Sources differ a lot in loudness - a GD
+ * aggregator stream, a scraped Hi歌 stream and a local file are all mastered
+ * differently - so switching tracks currently means reaching for the volume.
+ *
+ * This is a closed loop: the analyser sits AFTER the gain node, so the measured
+ * level already includes the correction. Dividing the target by what we measure
+ * and nudging the gain toward that is self-correcting, and the smoothing keeps
+ * it from pumping.
+ */
+const LEVEL_TARGET_RMS = 0.14;
+const LEVEL_MIN_GAIN = 0.3;
+const LEVEL_MAX_GAIN = 3.5;
+const LEVEL_TICK_MS = 250;
+/** Fraction of the remaining error applied per tick. */
+const LEVEL_SMOOTHING = 0.25;
+const LEVEL_STORAGE_KEY = 'aurora.levelMatching';
+
+let levelGain: GainNode | null = null;
+let levelAnalyser: AnalyserNode | null = null;
+let levelTimer: number | null = null;
+let levelEnabled = false;
+let levelBuf: Float32Array | null = null;
+
+const clampGain = (value: number): number =>
+  Math.max(LEVEL_MIN_GAIN, Math.min(LEVEL_MAX_GAIN, value));
+
+function tickLevel(): void {
+  if (!levelGain || !levelAnalyser || !wiredElement || wiredElement.paused) return;
+  if (!levelBuf || levelBuf.length !== levelAnalyser.fftSize) {
+    levelBuf = new Float32Array(levelAnalyser.fftSize);
+  }
+  levelAnalyser.getFloatTimeDomainData(levelBuf);
+  let sum = 0;
+  for (let i = 0; i < levelBuf.length; i += 1) sum += levelBuf[i] * levelBuf[i];
+  const rms = Math.sqrt(sum / levelBuf.length);
+  // Near-silence carries no usable level information; adjusting on it would
+  // crank the gain up during the quiet intro of every track.
+  if (rms < 1e-4) return;
+
+  const current = levelGain.gain.value;
+  const desired = clampGain(current * (LEVEL_TARGET_RMS / rms));
+  levelGain.gain.value = current + (desired - current) * LEVEL_SMOOTHING;
+}
+
+function syncLevelTimer(): void {
+  const shouldRun = levelEnabled && levelGain !== null && !tainted;
+  if (shouldRun && levelTimer === null) {
+    levelTimer = window.setInterval(tickLevel, LEVEL_TICK_MS);
+  } else if (!shouldRun && levelTimer !== null) {
+    window.clearInterval(levelTimer);
+    levelTimer = null;
+    // Hand control back to the user's volume slider untouched.
+    if (levelGain) levelGain.gain.value = 1;
+  }
+}
+
+export function isLevelMatching(): boolean {
+  return levelEnabled;
+}
+
+/** Turn automatic level matching on/off. Persisted like the EQ preset. */
+export function setLevelMatching(on: boolean): void {
+  levelEnabled = on;
+  try {
+    localStorage.setItem(LEVEL_STORAGE_KEY, on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+  syncLevelTimer();
+}
+
+function applyStoredLevelSetting(): void {
+  try {
+    levelEnabled = localStorage.getItem(LEVEL_STORAGE_KEY) === '1';
+  } catch {
+    levelEnabled = false;
+  }
+}
+
+// Read once at module load; setLevelMatching owns the flag from then on.
+applyStoredLevelSetting();
+
 export interface EqPreset {
   key: string;
   label: string;
@@ -89,13 +174,26 @@ export function ensureWired(el: HTMLAudioElement): boolean {
     const analyserNode = analyser;
     const audioCtx = ctx;
     sourceNode = ctx.createMediaElementSource(el);
+    levelGain = levelGain ?? ctx.createGain();
+    levelAnalyser =
+      levelAnalyser ??
+      (() => {
+        const node = ctx!.createAnalyser();
+        // Far longer window than the visualiser's 128 samples: RMS over ~3ms
+        // swings too much to drive a level correction sensibly.
+        node.fftSize = 2048;
+        return node;
+      })();
     sourceNode.connect(lowNode);
     lowNode.connect(midNode);
     midNode.connect(highNode);
-    highNode.connect(analyserNode);
+    highNode.connect(levelGain);
+    levelGain.connect(levelAnalyser);
+    levelAnalyser.connect(analyserNode);
     analyserNode.connect(audioCtx.destination);
     wiredElement = el;
     if (audioCtx.state === 'suspended') void audioCtx.resume();
+    syncLevelTimer();
     return true;
   } catch {
     // Some engines throw when the element is already wired or the source is

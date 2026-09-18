@@ -35,6 +35,14 @@ class PlayerController {
   private triedSources = new Set<MusicSource>();
   /** Upper bound on automatic provider hops per track. */
   private static readonly MAX_FALLBACK_SOURCES = 3;
+  /**
+   * Track that must play next regardless of shuffle. Without this, "play next"
+   * is a lie in shuffle mode, where next() otherwise picks at random - and the
+   * song the user explicitly queued first would be skipped like any other.
+   * Stored as a key rather than an index so queue edits cannot make it point at
+   * the wrong song.
+   */
+  private forcedNextKey: string | null = null;
 
   constructor() {
     this.restorePersisted();
@@ -48,6 +56,8 @@ class PlayerController {
 
   playTracks(tracks: MusicTrack[], startIndex = 0): void {
     if (!tracks.length) return;
+    // A fresh queue supersedes any pending "play next" request.
+    this.forcedNextKey = null;
     this.queue.load(tracks, startIndex);
     this.persistQueue();
     void this.startCurrent();
@@ -91,7 +101,9 @@ class PlayerController {
   }
 
   next(): void {
-    const track = this.queue.next();
+    // An explicit "play next" wins over shuffle's random pick.
+    const forced = this.takeForcedNext();
+    const track = forced !== null ? this.queue.jumpTo(forced) : this.queue.next();
     this.persistQueue();
     if (track) void this.startCurrent();
   }
@@ -159,6 +171,8 @@ class PlayerController {
   }
 
   jumpToQueueIndex(i: number): void {
+    // Picking a song by hand supersedes a pending "play next".
+    this.forcedNextKey = null;
     const track = this.queue.jumpTo(i);
     this.persistQueue();
     if (track) void this.startCurrent();
@@ -205,12 +219,25 @@ class PlayerController {
       return;
     }
     this.queue.insertNext(tracks);
+    // Remember the first inserted track so next() honours it even in shuffle.
+    const first = this.queue.list[this.queue.currentIndex + 1];
+    this.forcedNextKey = first ? first.source + ':' + first.id : null;
     this.persistQueue();
     this.broadcast();
   }
 
+  /** Resolve and consume the pending "play next" request, if still present. */
+  private takeForcedNext(): number | null {
+    if (!this.forcedNextKey) return null;
+    const key = this.forcedNextKey;
+    this.forcedNextKey = null;
+    const index = this.queue.list.findIndex((t) => t.source + ':' + t.id === key);
+    return index >= 0 ? index : null;
+  }
+
   clearQueue(): void {
     this.playbackRequestId += 1;
+    this.forcedNextKey = null;
     this.queue.clear();
     this.engine.load(0);
     this.persistQueue();

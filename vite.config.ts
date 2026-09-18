@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
+import { AI_DEFAULT_ENDPOINT, AI_DEFAULT_MODEL } from './src/lib/apiGuard';
 
 /* ------------------------------------------------------------------
  * Dev-server proxies: bypass CORS / hotlink blocks for Netease weapi,
@@ -22,8 +24,80 @@ function getResponseCookie(headers: Headers): string {
     .join('; ');
 }
 
+/** Fresh random visitor identity for retry attempts (Netease risk-control
+ * challenges bind to the request's _ntes_nuid). Mirrors reIdCookie in
+ * server/auroraApi.ts. */
+function reIdCookie(cookie: string): string {
+  let nid = '';
+  for (let i = 0; i < 32; i++) nid += '012345679abcdef'[Math.floor(Math.random() * 16)];
+  return cookie
+    .replace(/_ntes_nuid=[^;]*/, '_ntes_nuid=' + nid)
+    .replace(/_ntes_nnid3=[^,;]*/, '_ntes_nnid3=' + nid + ',' + Date.now());
+}
+
+function isRiskBody(text: string): boolean {
+  try {
+    const code = (JSON.parse(text) as { code?: number }).code;
+    return code === -462 || code === 462 || code === -460 || code === 460 || code === 512;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * PWA: precache the built shell so the web version can be installed and opened
+ * offline. Deliberately conservative:
+ *
+ * - `/api/*` is never served from the SW (`navigateFallbackDenylist`), so the
+ *   app's own backend always hits the network instead of a stale cache masking
+ *   a real failure.
+ * - Only same-origin build output is precached. Third-party audio/cover URLs
+ *   are left to the app's own IndexedDB caches - precaching them here would
+ *   store the same media twice.
+ * - `autoUpdate` means a new deployment takes over on the next load, so users
+ *   cannot get stranded on an old shell.
+ */
+function pwaPlugin() {
+  return VitePWA({
+    registerType: 'autoUpdate',
+    includeAssets: ['favicon.svg', 'aurora-mark.jpg'],
+    manifest: {
+      name: 'Aurora Music',
+      short_name: 'Aurora',
+      description: 'HyperOS 风格的现代音乐播放器：沉浸式歌词、动态环境色、轻量 Liquid Glass。',
+      lang: 'zh-CN',
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      theme_color: '#101012',
+      background_color: '#101012',
+      icons: [
+        // Only an SVG and a 1254px JPEG ship today, so the manifest declares
+        // exactly those rather than inventing 192/512 PNGs that do not exist.
+        // Chrome / Edge / Android accept the SVG; dropping real 192 and 512 PNG
+        // files into public/ and listing them here would improve iOS.
+        { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+        { src: '/aurora-mark.jpg', sizes: '1254x1254', type: 'image/jpeg', purpose: 'any' },
+      ],
+    },
+    workbox: {
+      globPatterns: ['**/*.{js,css,html,svg,jpg,jpeg,png,ico,woff2}'],
+      navigateFallback: 'index.html',
+      navigateFallbackDenylist: [/^\/api\//],
+      cleanupOutdatedCaches: true,
+    },
+  });
+}
+
+
 /** Dev-only forwarder: the browser cannot POST to music.163.com (CORS) nor
- * read Set-Cookie. Encryption already happened in src/music/netease/weapi.ts. */
+ * read Set-Cookie. Encryption already happened in src/music/netease/weapi.ts.
+ *
+ * Retry policy is kept IDENTICAL to the deployed handlers
+ * (server/auroraApi.ts handleNeteaseWeapi, functions/api/netease/weapi.ts):
+ * risk control is probabilistic per egress IP/identity, so a fresh identity
+ * usually clears it. Keeping dev in sync means a -462 that self-heals in
+ * production also self-heals locally instead of only reproducing on a desk. */
 function neteaseWeapiProxy(): Plugin {
   return {
     name: 'aurora-netease-weapi-proxy',
@@ -48,18 +122,29 @@ function neteaseWeapiProxy(): Plugin {
               res.end(JSON.stringify({ error: 'bad path or form' }));
               return;
             }
-            const upstream = await fetch('https://music.163.com' + apiPath, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': PC_USER_AGENT,
-                Referer: 'https://music.163.com',
-                Origin: 'https://music.163.com',
-                Cookie: typeof cookie === 'string' ? cookie.replace(/[\r\n]/g, '').slice(0, 12000) : '',
-              },
-              body: form,
-            });
-            const text = await upstream.text();
+            const safeCookie = typeof cookie === 'string' ? cookie : '';
+            const relay = (attempt: number) =>
+              fetch('https://music.163.com' + apiPath, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'User-Agent': PC_USER_AGENT,
+                  Referer: 'https://music.163.com',
+                  Origin: 'https://music.163.com',
+                  Cookie: attempt === 0
+                    ? safeCookie.replace(/[\r\n]/g, '').slice(0, 12000)
+                    : reIdCookie(safeCookie),
+                },
+                body: form,
+              });
+            let upstream = await relay(0);
+            let text = await upstream.text();
+            for (const [i, delay] of [250, 700, 1500].entries()) {
+              if (!isRiskBody(text)) break;
+              await new Promise((r) => setTimeout(r, delay));
+              upstream = await relay(i + 1);
+              text = await upstream.text();
+            }
             const joined = getResponseCookie(upstream.headers);
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ body: text, cookies: joined ? joined.split('; ') : [] }));
@@ -98,6 +183,54 @@ function genericProxy(): Plugin {
           const text = await upstream.text();
           res.statusCode = upstream.status;
           res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(text);
+        } catch (e) {
+          res.statusCode = 502;
+          res.end(JSON.stringify({ error: String(e) }));
+        }
+      });
+    },
+  };
+}
+
+/** Legacy unencrypted Netease channel relay (GET /api/netease/public).
+ * Fallback for when the weapi channel is risk-controlled (-462). The risk
+ * control on datacenter IPs is probabilistic - netease returns -462 for a
+ * fraction of requests - so relay with a small retry budget. Mirrors
+ * handleNeteasePublic in server/auroraApi.ts and functions/api/netease/public.ts.
+ */
+function neteasePublicProxy(): Plugin {
+  return {
+    name: 'aurora-netease-public-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/netease/public', async (req, res) => {
+        const parsed = new URL(req.url ?? '', 'http://localhost');
+        const path = parsed.searchParams.get('path') ?? '';
+        const allowed = new Set(['/api/playlist/detail']);
+        if (!allowed.has(path)) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'path not allowed' }));
+          return;
+        }
+        try {
+          let text = '';
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const upstream = await fetch('https://music.163.com' + path + '?' + parsed.searchParams.toString(), {
+              headers: {
+                'User-Agent': PC_USER_AGENT,
+                Referer: 'https://music.163.com',
+                Cookie: 'os=pc; appver=2.9.7; mode=31',
+              },
+            });
+            text = await upstream.text();
+            let code: number | undefined;
+            try { code = JSON.parse(text).code; } catch { /* non-json */ }
+            // -462/-460/512 = probabilistic risk control; a retry usually passes.
+            if (upstream.ok && code !== -462 && code !== -460 && code !== 512) break;
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 700));
+          }
+          res.setHeader('Content-Type', 'application/json');
           res.setHeader('Cache-Control', 'no-store');
           res.end(text);
         } catch (e) {
@@ -170,25 +303,37 @@ function mediaDownloadProxy(): Plugin {
         }
         (async () => {
           try {
+            const range = req.headers.range;
             const upstream = await fetch(target, {
               headers: {
                 'User-Agent': PC_USER_AGENT,
                 Referer: new URL(target).origin + '/',
+                ...(range ? { Range: range } : {}),
               },
             });
-            if (!upstream.ok || !upstream.body) {
+            if (upstream.status !== 206 && !upstream.ok) {
               res.statusCode = upstream.status || 502;
               res.end('upstream error');
               return;
             }
+            const body = upstream.body;
+            if (!body) {
+              res.statusCode = 502;
+              res.end('empty upstream body');
+              return;
+            }
+            res.statusCode = upstream.status;
             res.setHeader(
               'Content-Type',
               upstream.headers.get('content-type') ?? 'application/octet-stream',
             );
             const len = upstream.headers.get('content-length');
             if (len) res.setHeader('Content-Length', len);
+            res.setHeader('Accept-Ranges', 'bytes');
+            const contentRange = upstream.headers.get('content-range');
+            if (contentRange) res.setHeader('Content-Range', contentRange);
             res.setHeader('Cache-Control', 'no-store');
-            const reader = upstream.body.getReader();
+            const reader = body.getReader();
             for (;;) {
               const { done, value } = await reader.read();
               if (done) break;
@@ -208,9 +353,9 @@ function mediaDownloadProxy(): Plugin {
 /** OpenAI-compatible AI pass-through. Credentials stay in the dev server
  * environment and are never accepted from browser requests. */
 function aiProxy(env: Record<string, string>): Plugin {
-  const endpoint = (env.AURORA_AI_ENDPOINT || 'https://opencode.ai/zen/v1').replace(/\/$/, '');
+  const endpoint = (env.AURORA_AI_ENDPOINT || AI_DEFAULT_ENDPOINT).replace(/\/$/, '');
   const apiKey = env.AURORA_AI_API_KEY?.trim() ?? '';
-  const configuredModel = env.AURORA_AI_MODEL?.trim() ?? '';
+  const configuredModel = env.AURORA_AI_MODEL?.trim() || AI_DEFAULT_MODEL;
   const allowedPaths = new Set(['/models', '/chat/completions']);
   return {
     name: 'aurora-ai-proxy',
@@ -279,7 +424,16 @@ function aiProxy(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'AURORA_');
   return {
-  plugins: [react(), genericProxy(), neteaseWeapiProxy(), imageProxy(), mediaDownloadProxy(), aiProxy(env)],
+  plugins: [
+    react(),
+    pwaPlugin(),
+    genericProxy(),
+    neteaseWeapiProxy(),
+    neteasePublicProxy(),
+    imageProxy(),
+    mediaDownloadProxy(),
+    aiProxy(env),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -291,6 +445,17 @@ export default defineConfig(({ mode }) => {
       input: {
         main: path.resolve(__dirname, 'index.html'),
         official: path.resolve(__dirname, 'official.html'),
+      },
+      output: {
+        // Split the rarely-changing vendor libraries out of the entry chunk.
+        // The first-load byte total is unchanged (the entry still imports
+        // them), but a deploy now only invalidates the app chunk instead of
+        // forcing every client to re-download React and Supabase. It also
+        // keeps each individual chunk under the 500 kB warning threshold.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+        },
       },
     },
   },

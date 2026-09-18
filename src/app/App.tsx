@@ -1,27 +1,35 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { lazyRetry } from '@/lib/lazyRetry';
 
 // Route-level code splitting: each page ships in its own chunk.
 // Pages use named exports, so each lazy call maps it to a default.
-const HomePage = lazy(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
-const LibraryPage = lazy(() => import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })));
-const DiscoverPage = lazy(() => import('@/pages/DiscoverPage').then((m) => ({ default: m.DiscoverPage })));
-const SearchPage = lazy(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })));
-const PlaylistSquarePage = lazy(() => import('@/pages/PlaylistSquarePage').then((m) => ({ default: m.PlaylistSquarePage })));
-const PlaylistDetailPage = lazy(() => import('@/pages/PlaylistDetailPage').then((m) => ({ default: m.PlaylistDetailPage })));
-const UserPlaylistDetailPage = lazy(() => import('@/pages/UserPlaylistDetailPage').then((m) => ({ default: m.UserPlaylistDetailPage })));
-const NeteasePlaylistDetailPage = lazy(() => import('@/pages/NeteasePlaylistDetailPage').then((m) => ({ default: m.NeteasePlaylistDetailPage })));
-const QqChartDetailPage = lazy(() => import('@/pages/QqChartDetailPage').then((m) => ({ default: m.QqChartDetailPage })));
-const AlbumDetailPage = lazy(() => import('@/pages/AlbumDetailPage').then((m) => ({ default: m.AlbumDetailPage })));
-const ArtistDetailPage = lazy(() => import('@/pages/ArtistDetailPage').then((m) => ({ default: m.ArtistDetailPage })));
-const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
-const MePage = lazy(() => import('@/pages/MePage').then((m) => ({ default: m.MePage })));
-const StatsPage = lazy(() => import('@/pages/StatsPage').then((m) => ({ default: m.StatsPage })));
-const AiPage = lazy(() => import('@/pages/AiPage').then((m) => ({ default: m.AiPage })));
-const LocalMusicPage = lazy(() => import('@/pages/LocalMusicPage').then((m) => ({ default: m.LocalMusicPage })));
+const HomePage = lazyRetry(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
+const LibraryPage = lazyRetry(() => import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })));
+const DiscoverPage = lazyRetry(() => import('@/pages/DiscoverPage').then((m) => ({ default: m.DiscoverPage })));
+const SearchPage = lazyRetry(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })));
+const PlaylistSquarePage = lazyRetry(() => import('@/pages/PlaylistSquarePage').then((m) => ({ default: m.PlaylistSquarePage })));
+const PlaylistDetailPage = lazyRetry(() => import('@/pages/PlaylistDetailPage').then((m) => ({ default: m.PlaylistDetailPage })));
+const UserPlaylistDetailPage = lazyRetry(() => import('@/pages/UserPlaylistDetailPage').then((m) => ({ default: m.UserPlaylistDetailPage })));
+const NeteasePlaylistDetailPage = lazyRetry(() => import('@/pages/NeteasePlaylistDetailPage').then((m) => ({ default: m.NeteasePlaylistDetailPage })));
+const QqChartDetailPage = lazyRetry(() => import('@/pages/QqChartDetailPage').then((m) => ({ default: m.QqChartDetailPage })));
+const AlbumDetailPage = lazyRetry(() => import('@/pages/AlbumDetailPage').then((m) => ({ default: m.AlbumDetailPage })));
+const ArtistDetailPage = lazyRetry(() => import('@/pages/ArtistDetailPage').then((m) => ({ default: m.ArtistDetailPage })));
+const SettingsPage = lazyRetry(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const MePage = lazyRetry(() => import('@/pages/MePage').then((m) => ({ default: m.MePage })));
+const StatsPage = lazyRetry(() => import('@/pages/StatsPage').then((m) => ({ default: m.StatsPage })));
+const AiPage = lazyRetry(() => import('@/pages/AiPage').then((m) => ({ default: m.AiPage })));
+const LocalMusicPage = lazyRetry(() => import('@/pages/LocalMusicPage').then((m) => ({ default: m.LocalMusicPage })));
+const HistoryPage = lazyRetry(() => import('@/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
+const StoragePage = lazyRetry(() => import('@/pages/StoragePage').then((m) => ({ default: m.StoragePage })));
+const NeteaseAlbumDetailPage = lazyRetry(() => import('@/pages/NeteaseAlbumDetailPage').then((m) => ({ default: m.NeteaseAlbumDetailPage })));
+const LoginPage = lazyRetry(
+    () => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
+  );
+  const NeteaseArtistDetailPage = lazyRetry(() => import('@/pages/NeteaseArtistDetailPage').then((m) => ({ default: m.NeteaseArtistDetailPage })));
 // Polish layer loaded last so it wins cascade ties; Monet + Miuix above all.
 import '@/styles/ui-refresh.css';
 import '@/styles/monet.css';
@@ -62,6 +70,11 @@ export function App() {
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/ai" element={<AiPage />} />
             <Route path="/local" element={<LocalMusicPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/storage" element={<StoragePage />} />
+            <Route path="/ne-album/:id" element={<NeteaseAlbumDetailPage />} />
+            <Route path="/ne-artist/:id" element={<NeteaseArtistDetailPage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

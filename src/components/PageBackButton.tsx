@@ -4,7 +4,14 @@ import { Icon } from '@/components/Icon';
 const mainEntries = new Set(['/', '/library', '/discover', '/me']);
 
 function fallbackFor(pathname: string): string {
-  if (pathname === '/settings' || pathname === '/stats' || pathname === '/playlists' || pathname.startsWith('/my-playlist/')) {
+  if (
+    pathname === '/settings' ||
+    pathname === '/stats' ||
+    pathname === '/history' ||
+    pathname === '/storage' ||
+    pathname === '/playlists' ||
+    pathname.startsWith('/my-playlist/')
+  ) {
     return '/me';
   }
   return '/';

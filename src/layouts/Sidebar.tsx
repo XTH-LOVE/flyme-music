@@ -14,8 +14,12 @@ const navItems: { to: string; label: string; icon: IconName }[] = [
 
 const myItems: { to: string; label: string; icon: IconName }[] = [
   { to: '/me', label: '我的', icon: 'user' },
-  { to: '/stats', label: '统计', icon: 'clock' },
+  { to: '/history', label: '播放历史', icon: 'clock' },
+  // 'monitor' rather than 'clock': the clock now means history, and 'flame' is
+  // already taken by 排行榜 above.
+  { to: '/stats', label: '统计', icon: 'monitor' },
   { to: '/playlists', label: '歌单广场', icon: 'library' },
+  { to: '/storage', label: '存储管理', icon: 'download' },
   { to: '/settings', label: '设置', icon: 'settings' },
 ];
 

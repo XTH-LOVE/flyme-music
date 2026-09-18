@@ -28,6 +28,8 @@ interface LibraryState {
   addSearchKeyword: (keyword: string) => void;
   removeSearchKeyword: (keyword: string) => void;
   clearSearchHistory: () => void;
+  /** Wipes the play log and the "recently played" strip it feeds. */
+  clearPlayLog: () => void;
   /** Bulk rehydrate (cloud sync / backup restore), persisting each slice. */
   hydrateLibrary: (patch: {
     recentTracks?: MusicTrack[];
@@ -122,6 +124,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   clearSearchHistory: () => {
     save('aurora.searchHistory', []);
     set({ searchHistory: [] });
+  },
+
+  clearPlayLog: () => {
+    // recentTracks is derived from the same play activity, so clearing one
+    // without the other would leave the Home "recently played" strip showing
+    // tracks that no longer exist in the history.
+    save('aurora.playLog.v1', []);
+    save('aurora.recentTracks.v1', []);
+    set({ playLog: [], recentTracks: [] });
   },
 
   hydrateLibrary: (patch) => {

@@ -1,8 +1,10 @@
-# Flyme Music
+# Aurora Music
 
 一款具有 **Xiaomi HyperOS 设计语言**、融合现代音乐播放器体验的高级音乐应用。
 
 > HyperOS + 现代音乐播放器 + 高级简约 + 轻量 Liquid Glass
+
+> **关于命名**：项目曾用名 Flyme Music。代码、包名（`aurora-music`）、桌面应用与 Android 包名（`com.auroramusic.app`）均已统一为 Aurora Music；仅**线上部署标识**保留历史名称以避免中断已发布链接——Cloudflare Pages 项目名 `flyme-music`（访问域名 `flyme-music.pages.dev`）。若要一并改名，需在 Cloudflare 新建项目并更新本文档中的链接。
 
 ## 快速开始
 
@@ -43,14 +45,24 @@ npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JA
 ### 更新部署（dashboard 拖拽上传，无需 CLI 登录）
 
 1. `npm run build` 构建最新前端
-2. 组装上传包（静态产物 + functions 同级）：
-   ```powershell
-   Remove-Item release-cf -Recurse -Force -ErrorAction SilentlyContinue
-   Copy-Item dist release-cf -Recurse
-   Copy-Item functions release-cf\functions -Recurse
-   ```
+2. `npm run release:cf` 组装上传包（写入 `release-cf/`）
+
+   脚本会拷三份内容：`dist/` 的静态产物、`functions/`，以及 `src/lib/apiGuard.ts`。
+   最后一项是**必需**的：`functions/api/_shared.ts` 里有 `import ... from '../../src/lib/apiGuard'`，
+   只拷 `dist` + `functions` 会让 Cloudflare 构建报模块无法解析（已实测确认）。
+   脚本还会在 `dist/` 落后于 `src/` 或 `functions/` 时直接报错退出，避免把过期后端拖上去。
+
 3. 打开 https://dash.cloudflare.com → Workers & Pages → flyme-music → **Create new deployment**，把 `release-cf` 整个文件夹拖进去上传
 4. 部署完成后访问 https://flyme-music.pages.dev 验证
+
+> 手动组装（不推荐，容易漏文件）：
+> ```powershell
+> Remove-Item release-cf -Recurse -Force -ErrorAction SilentlyContinue
+> Copy-Item dist release-cf -Recurse
+> Copy-Item functions release-cf\functions -Recurse
+> New-Item release-cf\src\lib -ItemType Directory -Force | Out-Null
+> Copy-Item src\lib\apiGuard.ts release-cf\src\lib\apiGuard.ts
+> ```
 
 ### 环境变量（dashboard → flyme-music → Settings → Variables and Secrets）
 
@@ -103,6 +115,11 @@ npx vercel --prod      # 生产部署
 2. 运行 `npx tauri icon src-tauri/icons/app-icon.png`
 3. 重新打包。桌面图标写入 `src-tauri/icons/`，Android 图标写入 `src-tauri/gen/android/app/src/main/res/mipmap-*`
 
+> **PWA 图标**：网页版走的是 `public/favicon.svg`（`sizes: any`）与 `public/aurora-mark.jpg`（1254×1254），
+> manifest 里如实声明了这两个文件，没有伪造 192/512 PNG。Chrome / Edge / Android 能正常安装；
+> iOS 加到主屏的图标质量一般——放两个真正的 `192x192` 与 `512x512` PNG 到 `public/`，
+> 再加进 `vite.config.ts` 的 `manifest.icons` 即可改善。
+
 ## 官网落地页
 
 项目采用 Vite 双入口：主应用（`index.html`）与官网落地页（`official.html`）完全隔离、可单独部署。
@@ -110,6 +127,36 @@ npx vercel --prod      # 生产部署
 - 开发访问：`http://localhost:5173/official.html`
 - 构建产物：`dist/official.html`（无 React runtime，gzip 后约 5 kB）
 - 样式复用 `src/styles/global.css` 的 `--am-*` 设计令牌，源码位于 `src/official/`
+
+## 安全与第三方依赖说明
+
+### AI 密钥
+
+- **网页版**：key 只存在于函数运行时环境变量（`AURORA_AI_API_KEY`），前端拿不到。
+- **打包版**：`src-tauri/build.rs` 会把 key 以明文字符串编译进二进制。前端确实看不到，但**拿到安装包的人可以用 `strings` 提取**。因此请把内嵌的 key 当作公开值对待：给它设置消费额度/预算上限，并在安装包流出到你信任范围之外时轮换。彻底的做法是让桌面端也走自建中转服务，而不是下发 key。
+- 构建时会输出 `cargo:warning` 提醒这一点。
+
+### `/api` 的同源防护
+
+`src/lib/apiGuard.ts` 的 Origin/Referer 校验是**廉价过滤器，不是鉴权边界**——浏览器之外这两个头完全由客户端控制。因此：
+
+- 回环地址（`localhost` / `127.0.0.1`）只在「请求本身也是从回环地址提供」时才被信任，公网部署不会因为 `Origin: http://localhost` 放行；
+- Tauri 客户端来源（`http://tauri.localhost`、`tauri://localhost`）始终放行；
+- 额外来源用 `AURORA_ALLOWED_ORIGINS`（逗号分隔）配置；
+- **务必在 Cloudflare / Vercel 控制台为 `/api/ai` 配置平台级 Rate Limiting**，代码里的限流只在单个 isolate 内存中生效，多实例下不构成硬保证。
+
+### 第三方音源
+
+在线播放/搜索默认走第三方聚合接口 `https://music-api.gdstudio.xyz/api.php`（见 `src/music/source/api-config.ts`）。它不是官方接口，存在**可用性单点、隐私（查询经第三方）、版权**三重风险，并且用户可在设置页自行替换。生产使用前建议替换为自建或官方授权音源。
+
+此外还有一个 **Hi歌（higequ.com）** 音源（见 `src/music/higequ/`）。它同样不是官方接口：站点没有 JSON API，全部靠抓取 PHP 渲染的 HTML 解析（搜索页 `.result-item[data-rid]`、播放页内联 base64 直链与 `.lyric-line` 歌词），**站点改版会直接导致解析失效**，且解析出的音频直链来自第三方 CDN。该音源默认只在搜索页出现，不参与自动化的多源聚合（见下方说明），需用户在搜索页手动选择。
+
+- 打包端经 plugin-http 直连（需伪装浏览器 UA，站点会断开非浏览器 UA 的请求）；浏览器端走同源 `/api/proxy`。
+- 若要让它参与每日推荐与 AI 找歌的自动多源聚合，需自行改动两处：`src/hooks/useDailyPick.ts` 的源列表，以及 `src/ai/musicSearch.ts` 的并发搜索列表。默认未开启，避免每次启动都自动请求该站点。
+
+### Supabase Edge Function
+
+`account-auth` 持有 service_role key 且能创建账号，CORS 已改为白名单（默认仅允许线上域名、本地开发地址与 Tauri 来源）。如使用自定义域名或预览环境，请设置 `ALLOWED_ORIGINS` 密钥（逗号分隔）。注意非浏览器客户端不受 CORS 约束，真正的兜底是函数内的单 IP 注册节流 + Supabase Dashboard 的 Auth Rate Limits。
 
 ## 技术栈
 
@@ -129,6 +176,11 @@ npx vercel --prod      # 生产部署
 - 🎤 沉浸式歌词：高亮、自动滚动、点击跳转
 - 🎧 Full Player 动态环境色（根据专辑色调生成背景）
 - 🔌 Provider 架构：一行代码切换未来真实音乐服务
+- 🔍 五个可搜索音源：网易云 / QQ / 酷我 / Joox / Hi歌（+ 本地曲库）
+- 🕘 播放历史：按天分组，可整组重播或清空
+- 🧹 存储管理：查看并清理离线音频缓存与封面缓存
+- 📲 PWA：可安装到桌面 / 主屏，离线可打开（Service Worker 预缓存应用外壳）
+- 🔐 网易云登录 cookie 以 AES-GCM 加密后落盘，不再明文存 localStorage
 
 ## 目录结构
 

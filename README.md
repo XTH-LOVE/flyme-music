@@ -31,6 +31,35 @@ npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JA
 
 纯浏览器开发（`npm run dev`）仍然可用：vite 中间件提供 /api/netease/weapi、/api/proxy、/api/img、/api/media-proxy、/api/ai。
 
+> **⚠️ 分发安装包前必读：AI key 会被明文烤进二进制**
+>
+> `src-tauri/build.rs` 会把 `.env.local` 里的 `AURORA_AI_API_KEY` 编译进程序，构建时会打印：
+> `Embedding AURORA_AI_API_KEY into the binary (extractable)`
+>
+> "前端拿不到 key" 只意味着页面 JS 读不到，**不代表外人读不到**。实测可以直接从
+> `app.exe` 里 grep 出这个 key —— 任何拿到安装包的人都能提取。
+>
+> 若要对外分发，二选一：
+> 1. 给这个 key 设严格的消费上限（推荐，桌面端 AI 仍可用）
+> 2. 清空 `.env.local` 里的 key 再重新构建（桌面端 AI 失效）
+
+### 在 Git Bash 里构建（Windows）
+
+`tauri build` 需要 MSVC 环境，Git Bash 默认没有，会依次报三种错。构建前先补环境：
+
+```bash
+mv dist .dsh/tmp-dist 2>/dev/null   # dist 已存在时 vite 清空目录会被拦截，先移走
+
+export PATH="/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64:$PATH"
+export LIB="C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\lib\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0\\ucrt\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0\\um\\x64"
+
+npm run tauri:build
+```
+
+三个坑分别对应：`/usr/bin/link`（GNU coreutils）抢在 MSVC 的 `link.exe` 前面；
+Windows SDK 的 `kernel32.lib` / `OleAut32.lib` 找不到（缺 `LIB`，且必须用反斜杠）；
+以及上面那条 `dist` 已存在的问题。有 Visual Studio 的“x64 Native Tools 命令提示符”时可直接构建，无需这些。
+
 ### 已知限制
 
 - Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.auroramusic.app/files/Download/AuroraMusic（品牌统一前安装的旧版本为 com.flyme.music/…/FlymeMusic，升级后新下载进入新目录）；写入公共 Download 需要 MediaStore，属后续增强

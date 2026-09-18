@@ -10,6 +10,7 @@ import { EmptyState } from '@/design-system/components/EmptyState';
 import { useNeteaseRecommend } from '@/music/netease/useNetease';
 import { getNewSongs } from '@/music/netease/netease-api';
 import type { MusicTrack } from '@/music/source/types';
+import { sourceLabels } from '@/music/source/types';
 import { useDailyPick } from '@/hooks/useDailyPick';
 import { playerController } from '@/player';
 import './pages.css';
@@ -29,6 +30,7 @@ export function DiscoverPage() {
   const { data: netPlaylists, loading: netLoading } = useNeteaseRecommend();
   const dailyPick = useDailyPick();
   const [newSongs, setNewSongs] = useState<MusicTrack[] | null>(null);
+  const [newSongsAttempt, setNewSongsAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -42,7 +44,7 @@ export function DiscoverPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [newSongsAttempt]);
 
   const banners = netPlaylists
     ? [...netPlaylists].sort((a, b) => b.playCount - a.playCount).slice(0, 2)
@@ -54,7 +56,7 @@ export function DiscoverPage() {
 
       <section>
         <SectionHeader
-          title={'每日推荐' + (dailyPick.sourceNames.length ? ' · ' + dailyPick.sourceNames.map((s) => (s === 'netease' ? '网易云' : s === 'joox' ? 'Joox' : s === 'qq' ? 'QQ' : s)).join('/') : '')}
+          title={'每日推荐' + (dailyPick.sourceNames.length ? ' · ' + dailyPick.sourceNames.map((s) => sourceLabels[s]).join('/') : '')}
           action={dailyPick.available ? '播放全部' : undefined}
           onAction={dailyPick.available ? () => playerController.playTracks(dailyPick.tracks) : undefined}
         />
@@ -130,7 +132,7 @@ export function DiscoverPage() {
             ))}
           </div>
         ) : newSongs.length === 0 ? (
-          <EmptyState icon="music" title="新歌加载失败" description="请检查网络后重试" />
+          <EmptyState icon="music" title="新歌加载失败" description="请检查网络后重试" action={{ label: '重试', onClick: () => setNewSongsAttempt((n) => n + 1) }} />
         ) : (
           <div className="song-list">
             {newSongs.slice(0, 8).map((track) => (

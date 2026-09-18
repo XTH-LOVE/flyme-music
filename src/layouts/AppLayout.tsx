@@ -17,6 +17,7 @@ import './layout.css';
 import { registerAppNavigation } from '@/app/navigation';
 import { startLibrarySync } from '@/sync/librarySync';
 import { useListenRoom } from '@/hooks/useListenRoom';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useEffect } from 'react';
 
 export function AppLayout() {
@@ -25,17 +26,33 @@ export function AppLayout() {
   useSleepTimer();
   usePrefetch();
   useListenRoom();
+  useKeyboardShortcuts();
   useEffect(() => {
     startLibrarySync();
     let unlistenMedia: (() => void) | null = null;
+    let unlistenBack: (() => void) | null = null;
+    // Guards against the async mount resolving *after* cleanup already ran
+    // (StrictMode double-invoke, or a fast unmount): without this the Tauri
+    // event listeners are never removed.
+    let cancelled = false;
     // Global media shortcuts only exist in the packaged app.
     void import('@/lib/globalMediaKeys').then((m) =>
       m.mountGlobalMediaKeys().then((unlisten) => {
-        unlistenMedia = unlisten;
+        if (cancelled) unlisten();
+        else unlistenMedia = unlisten;
+      }),
+    );
+    // Android system back walks the router history instead of exiting.
+    void import('@/lib/androidBack').then((m) =>
+      m.mountAndroidBackNavigation().then((unlisten) => {
+        if (cancelled) unlisten();
+        else unlistenBack = unlisten;
       }),
     );
     return () => {
+      cancelled = true;
       unlistenMedia?.();
+      unlistenBack?.();
     };
   }, []);
   const location = useLocation();

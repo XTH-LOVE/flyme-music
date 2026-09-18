@@ -64,6 +64,10 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     return () => {
       alive = false;
     };
+    // Narrowed to the track identity on purpose: `track` is a new object on
+    // every player-store update, so depending on it would refetch lyrics on
+    // each position tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [track.id, track.source]);
 
   let activeIndex = -1;

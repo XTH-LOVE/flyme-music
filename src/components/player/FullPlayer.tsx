@@ -48,12 +48,19 @@ function bgGrad(palette: [string, string]): string {
   );
 }
 
-/** One background layer; gradient adapts to the real cover's colors. */
+/** One background layer: blurred artwork ambience + palette gradient. */
 function HcBgLayer({ t, top }: { t: MusicTrack; top: boolean }) {
   const extracted = useCoverPalette(t.picUrl, t.id);
   const palette = extracted ?? t.palette ?? fallbackPalette(t.id);
   return (
     <div className={'hc-bg__layer' + (top ? ' hc-bg__layer--top' : '')}>
+      {t.picUrl ? (
+        <div
+          className="hc-bg__cover"
+          style={{ backgroundImage: 'url("' + t.picUrl + '")' }}
+          aria-hidden="true"
+        />
+      ) : null}
       <div className="hc-bg__grad" style={{ background: bgGrad(palette) }} />
     </div>
   );
@@ -71,6 +78,10 @@ function useLyricLines(track: MusicTrack): MiniLyricLine[] {
     return () => {
       alive = false;
     };
+    // Narrowed to the track identity on purpose: `track` is a new object on
+    // every player-store update, so depending on it would refetch lyrics on
+    // each position tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [track.id, track.source]);
 
   return lines;
@@ -289,6 +300,7 @@ export function FullPlayer() {
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [pipOpen, setPipOpen] = useState(isPipOpen());
+  const trackPalette = useCoverPalette(current?.picUrl, current?.id ?? '');
   const [eqPreset, setEqPresetState] = useState(() => getEqPreset());
   const [dragX, setDragX] = useState(0);
   const [dismissY, setDismissY] = useState(0);
@@ -456,6 +468,10 @@ export function FullPlayer() {
   const seekTo = (v: number) => {
     playerController.seek(v);
     setScrub(null);
+  };
+
+  const wheelVolume = (e: React.WheelEvent) => {
+    playerController.setVolume(Math.min(1, Math.max(0, volume + (e.deltaY < 0 ? 0.05 : -0.05))));
   };
 
   const favButton = (
@@ -686,9 +702,12 @@ export function FullPlayer() {
 
             {progressBlock}
             {transportRow}
-            <Visualizer playing={playing} className="hc-viz" />
+            <Visualizer playing={playing} colors={trackPalette} className="hc-viz" />
 
-            <div className="hc-volume">
+            <div
+              className="hc-volume"
+              onWheel={wheelVolume}
+            >
               <Icon name="volume" size={15} />
               <Slider
                 value={Math.round(volume * 100)}

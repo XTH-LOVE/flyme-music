@@ -31,7 +31,7 @@ export interface RankedQuery {
 
 /** Normalise text for loose matching (dislikes, artist equality). */
 export const norm = (s: string): string =>
-  s.toLowerCase().replace(/[\s\(\)（）《》.,!?'"·/\\-]/g, '');
+  s.toLowerCase().replace(/[\s()（）《》.,!?'"·/\\-]/g, '');
 
 export function isDisliked(text: string, dislikes: string[]): boolean {
   if (!dislikes.length) return false;

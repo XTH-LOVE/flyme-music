@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Icon, type IconName } from '@/components/Icon';
 import { SectionHeader } from '@/design-system/components/SectionHeader';
@@ -39,8 +40,12 @@ const personaOptions: { key: AiPersona; label: string; desc: string }[] = [
 ];
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
+  const themePureBlack = useThemeStore((s) => s.pureBlack);
+  const themeResolved = useThemeStore((s) => s.resolved);
+  const setThemePureBlack = useThemeStore((s) => s.setPureBlack);
   const settings = useSettingsStore();
   const [apiUrl, setApiUrl] = useState(getMusicApiUrls()[0]);
   const [apiSaved, setApiSaved] = useState(false);
@@ -87,7 +92,11 @@ export function SettingsPage() {
               try {
                 const user = await getNeteaseUser(loginCookie);
                 if (cancelled) return;
-                neteaseAuth.setSession(loginCookie, user);
+                // Read the action off the store rather than closing over the
+                // whole `neteaseAuth` object: its identity changes on every
+                // store update, so listing it as a dependency would restart
+                // the QR poll loop on each tick.
+                useNeteaseAuthStore.getState().setSession(loginCookie, user);
                 setNeteaseLoginMsg('登录成功');
               } catch {
                 if (!cancelled) setNeteaseLoginMsg('扫码成功，但获取账号资料失败，请稍后重试');
@@ -177,6 +186,24 @@ export function SettingsPage() {
               {themeMode === opt.key ? <Icon name="check" size={15} className="theme-option__check" /> : null}
             </button>
           ))}
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">OLED 纯黑</div>
+            <div className="settings-row__desc">深色模式下使用纯黑背景，OLED 屏幕更沉浸省电</div>
+          </div>
+          <Switch
+            checked={themePureBlack && themeResolved === 'dark'}
+            disabled={themeResolved !== 'dark'}
+            onChange={(v) => setThemePureBlack(v)}
+          />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">跟随歌曲取色</div>
+            <div className="settings-row__desc">全局主题色随当前歌曲封面变化（默认关闭以保持稳定）</div>
+          </div>
+          <Switch checked={settings.dynamicAccent} onChange={settings.setDynamicAccent} />
         </div>
       </div>
 
@@ -309,7 +336,7 @@ export function SettingsPage() {
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">启用的音源</div>
-            <div className="settings-row__desc">网易云音乐 · Joox · 本地曲库（搜索页可切换）</div>
+            <div className="settings-row__desc">网易云 · QQ · 酷我 · Joox · Hi歌 · 本地曲库（搜索页可切换）</div>
           </div>
         </div>
         <div className="settings-row">
@@ -368,6 +395,13 @@ export function SettingsPage() {
         </div>
         <div className="settings-row">
           <div className="settings-row__body">
+            <div className="settings-row__title">节奏频谱</div>
+            <div className="settings-row__desc">频谱随真实节奏跳动。开启后在线歌曲经服务器转发播放，网络不稳时可能卡顿；关闭为直连播放（最流畅）。离线缓存与本地歌曲始终使用真实频谱</div>
+          </div>
+          <Switch checked={settings.realSpectrum} onChange={settings.setRealSpectrum} />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
             <div className="settings-row__title">切歌桌面通知</div>
             <div className="settings-row__desc">
               {notificationPermission === 'granted'
@@ -396,6 +430,28 @@ export function SettingsPage() {
         </div>
       </div>
 
+      <SectionHeader title="数据" />
+      <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">播放历史</div>
+            <div className="settings-row__desc">按天查看听过的歌曲，可一键重播或清空</div>
+          </div>
+          <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => navigate('/history')}>
+            打开
+          </button>
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">存储管理</div>
+            <div className="settings-row__desc">查看并清理离线音频缓存与封面缓存</div>
+          </div>
+          <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => navigate('/storage')}>
+            打开
+          </button>
+        </div>
+      </div>
+
       <SectionHeader title="关于" />
       <div className="settings-card">
         <div className="settings-row">
@@ -407,7 +463,7 @@ export function SettingsPage() {
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">音源架构说明</div>
-            <div className="settings-row__desc">音源架构参考 Otter Music 的 Provider 工厂设计：搜索支持网易云与 Joox，QQ音乐官方榜曲目通过 Joox 匹配播放</div>
+            <div className="settings-row__desc">音源架构参考 Otter Music 的 Provider 工厂设计：网易云 / QQ / 酷我 / Joox 走各自的官方或聚合接口，Hi歌 为 HTML 抓取源；QQ 与 Hi歌 的播放统一由 Joox 匹配兜底</div>
           </div>
         </div>
       </div>
@@ -415,13 +471,25 @@ export function SettingsPage() {
   );
 }
 
-function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Switch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       className={'am-switch' + (checked ? ' am-switch--on' : '')}
       role="switch"
       aria-checked={checked}
-      onClick={() => onChange(!checked)}
+      aria-disabled={disabled || undefined}
+      style={disabled ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+      onClick={() => {
+        if (!disabled) onChange(!checked);
+      }}
     >
       <span className="am-switch__thumb" />
     </button>

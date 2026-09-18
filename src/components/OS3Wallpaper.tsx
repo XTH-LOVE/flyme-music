@@ -75,6 +75,10 @@ void main(){
 /** HyperOS 3 style animated wallpaper (canvas/WebGL, cheap on GPU). */
 export function OS3Wallpaper({ colors, className, opacity = 1 }: OS3WallpaperProps) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // Keyed on content, not identity: `colors` is a fresh array on every render,
+  // so depending on the array itself would tear down and rebuild the WebGL
+  // program continuously.
+  const colorsKey = colors.join(',');
 
   useEffect(() => {
     const canvas = ref.current;
@@ -141,7 +145,8 @@ export function OS3Wallpaper({ colors, className, opacity = 1 }: OS3WallpaperPro
       gl.deleteProgram(prog);
       gl.deleteBuffer(buf);
     };
-  }, [colors.join(',')]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on colorsKey (see above)
+  }, [colorsKey]);
 
   return <canvas ref={ref} className={className} style={{ opacity }} aria-hidden="true" />;
 }

@@ -21,7 +21,7 @@ interface DayCell {
 const dayKey = (d: Date) =>
   d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
-const musicSources = new Set<MusicSource>(['netease', 'joox', 'qq', 'mock']);
+const musicSources = new Set<MusicSource>(['netease', 'joox', 'qq', 'kuwo', 'higequ', 'mock']);
 
 function legacyTrack(key: string, name: string, artist: string): MusicTrack | undefined {
   const separator = key.indexOf(':');

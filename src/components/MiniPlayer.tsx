@@ -37,6 +37,7 @@ export function MiniPlayer() {
   const simulated = usePlayerStore((s) => s.simulated);
   const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
+  const volume = usePlayerStore((s) => s.volume);
   const openFullPlayer = usePlayerStore((s) => s.openFullPlayer);
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
@@ -56,6 +57,10 @@ export function MiniPlayer() {
     return () => {
       alive = false;
     };
+    // Narrowed to the track identity on purpose: `current` is a new object on
+    // every player-store update (e.g. every position tick), so depending on it
+    // would refetch the lyrics continuously.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [current?.id, current?.source]);
 
   useEffect(() => {
@@ -93,7 +98,13 @@ export function MiniPlayer() {
   };
 
   return (
-    <div className={'mini-player' + (playing ? ' mini-player--playing' : '')}>
+    <div
+      className={'mini-player' + (playing ? ' mini-player--playing' : '')}
+      onWheel={(e) => {
+        // Desktop habit: scroll over the pill to adjust volume.
+        playerController.setVolume(Math.min(1, Math.max(0, volume + (e.deltaY < 0 ? 0.05 : -0.05))));
+      }}
+    >
       <div
         className="mini-glass"
         onClick={openFullPlayer}

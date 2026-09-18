@@ -23,6 +23,12 @@ const POSITION_PUSH_MS = 3000;
  * from realtime updates. Guest transport controls stay host-driven by design.
  */
 export function useListenRoom(): void {
+  // Hoisted out of the dependency array below: calling store hooks inside a
+  // deps list happens to work, but it is fragile and unreadable.
+  const status = useListenStore((s) => s.status);
+  const roomId = useListenStore((s) => s.roomId);
+  const role = useListenStore((s) => s.role);
+
   useEffect(() => {
     const state = useListenStore.getState();
     if (state.status !== 'active' || !state.roomId || !state.role) return undefined;
@@ -99,7 +105,7 @@ export function useListenRoom(): void {
       unsubscribePlayer?.();
       unsubscribeRoom();
     };
-  }, [useListenStore((s) => s.status), useListenStore((s) => s.roomId), useListenStore((s) => s.role)]);
+  }, [status, roomId, role]);
 }
 
 /** Leave/close the current room and clear the store. */

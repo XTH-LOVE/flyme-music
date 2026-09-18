@@ -405,7 +405,11 @@ export function SettingsPage() {
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">自动音量均衡</div>
-            <div className="settings-row__desc">让已接入真实频谱的本地/离线音频切歌时音量更平稳；直连跨域音源不生效</div>
+            <div className="settings-row__desc">
+              {settings.realSpectrum
+                ? '在线歌曲经服务器转发、本地与离线音频直接接入，切歌时音量更平稳'
+                : '对在线歌曲暂不生效：需要开启上面的「节奏频谱」，音频经服务器转发后才能接入；本地与离线音频始终生效'}
+            </div>
           </div>
           <Switch
             checked={levelMatching}

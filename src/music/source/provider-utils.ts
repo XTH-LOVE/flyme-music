@@ -89,7 +89,14 @@ export async function requestMusicApiJSON<T>(
  * Hence one attempt per bitrate, four requests worst case. Burning more
  * attempts would only add load to an endpoint that is already struggling.
  */
-const URL_BR_LADDER = [999, 320, 192, 128];
+/**
+ * Two rungs, not four. Every rung is a full network round-trip (~0.5-1.4s each),
+ * so a four-rung ladder made a song that would not resolve take roughly five
+ * seconds before falling back to another source. Two rungs still covers the
+ * ordinary case - the requested bitrate, then one widely supported fallback -
+ * while keeping the worst case tolerable.
+ */
+const URL_BR_LADDER = [320, 128];
 
 /**
  * Resolve a stream url for a source, stepping the bitrate down when a rung

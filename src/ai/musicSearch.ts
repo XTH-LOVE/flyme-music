@@ -68,7 +68,8 @@ export function scoreTrack(track: MusicTrack, query: string, artistHint?: string
   return s;
 }
 
-const dedupeKey = (t: MusicTrack) => norm(t.name + '|' + t.artist.join('/'));
+/** Same song across sources collapses to one entry - name plus artist line. */
+export const dedupeKey = (t: MusicTrack) => norm(t.name + '|' + t.artist.join('/'));
 
 /**
  * Search netease + joox in parallel, merge, dedupe and rank with
@@ -131,6 +132,23 @@ export interface AggregateSearchResult {
  * aggregator is having a bad day. A failed source is skipped rather than
  * emptying the result.
  */
+/**
+ * Per-source budget. A scrape can hang for its full 15s network timeout, and
+ * allSettled waits for every source, so one slow provider would stall the whole
+ * search. Bounded here; a source that misses the budget is simply absent from
+ * this page.
+ */
+const AGGREGATE_SOURCE_TIMEOUT_MS = 3500;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('source timed out')), ms);
+    }),
+  ]);
+}
+
 export async function aggregateSearch(
   keyword: string,
   page = 1,
@@ -141,7 +159,9 @@ export async function aggregateSearch(
   if (!kw || signal?.aborted) return { items: [], hasMore: false };
 
   const settled = await Promise.allSettled(
-    AGGREGATE_SOURCES.map((source) => getTrackProvider(source).search(kw, page, count, signal)),
+    AGGREGATE_SOURCES.map((source) =>
+      withTimeout(getTrackProvider(source).search(kw, page, count, signal), AGGREGATE_SOURCE_TIMEOUT_MS),
+    ),
   );
 
   const merged: MusicTrack[] = [];
@@ -159,7 +179,10 @@ export async function aggregateSearch(
   }
 
   merged.sort((a, b) => scoreTrack(b, kw) - scoreTrack(a, kw));
-  return { items: merged, hasMore };
+  // Trim to one page. Returning every source's full page meant ~100 rows, each
+  // needing its own cover request - the artwork visibly trickled in. Same page
+  // size as the single-source tabs; 加载更多 fetches the next one.
+  return { items: merged.slice(0, count), hasMore: hasMore || merged.length > count };
 }
 
 /** How many obvious covers/live versions were pushed down by ranking. */

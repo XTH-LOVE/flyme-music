@@ -10,7 +10,7 @@ import { getMusicProvider } from '@/music/musicService';
 import { getTrackProvider } from '@/music/source/factory';
 import { searchSourceOptions } from '@/music/source/types';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
-import { aggregateSearch } from '@/ai/musicSearch';
+import { aggregateSearch, dedupeKey } from '@/ai/musicSearch';
 import { useProviderData } from '@/music/musicStore';
 import { getNeteaseSearchMeta, type NetSearchMeta } from '@/music/netease/netease-api';
 import { useNavigate } from 'react-router-dom';
@@ -64,7 +64,13 @@ export function SearchPage() {
           ? await aggregateSearch(kw, pageNo, PAGE_SIZE, controller.signal)
           : await getTrackProvider(src).search(kw, pageNo, PAGE_SIZE, controller.signal);
       if (controller.signal.aborted) return;
-      setItems((prev) => (append ? [...prev, ...res.items] : res.items));
+      setItems((prev) => {
+        if (!append) return res.items;
+        // aggregateSearch dedupes within one page, but page two can surface the
+        // same song from a different source that page one already showed.
+        const seen = new Set(prev.map(dedupeKey));
+        return [...prev, ...res.items.filter((t) => !seen.has(dedupeKey(t)))];
+      });
       setHasMore(res.hasMore);
       setPage(pageNo);
       setSubmitted(kw);

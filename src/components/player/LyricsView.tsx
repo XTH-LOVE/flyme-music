@@ -131,22 +131,39 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     }, 1600);
   };
 
-  /**
-   * How far through the current line we are at `time`, 0..1. Timestamps are
-   * line-level, so the gap to the next line is the only span we can fill across.
-   * Returns 0 when there is no next line (nothing to wipe toward).
-   */
+/**
+ * Rough duration a lyric line is sung for, in seconds.
+ *
+ * Estimated from the text because the sheet has no per-word timing: roughly 5
+ * CJK characters or 2.5 Latin words a second are ordinary singing rates. Only
+ * used to pace the fill, so being approximate is fine - it just has to feel
+ * like it keeps up with the voice.
+ */
+const CJK = /[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]/g;
+
+function sungSeconds(text: string): number {
+  const cjk = (text.match(CJK) ?? []).length;
+  const words = text.replace(CJK, ' ').split(/\s+/).filter(Boolean).length;
+  const seconds = cjk * 0.2 + words * 0.4 + 0.35;
+  return Math.min(6, Math.max(0.9, seconds));
+}
+
+/**
+ * How far through the current line we are at `time`, 0..1. Timestamps are
+ * line-level, so the gap to the next line is the only span we can fill across.
+ */
   const wipeAt = (index: number, time: number): number => {
     if (index < 0 || index >= lines.length) return 1;
     const start = lines[index].time + offset;
     const next = lines[index + 1];
-    // Last line of the song: no following timestamp to fill toward, so use a
-    // nominal couple of seconds. Returning 0 here would paint the active line
-    // entirely in the dim colour - i.e. the one line the user is meant to be
-    // reading would look like an inactive one.
-    const span = next ? next.time + offset - start : 2.5;
-    // Broken ordering, or a very long gap (instrumental / missing line): the
-    // fill would crawl or never complete, so show the line lit instead.
+    // Fill across how long the line is actually sung, not across the gap to the
+    // next timestamp. Sheets usually leave a pause between lines, so filling to
+    // the next line kept creeping through the silence and landed after the
+    // voice had already moved on. The gap stays as an upper bound so the fill
+    // never runs past the next line.
+    const gap = next ? next.time + offset - start : Infinity;
+    const span = Math.min(gap, sungSeconds(lines[index].text));
+    // Broken ordering, or a gap so long the fill would crawl: show it lit.
     if (span <= 0 || span > 30) return 1;
     return Math.min(1, Math.max(0, (time - start) / span));
   };

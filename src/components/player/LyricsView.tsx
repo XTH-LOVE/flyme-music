@@ -141,11 +141,26 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
  */
 const CJK = /[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]/g;
 
+/**
+ * Coefficients fitted from real lyrics rather than guessed: 139 (chars, gap)
+ * pairs taken from NetEase LRCs give `gap = 0.404 * chars` - about 2.5 CJK
+ * characters per second. An earlier hand-picked 0.2s per character (5/s) was
+ * twice as fast as real singing and the fill visibly outran the voice.
+ *
+ * Deliberately a little under the fitted slope: the gap also contains the pause
+ * between lines, and filling across that pause is what looked wrong in the first
+ * place. Landing at roughly 85-90% of the gap keeps the fill with the voice and
+ * still leaves it finished before the next line arrives.
+ */
+const SECONDS_PER_CJK = 0.32;
+const SECONDS_PER_WORD = 0.55;
+const SECONDS_BASE = 0.3;
+
 function sungSeconds(text: string): number {
   const cjk = (text.match(CJK) ?? []).length;
   const words = text.replace(CJK, ' ').split(/\s+/).filter(Boolean).length;
-  const seconds = cjk * 0.2 + words * 0.4 + 0.35;
-  return Math.min(6, Math.max(0.9, seconds));
+  const seconds = cjk * SECONDS_PER_CJK + words * SECONDS_PER_WORD + SECONDS_BASE;
+  return Math.min(7, Math.max(1.2, seconds));
 }
 
 /**

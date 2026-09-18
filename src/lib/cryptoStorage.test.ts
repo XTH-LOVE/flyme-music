@@ -76,6 +76,23 @@ describe('encryptString / decryptString', () => {
   });
 });
 
+/**
+ * Poll until `check()` holds, or fail after `timeoutMs`.
+ *
+ * Needed because the plaintext-to-ciphertext upgrade inside getItem is
+ * deliberately fire-and-forget, and it spans several awaits (device key lookup
+ * through the mocked IndexedDB, then WebCrypto). A single setTimeout(0) is not a
+ * reliable synchronisation point for that, which made this test flake.
+ */
+async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (check()) return;
+    if (Date.now() > deadline) throw new Error('timed out waiting for condition');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 describe('createEncryptedStorage', () => {
   it('写入后 localStorage 里不含明文', async () => {
     const storage = createEncryptedStorage();
@@ -94,8 +111,7 @@ describe('createEncryptedStorage', () => {
     const storage = createEncryptedStorage();
     expect(await storage.getItem(STORE_NAME)).toBe(legacy);
 
-    // The upgrade is fire-and-forget, so let its microtasks settle.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitFor(() => (ls.get(STORE_NAME) ?? '').startsWith('enc.v1.'));
     const raw = ls.get(STORE_NAME) ?? '';
     expect(raw).toMatch(/^enc\.v1\./);
     expect(raw).not.toContain('LEGACY_COOKIE');

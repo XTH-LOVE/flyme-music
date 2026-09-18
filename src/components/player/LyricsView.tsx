@@ -137,14 +137,17 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
    * Returns 0 when there is no next line (nothing to wipe toward).
    */
   const wipeAt = (index: number, time: number): number => {
-    if (index < 0 || index >= lines.length) return 0;
-    const next = lines[index + 1];
-    if (!next) return 0;
+    if (index < 0 || index >= lines.length) return 1;
     const start = lines[index].time + offset;
-    const span = next.time + offset - start;
-    // A huge gap means the sheet has a gap (instrumental, or a missing line);
-    // filling across it would look broken.
-    if (span <= 0 || span > 30) return 0;
+    const next = lines[index + 1];
+    // Last line of the song: no following timestamp to fill toward, so use a
+    // nominal couple of seconds. Returning 0 here would paint the active line
+    // entirely in the dim colour - i.e. the one line the user is meant to be
+    // reading would look like an inactive one.
+    const span = next ? next.time + offset - start : 2.5;
+    // Broken ordering, or a very long gap (instrumental / missing line): the
+    // fill would crawl or never complete, so show the line lit instead.
+    if (span <= 0 || span > 30) return 1;
     return Math.min(1, Math.max(0, (time - start) / span));
   };
 

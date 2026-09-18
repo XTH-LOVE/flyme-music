@@ -20,6 +20,7 @@ export function LibraryPage() {
   const [netCharts, setNetCharts] = useState<NetChart[] | null>(null);
   const [netError, setNetError] = useState<string | null>(null);
   const [qqTops, setQqTops] = useState<Record<number, QqChartTop>>({});
+  const [chartAttempt, setChartAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -41,7 +42,7 @@ export function LibraryPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [chartAttempt]);
 
   return (
     <div className="page">
@@ -55,7 +56,7 @@ export function LibraryPage() {
           ))}
         </div>
       ) : netError ? (
-        <EmptyState icon="flame" title="榜单加载失败" description={netError} />
+        <EmptyState icon="flame" title="榜单加载失败" description={netError} action={{ label: '重试', onClick: () => setChartAttempt((n) => n + 1) }} />
       ) : (
         <div className="chart-grid-cards">
           {(netCharts ?? []).map((c) => (

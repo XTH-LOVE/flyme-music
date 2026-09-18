@@ -7,6 +7,7 @@ import { MusicCard } from '@/components/MusicCard';
 import { ArtistCard } from '@/components/ArtistCard';
 import { TrackCover } from '@/components/TrackCover';
 import { PlaylistArt } from '@/components/PlaylistArt';
+import { resizeToSquareJpeg } from '@/utils/imageResize';
 import { NetPlaylistCard } from '@/components/NetPlaylistCard';
 import { Chip } from '@/design-system/components/Chip';
 import { Dialog } from '@/design-system/components/Dialog';
@@ -43,16 +44,10 @@ export function MePage() {
   const [tab, setTab] = useState<Tab>('recent');
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [authType, setAuthType] = useState<'username' | 'email'>('username');
-  const [authDisplayName, setAuthDisplayName] = useState('');
-  const [authUsername, setAuthUsername] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authMsg, setAuthMsg] = useState('');
-  const [authOpen, setAuthOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [profileNickname, setProfileNickname] = useState('');
-  const [profileMsg, setProfileMsg] = useState('');
+  const heroAvatarRef = useRef<HTMLInputElement>(null);
+  const [nickOpen, setNickOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const recentTracks = useLibraryStore((s) => s.recentTracks);
   const legacyRecentIds = useLibraryStore((s) => s.recentSongIds);
@@ -69,21 +64,6 @@ export function MePage() {
   const neteaseAuth = useNeteaseAuthStore();
   const localAuth = useAuthStore();
 
-  const submitAuth = async () => {
-    setAuthMsg('');
-    const result = authType === 'username'
-      ? (authMode === 'login' ? await localAuth.loginUsername(authUsername, authPassword) : await localAuth.registerUsername(authDisplayName, authUsername, authPassword))
-      : (authMode === 'login' ? await localAuth.login(authUsername, authPassword) : await localAuth.register(authUsername, authPassword));
-    if (result.ok) {
-      setAuthMsg('');
-      setAuthPassword('');
-      setAuthUsername('');
-      setAuthDisplayName('');
-      setAuthOpen(false);
-    } else {
-      setAuthMsg(result.message ?? '操作失败');
-    }
-  };
 
   const [backupMsg, setBackupMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,7 +100,25 @@ export function MePage() {
       setBackupMsg(error instanceof Error ? error.message : '导入失败');
     }
   };
-  const openProfile = () => { if (!localAuth.user) { setAuthOpen(true); return; } setProfileNickname(localAuth.user.nickname); setProfileMsg(''); setProfileOpen(true); };
+  const onHeroAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    notify('正在上传头像…');
+    void (async () => {
+      try {
+        const blob = await resizeToSquareJpeg(file);
+        const r = await localAuth.uploadAvatar(blob);
+        notify(r.ok ? '头像已更新' : r.message || '头像上传失败');
+      } catch (err) {
+        notify(err instanceof Error ? err.message : '头像上传失败');
+      } finally {
+        setAvatarUploading(false);
+      }
+    })();
+    e.target.value = '';
+  };
+
   const [accountPlaylists, setAccountPlaylists] = useState<NetPlaylistSummary[]>([]);
   const [cloudSongs, setCloudSongs] = useState<NeteaseCloudSong[]>([]);
   const [likedSongs, setLikedSongs] = useState<MusicTrack[]>([]);
@@ -178,19 +176,27 @@ export function MePage() {
   return (
     <div className="page">
       <div className="me-hero">
-        {localAuth.user?.avatarUrl ? <img className="me-hero__avatar me-hero__avatar--image" src={localAuth.user.avatarUrl} alt="" /> : <div className="me-hero__avatar"><Icon name="user" size={28} /></div>}
-        <button className="me-profile-button" onClick={openProfile}>
+        <button
+          className="me-hero__avatar me-hero__avatar--edit"
+          onClick={() => (localAuth.user ? heroAvatarRef.current?.click() : navigate('/login'))}
+          aria-label="更换头像"
+          title={localAuth.user ? '点击更换头像' : '登录后可设置头像'}
+        >
+          {localAuth.user?.avatarUrl ? <img className="me-hero__avatar me-hero__avatar--image" src={localAuth.user.avatarUrl} alt="" style={avatarUploading ? { opacity: 0.55 } : undefined} /> : <Icon name="user" size={30} />}
+          {localAuth.user ? <span className="me-hero__avatar-cam"><Icon name="music" size={12} /></span> : null}
+        </button>
+        <input ref={heroAvatarRef} type="file" accept="image/*" hidden onChange={onHeroAvatarPick} />
+        <button className="me-profile-button" onClick={() => (localAuth.user ? setNickOpen(true) : navigate('/login'))} aria-label="修改昵称">
           <h1 className="me-hero__name">{localAuth.user?.nickname || '登录'}</h1>
-          <p className="me-hero__sub">{localAuth.user ? '@' + localAuth.user.username : '登录后同步你的音乐与资料'}</p>
+          {localAuth.user ? <p className="me-hero__sub">@{localAuth.user.username}</p> : null}
         </button>
         <button className="am-btn am-btn--secondary am-btn--sm" style={{ marginLeft: 'auto' }} onClick={() => navigate('/settings')}>
           <Icon name="settings" size={15} />
           设置
         </button>
-        {!localAuth.user ? <button className="am-btn am-btn--primary am-btn--sm" onClick={() => setAuthOpen(true)}>登录 / 注册</button> : <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => localAuth.logout()}>退出</button>}
+        {!localAuth.user ? <button className="am-btn am-btn--primary am-btn--sm" onClick={() => navigate('/login')}>登录 / 注册</button> : <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => localAuth.logout()}>退出</button>}
       </div>
 
-      {!localAuth.user ? <button className="me-login-row" onClick={() => setAuthOpen(true)}><span className="me-login-row__icon"><Icon name="user" size={18} /></span><span><strong>登录 Aurora 账号</strong><small>跨设备同步歌单、收藏与个人资料</small></span><Icon name="chevronRight" size={18} /></button> : null}
 
 
       <div className="me-stats">
@@ -434,24 +440,13 @@ export function MePage() {
           创建
         </button>
       </Dialog>
-      <Dialog open={authOpen} title={authMode === 'login' ? '登录 Aurora 账号' : '创建 Aurora 账号'} onClose={() => setAuthOpen(false)}>
+      <Dialog open={nickOpen} title="修改昵称" onClose={() => setNickOpen(false)}>
         <div className="auth-dialog-list">
-          <div className="settings-account-tabs"><button className={'quality-chip' + (authMode === 'login' ? ' quality-chip--active' : '')} onClick={() => setAuthMode('login')}>登录</button><button className={'quality-chip' + (authMode === 'register' ? ' quality-chip--active' : '')} onClick={() => setAuthMode('register')}>注册</button></div>
-          <div className="settings-account-tabs"><button className={'quality-chip' + (authType === 'username' ? ' quality-chip--active' : '')} onClick={() => setAuthType('username')}>账号密码</button><button className={'quality-chip' + (authType === 'email' ? ' quality-chip--active' : '')} onClick={() => setAuthType('email')}>邮箱密码</button></div>
-          {authMode === 'register' && authType === 'username' ? <label className="auth-field"><span>昵称（可选）</span><input className="picker-create__input" value={authDisplayName} placeholder="默认显示 Aurora 听友" onChange={(e) => setAuthDisplayName(e.target.value)} /></label> : null}
-          <label className="auth-field"><span>{authType === 'username' ? '账号名' : '邮箱'}</span><input className="picker-create__input" type={authType === 'email' ? 'email' : 'text'} value={authUsername} placeholder={authType === 'username' ? '支持中文、字母、数字或下划线' : 'you@example.com'} autoComplete={authType === 'email' ? 'email' : 'username'} onChange={(e) => setAuthUsername(e.target.value)} /></label>
-          <label className="auth-field"><span>密码</span><input className="picker-create__input" type="password" maxLength={64} autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} value={authPassword} placeholder={authMode === 'login' ? '至少 8 位（旧版 6 位数字也可）' : '8 位以上，含字母和数字'} onChange={(e) => setAuthPassword(e.target.value)} /></label>
-          <button className="am-btn am-btn--primary am-btn--block" onClick={() => void submitAuth()}>{authMode === 'login' ? '登录' : '注册并登录'}</button>
-          {authMsg ? <div className="settings-account-note">{authMsg}</div> : null}
-          <button className="am-btn am-btn--ghost am-btn--block" onClick={() => { setAuthOpen(false); navigate('/settings'); }}>使用网易云扫码登录</button>
-        </div>
-      </Dialog>
-      <Dialog open={profileOpen} title="个人资料" onClose={() => setProfileOpen(false)}>
-        <div className="auth-dialog-list">
-          <label className="auth-field"><span>昵称</span><input className="picker-create__input" value={profileNickname} maxLength={32} onChange={(e) => setProfileNickname(e.target.value)} /></label>
-          <label className="auth-field"><span>头像</span><input className="picker-create__input" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; setProfileMsg('上传中…'); void localAuth.uploadAvatar(file).then((r) => setProfileMsg(r.ok ? '头像已更新' : r.message || '头像上传失败')); }} /></label>
-          {profileMsg ? <div className="settings-account-note">{profileMsg}</div> : null}
-          <button className="am-btn am-btn--primary am-btn--block" onClick={() => { void localAuth.updateProfile({ nickname: profileNickname }); setProfileOpen(false); }}>保存资料</button>
+          <label className="auth-field">
+            <span>新昵称</span>
+            <input className="picker-create__input" value={profileNickname} maxLength={32} placeholder="输入新的昵称" onChange={(e) => setProfileNickname(e.target.value)} />
+          </label>
+          <button className="am-btn am-btn--primary am-btn--block" onClick={() => { void localAuth.updateProfile({ nickname: profileNickname }).then(() => { notify('昵称已更新'); setNickOpen(false); }); }}>保存</button>
         </div>
       </Dialog>
     </div>

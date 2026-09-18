@@ -174,20 +174,27 @@ export async function handleMediaProxy(req: IncomingMessage, res: ServerResponse
     return;
   }
   try {
+    const range = req.headers.range;
     const upstream = await fetch(target, {
       headers: {
         'User-Agent': PC_USER_AGENT,
         Referer: new URL(target).origin + '/',
+        ...(range ? { Range: range } : {}),
       },
     });
-    if (!upstream.ok || !upstream.body) {
+    // 206 Partial Content is a success for Range requests.
+    if ((upstream.status !== 206 && !upstream.ok) || !upstream.body) {
       res.statusCode = upstream.status || 502;
       res.end('upstream error');
       return;
     }
+    res.statusCode = upstream.status;
     res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/octet-stream');
     const len = upstream.headers.get('content-length');
     if (len) res.setHeader('Content-Length', len);
+    res.setHeader('Accept-Ranges', 'bytes');
+    const contentRange = upstream.headers.get('content-range');
+    if (contentRange) res.setHeader('Content-Range', contentRange);
     res.setHeader('Cache-Control', 'no-store');
     await streamUpstreamBody(res, upstream.body);
   } catch (e) {
@@ -270,7 +277,9 @@ function reIdCookie(cookie: string): string {
 }
 
 /** Legacy unencrypted Netease channel relay (GET /api/netease/public).
- * Whitelist-only fallback for when the weapi channel is risk-controlled. */
+ * Whitelist-only fallback for when the weapi channel is risk-controlled.
+ * The risk control is probabilistic (-462 on a fraction of datacenter
+ * requests), so relay with a small retry budget. */
 export async function handleNeteasePublic(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!guardRequest(req, res, 'weapi')) return;
   try {
@@ -282,15 +291,29 @@ export async function handleNeteasePublic(req: IncomingMessage, res: ServerRespo
       res.end(JSON.stringify({ error: 'path not allowed' }));
       return;
     }
-    const upstream = await fetch('https://music.163.com' + path + '?' + url.searchParams.toString(), {
-      headers: {
-        'User-Agent': PC_USER_AGENT,
-        Referer: 'https://music.163.com',
-        Cookie: 'os=pc; appver=2.9.7; mode=31',
-      },
-    });
-    const text = await upstream.text();
-    res.statusCode = upstream.status;
+    const riskCodes = new Set([-462, -460, 512]);
+    let text = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const upstream = await fetch('https://music.163.com' + path + '?' + url.searchParams.toString(), {
+        headers: {
+          'User-Agent': PC_USER_AGENT,
+          Referer: 'https://music.163.com',
+          Cookie: 'os=pc; appver=2.9.7; mode=31',
+        },
+      });
+      text = await upstream.text();
+      let code: number | undefined;
+      try {
+        code = JSON.parse(text).code;
+      } catch {
+        /* non-json upstream body */
+      }
+      if (upstream.ok && !riskCodes.has(code as number)) break;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 700));
+    }
+    // Always 200 with the upstream body: the risk code travels in the JSON
+    // payload and the client surfaces it with a friendly hint.
+    res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
     res.end(text);

@@ -11,6 +11,8 @@ import { getTrackProvider } from '@/music/source/factory';
 import { searchSourceOptions } from '@/music/source/types';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { useProviderData } from '@/music/musicStore';
+import { getNeteaseSearchMeta, type NetSearchMeta } from '@/music/netease/netease-api';
+import { useNavigate } from 'react-router-dom';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import './pages.css';
 import './pages-extra.css';
@@ -18,6 +20,7 @@ import './pages-extra.css';
 const PAGE_SIZE = 20;
 
 export function SearchPage() {
+  const navigate = useNavigate();
   const [source, setSource] = useState<MusicSource>('netease');
   const [keyword, setKeyword] = useState('');
   const [submitted, setSubmitted] = useState('');
@@ -26,6 +29,8 @@ export function SearchPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const [meta, setMeta] = useState<NetSearchMeta | null>(null);
+  const metaAbortRef = useRef<AbortController | null>(null);
 
   const history = useLibraryStore((s) => s.searchHistory);
   const addKeyword = useLibraryStore((s) => s.addSearchKeyword);
@@ -60,6 +65,17 @@ export function SearchPage() {
     setKeyword(value);
     if (value) addKeyword(value);
     void runSearch(value, src, 1, false);
+    // Multi-type discovery runs for EVERY source: artist/album cards come
+    // from the netease library even when songs are searched on Joox.
+    metaAbortRef.current?.abort();
+    const mc = new AbortController();
+    metaAbortRef.current = mc;
+    setMeta(null);
+    getNeteaseSearchMeta(value, mc.signal)
+      .then((m) => {
+        if (!mc.signal.aborted) setMeta(m);
+      })
+      .catch(() => undefined);
   };
 
   const switchSource = (src: MusicSource) => {
@@ -121,28 +137,66 @@ export function SearchPage() {
             </section>
           ) : null}
         </>
-      ) : loading && !items.length ? (
-        <div className="song-list">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} height={54} radius="var(--am-radius-lg)" />
-          ))}
-        </div>
-      ) : !items.length ? (
-        <EmptyState icon="search" title={'没有在「' + sourceLabel(source) + '」找到「' + submitted + '」'} description="换个音源或关键词试试" />
       ) : (
-        <section>
-          <SectionHeader title={'歌曲 · ' + sourceLabel(source)} />
-          <div className="song-list">
-            {items.map((track, i) => (
-              <TrackListItem key={track.source + ':' + track.id + ':' + i} track={track} context={items} />
-            ))}
-          </div>
-          {hasMore ? (
-            <button className="am-btn am-btn--secondary am-btn--md load-more" disabled={loading} onClick={() => void runSearch(submitted, source, page + 1, true)}>
-              {loading ? '加载中…' : '加载更多'}
-            </button>
+        <>
+          {/* 相关歌手 / 专辑：搜名字想听"这个人/这张专辑"的直接入口 */}
+          {meta && (meta.artists.length > 0 || meta.albums.length > 0) ? (
+            <section className="search-meta">
+              {meta.artists.length ? (
+                <>
+                  <SectionHeader title="相关歌手" />
+                  <div className="search-meta__row">
+                    {meta.artists.map((a) => (
+                      <button key={a.id} className="search-meta__card" onClick={() => navigate('/ne-artist/' + a.id)}>
+                        {a.coverUrl ? <img src={a.coverUrl} alt={a.name} /> : <Icon name="user" size={30} />}
+                        <span className="search-meta__name">{a.name}</span>
+                        <span className="search-meta__kind">歌手</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              {meta.albums.length ? (
+                <>
+                  <SectionHeader title="相关专辑" />
+                  <div className="search-meta__row">
+                    {meta.albums.map((al) => (
+                      <button key={al.id} className="search-meta__card" onClick={() => navigate('/ne-album/' + al.id)}>
+                        {al.coverUrl ? <img src={al.coverUrl} alt={al.name} /> : <Icon name="album" size={30} />}
+                        <span className="search-meta__name">{al.name}</span>
+                        <span className="search-meta__kind">{al.artist || '专辑'}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </section>
           ) : null}
-        </section>
+
+          {loading && !items.length ? (
+            <div className="song-list">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} height={54} radius="var(--am-radius-lg)" />
+              ))}
+            </div>
+          ) : !items.length ? (
+            <EmptyState icon="search" title={'没有在「' + sourceLabel(source) + '」找到「' + submitted + '」'} description="换个音源或关键词试试" />
+          ) : (
+            <section>
+              <SectionHeader title={'歌曲 · ' + sourceLabel(source)} />
+              <div className="song-list">
+                {items.map((track, i) => (
+                  <TrackListItem key={track.source + ':' + track.id + ':' + i} track={track} context={items} />
+                ))}
+              </div>
+              {hasMore ? (
+                <button className="am-btn am-btn--secondary am-btn--md load-more" disabled={loading} onClick={() => void runSearch(submitted, source, page + 1, true)}>
+                  {loading ? '加载中…' : '加载更多'}
+                </button>
+              ) : null}
+            </section>
+          )}
+        </>
       )}
     </div>
   );

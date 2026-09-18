@@ -12,7 +12,7 @@
 }
 .music-card__cover {
   aspect-ratio: 1;
-  border-radius: var(--am-radius-xl);
+  border-radius: 14px;
   box-shadow: var(--am-shadow-card);
   transition: box-shadow var(--am-motion-normal) var(--am-ease-standard),
     transform var(--am-motion-normal) var(--am-ease-standard);
@@ -20,7 +20,7 @@
 }
 .music-card:hover .music-card__cover {
   box-shadow: var(--am-shadow-card-hover);
-  transform: translateY(-2px);
+  transform: translateY(-4px) scale(1.02);
 }
 .music-card__title {
   font-size: 14px;
@@ -31,6 +31,7 @@
 }
 .music-card__subtitle {
   font-size: 12px;
+  opacity: 0.9;
   color: var(--am-text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -61,29 +62,30 @@
   font-weight: 500;
 }
 
-/* ---------- Song list item ---------- */
+/* ---------- Song list item (Halcyon SongItem: bare row, no card) ---------- */
 .song-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
-  border-radius: var(--am-radius-lg);
+  padding: 8px 12px;
+  border-radius: var(--am-radius-md);
   cursor: pointer;
   /* Skip offscreen work in 300-track playlists until scrolled near. */
   content-visibility: auto;
-  contain-intrinsic-size: auto 62px;
+  contain-intrinsic-size: auto 64px;
   transition: background-color var(--am-motion-micro) var(--am-ease-standard);
 }
 .song-item:hover {
-  background: var(--am-surface-2);
+  background: color-mix(in srgb, var(--am-text-1) 5%, transparent);
 }
 .song-item--active {
-  background: var(--am-surface-2);
+  /* Halcyon: the playing row wears a primary 10% wash. */
+  background: color-mix(in srgb, var(--am-accent) 10%, transparent);
 }
 .song-item__cover {
   position: relative;
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
 }
 .song-item__eq {
@@ -128,12 +130,13 @@
 .song-item__title {
   font-size: 15px;
   font-weight: 500;
+  transition: color var(--am-motion-micro) var(--am-ease-standard);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .song-item__meta {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--am-text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -141,7 +144,7 @@
   margin-top: 1px;
 }
 .song-item__duration {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--am-text-3);
   font-variant-numeric: tabular-nums;
 }

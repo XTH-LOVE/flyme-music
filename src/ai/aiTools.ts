@@ -26,7 +26,7 @@ export interface ToolCtx {
   found: MusicTrack[];
 }
 
-const APP_ROUTES = new Set(['/', '/library', '/discover', '/search', '/playlists', '/me', '/stats', '/settings', '/ai', '/local']);
+const APP_ROUTES = new Set(['/', '/library', '/discover', '/search', '/playlists', '/me', '/stats', '/settings', '/ai', '/local', '/login']);
 
 function isAllowedAppRoute(path: string): boolean {
   if (APP_ROUTES.has(path)) return true;
@@ -45,6 +45,9 @@ function pageName(pathname: string): string {
   if (pathname === '/settings') return '设置';
   if (pathname === '/ai') return '一起听';
   if (pathname === '/local') return '本地音乐';
+  if (pathname === '/login') return '登录';
+  if (pathname.startsWith('/ne-album/')) return '专辑详情';
+  if (pathname.startsWith('/ne-artist/')) return '歌手主页';
   if (pathname.startsWith('/chart/')) return '榜单详情';
   if (pathname.startsWith('/album/')) return '专辑详情';
   if (pathname.startsWith('/artist/')) return '艺术家详情';

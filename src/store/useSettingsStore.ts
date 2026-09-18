@@ -5,8 +5,15 @@ export type AudioQuality = 'standard' | 'high' | 'lossless';
 interface SettingsState {
   quality: AudioQuality;
   autoplayNext: boolean;
+  /** Accent color follows the current cover artwork (opt-in). */
+  dynamicAccent: boolean;
+  /** Route remote streams through our same-origin proxy so the Web Audio
+   *  analyser unlocks the REAL rhythm spectrum. */
+  realSpectrum: boolean;
   setQuality: (q: AudioQuality) => void;
   setAutoplayNext: (v: boolean) => void;
+  setDynamicAccent: (v: boolean) => void;
+  setRealSpectrum: (v: boolean) => void;
 }
 
 // v2: bumped so the default quality becomes lossless (highest available);
@@ -16,6 +23,8 @@ const SETTINGS_KEY = 'aurora.settings.v2';
 interface PersistedSettings {
   quality?: AudioQuality;
   autoplayNext?: boolean;
+  dynamicAccent?: boolean;
+  realSpectrum?: boolean;
 }
 
 function loadSettings(): PersistedSettings {
@@ -40,6 +49,19 @@ const persisted = loadSettings();
 export const useSettingsStore = create<SettingsState>((set) => ({
   quality: persisted.quality ?? 'lossless',
   autoplayNext: persisted.autoplayNext ?? true,
+  dynamicAccent: persisted.dynamicAccent ?? false,
+  // Default OFF: routing live audio through the server proxy stutters on
+  // flaky routes. Real spectrum still applies to cached/local tracks, and
+  // users can opt in from Settings if their network handles the proxy well.
+  realSpectrum: persisted.realSpectrum ?? false,
+  setDynamicAccent: (dynamicAccent) => {
+    saveSettings({ dynamicAccent });
+    set({ dynamicAccent });
+  },
+  setRealSpectrum: (realSpectrum) => {
+    saveSettings({ realSpectrum });
+    set({ realSpectrum });
+  },
   setQuality: (quality) => {
     saveSettings({ quality });
     set({ quality });

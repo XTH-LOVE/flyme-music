@@ -8,12 +8,14 @@ import { SectionHeader } from '@/design-system/components/SectionHeader';
 import { Chip } from '@/design-system/components/Chip';
 import { Skeleton } from '@/design-system/components/Skeleton';
 import { EmptyState } from '@/design-system/components/EmptyState';
+import { OnboardingCard } from '@/components/OnboardingCard';
 import { useSongs } from '@/music/musicStore';
 import { useNeteaseRecommend } from '@/music/netease/useNetease';
 import { getNewSongs } from '@/music/netease/netease-api';
 import { songToTrack } from '@/music/source/types';
 import type { MusicTrack } from '@/music/source/types';
 import { useLibraryStore } from '@/store/useLibraryStore';
+import { useAiStore } from '@/store/useAiStore';
 import { playerController } from '@/player';
 import { fallbackPalette } from '@/utils/palette';
 import { withAlpha } from '@/utils/color';
@@ -21,8 +23,9 @@ import './pages.css';
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { data: netPlaylists, loading: netLoading, error: netError } = useNeteaseRecommend();
+  const { data: netPlaylists, loading: netLoading, error: netError, reload: reloadRecommend } = useNeteaseRecommend();
 
+  const memories = useAiStore((s) => s.memories);
   const recentTracks = useLibraryStore((s) => s.recentTracks);
   const legacyRecentIds = useLibraryStore((s) => s.recentSongIds);
   const { data: legacySongs } = useSongs(recentTracks.length ? undefined : legacyRecentIds);
@@ -37,6 +40,7 @@ export function HomePage() {
 
   const [newSongs, setNewSongs] = useState<MusicTrack[] | null>(null);
   const [newSongsError, setNewSongsError] = useState<string | null>(null);
+  const [newSongsAttempt, setNewSongsAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -50,7 +54,7 @@ export function HomePage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [newSongsAttempt]);
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -59,6 +63,15 @@ export function HomePage() {
     if (h < 18) return '下午好，今天听点什么';
     return '晚上好，今天听点什么';
   })();
+
+  // A one-line personal subtitle from long-term memory (invisible when empty).
+  const memorySub = useMemo(() => {
+    const artist = memories.find((m) => m.category === 'artist')?.content;
+    const genre = memories.find((m) => m.category === 'genre')?.content;
+    if (artist) return '因你常听' + artist + '，今天也为你留了位置';
+    if (genre) return '为你留了些' + genre + '的味道';
+    return null;
+  }, [memories]);
 
   const hotPlaylists = netPlaylists
     ? [...netPlaylists].sort((a, b) => b.playCount - a.playCount).slice(0, 4)
@@ -83,9 +96,12 @@ export function HomePage() {
         />
       ) : null}
 
+      <OnboardingCard />
+
       <header className="home-hero">
         <div>
           <h1 className="home-hero__title">{greeting}</h1>
+          {memorySub ? <p className="home-hero__sub">{memorySub}</p> : null}
           <p className="home-hero__date">
             {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
           </p>
@@ -165,7 +181,7 @@ export function HomePage() {
             ))}
           </div>
         ) : netError && !netPlaylists ? (
-          <EmptyState icon="compass" title="在线歌单加载失败" description="真实歌单依赖 dev 代理，请确认通过 npm run dev 启动且网络可用" />
+          <EmptyState icon="compass" title="在线歌单加载失败" description="真实歌单依赖 dev 代理，请确认通过 npm run dev 启动且网络可用" action={{ label: '重试', onClick: reloadRecommend }} />
         ) : (
           <div className="grid-cards">
             {(netPlaylists ?? []).slice(0, 6).map((pl) => (
@@ -195,7 +211,7 @@ export function HomePage() {
             ))}
           </div>
         ) : newSongsError ? (
-          <EmptyState icon="music" title="新歌加载失败" description={newSongsError} />
+          <EmptyState icon="music" title="新歌加载失败" description={newSongsError} action={{ label: '重试', onClick: () => setNewSongsAttempt((n) => n + 1) }} />
         ) : (
           <div className="song-list">
             {(newSongs ?? []).slice(0, 10).map((track) => (

@@ -16,3 +16,13 @@ createRoot(document.getElementById('root')!).render(
     </Router>
   </StrictMode>,
 );
+
+// Dev-only debug handle: lets the console inspect playback state and the
+// Web Audio wiring without exposing anything in production builds.
+if (import.meta.env.DEV) {
+  void (async () => {
+    const { playerController } = await import('@/player');
+    const { isWired } = await import('@/player/webAudio');
+    (window as unknown as Record<string, unknown>).__aurora = { playerController, isWired };
+  })();
+}

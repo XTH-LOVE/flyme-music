@@ -3,6 +3,8 @@ import { songToTrack } from '@/music/source/types';
 import type { Song } from '@/music/types';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { notify } from '@/utils/notify';
+import { isTauri } from '@/lib/apiTransport';
 import { PlayerEngine } from './PlayerEngine';
 import { PlayerQueue } from './PlayerQueue';
 import type { PlayerListener, PlayerSnapshot, RepeatMode } from './PlayerState';
@@ -235,6 +237,20 @@ class PlayerController {
     return () => this.listeners.delete(listener);
   }
 
+  /**
+   * With 节奏频谱 enabled, remote streams are re-routed through our own
+   * same-origin proxy: the audio element then loads a same-origin resource,
+   * which unlocks the Web Audio analyser (cross-origin media would be
+   * tainted and silence the graph). Still progressive streaming - playback
+   * starts as bytes arrive. Cached/local/blob sources pass through as-is.
+   */
+  private attachUrlFor(url: string): string {
+    if (isTauri()) return url;
+    if (!useSettingsStore.getState().realSpectrum) return url;
+    if (!/^https?:\/\//.test(url)) return url;
+    return '/api/media-proxy?url=' + encodeURIComponent(url);
+  }
+
   /* ---- internals ---- */
 
   private async startCurrent(): Promise<void> {
@@ -263,12 +279,13 @@ class PlayerController {
       // Unless the user already dragged the progress bar, always start
       // the real stream from 0 - otherwise listeners miss the intro while
       // the URL was resolving.
-      this.engine.attachSource(url, this.userSeeked ? undefined : 0);
+      this.engine.attachSource(this.attachUrlFor(url), this.userSeeked ? undefined : 0);
       this.broadcast();
     } else if (!url && stillCurrent && track.source !== 'mock') {
       // Remote providers can be temporarily unavailable. Do not leave a
       // silent simulated playback running after all retries are exhausted.
       this.engine.pause();
+      notify('《' + track.name + '》暂时无法播放（可能受版权限制），可在歌曲菜单里换源重试');
       this.broadcast();
     }
   }
@@ -288,11 +305,12 @@ class PlayerController {
       cur !== null &&
       cur.source + ':' + cur.id + ':' + cur.url_id === trackKey;
     if (url && stillCurrent) {
-      this.engine.attachSource(url);
+      this.engine.attachSource(this.attachUrlFor(url));
       this.broadcast();
     } else if (!url && stillCurrent) {
       // No stream available: stop the silent simulated clock honestly.
       this.engine.pause();
+      notify('《' + track.name + '》暂时无法播放，可在歌曲菜单里换源重试');
       this.broadcast();
     }
   }

@@ -15,3 +15,58 @@
 .create-pl-btn {
   margin-top: 14px;
 }
+
+
+/* ---------- search artist/album match cards ---------- */
+.search-meta__row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.search-meta__row::-webkit-scrollbar { display: none; }
+.search-meta__card {
+  flex-shrink: 0;
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--am-radius-lg);
+  background: var(--am-surface);
+  box-shadow: var(--am-shadow-card);
+  cursor: pointer;
+  transition: transform var(--am-motion-micro) var(--am-ease-spring),
+    box-shadow var(--am-motion-normal) var(--am-ease-standard);
+  text-align: left;
+}
+.search-meta__card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--am-shadow-card-hover);
+}
+.search-meta__card:active {
+  transform: scale(0.97);
+}
+.search-meta__card img,
+.search-meta__card svg {
+  width: 116px;
+  height: 116px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--am-surface-2);
+}
+.search-meta__name {
+  max-width: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-meta__kind {
+  font-size: 12px;
+  color: var(--am-text-2);
+  margin-top: -4px;
+}

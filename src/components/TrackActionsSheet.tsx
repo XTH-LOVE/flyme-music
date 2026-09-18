@@ -3,7 +3,9 @@ import { Icon } from '@/components/Icon';
 import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { playerController } from '@/player';
+import { playFromAlternateSource } from '@/player/alternateSource';
 import { downloadTrack } from '@/utils/download';
+import { notify } from '@/utils/notify';
 import { cacheTrackAudio, isTrackCached, removeCachedTrack } from '@/library/offlineCache';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
 import type { MusicTrack } from '@/music/source/types';
@@ -31,10 +33,30 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [caching, setCaching] = useState(false);
   const [cached, setCached] = useState<boolean | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   const canCache = track ? track.source !== 'mock' && track.source !== 'local' : false;
   const canDownload = canCache;
   const canComment = track?.source === 'netease';
+  const canSwitch = canCache;
+
+  const handleSwitchSource = async () => {
+    if (!track || switching) return;
+    setSwitching(true);
+    try {
+      const ok = await playFromAlternateSource(track);
+      if (ok) {
+        notify('已从其他音源播放《' + track.name + '》');
+        onClose();
+      } else {
+        notify('其他音源没找到这首歌，试试手动搜索');
+      }
+    } catch {
+      notify('换源失败，稍后再试');
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const refreshCached = () => {
     if (track && canCache) void isTrackCached(track).then(setCached);
@@ -144,6 +166,14 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
                   <span>
                     {caching ? '缓存中…' : cached ? '移除离线缓存' : '缓存离线收听'}
                   </span>
+                </button>
+              ) : null}
+              {canSwitch ? (
+                <button className="action-row" disabled={switching} onClick={() => void handleSwitchSource()}>
+                  <div className="action-row__icon">
+                    <Icon name="compass" size={18} />
+                  </div>
+                  <span>{switching ? '正在找其他音源…' : '换源重试'}</span>
                 </button>
               ) : null}
               {canComment ? (

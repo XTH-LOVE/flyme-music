@@ -92,7 +92,7 @@ export function PlaylistSquarePage() {
             ))}
           </div>
         ) : error && !items.length ? (
-          <EmptyState icon="compass" title="歌单加载失败" description={error} />
+          <EmptyState icon="compass" title="歌单加载失败" description={error} action={{ label: '重试', onClick: () => { cursorRef.current = 0; setItems([]); load(cat, false); } }} />
         ) : (
           <>
             <div className="grid-cards">

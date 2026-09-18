@@ -7,10 +7,10 @@
   z-index: 120;
   display: flex;
   align-items: center;
-  width: min(282px, calc(100vw - 24px));
+  width: min(300px, calc(100vw - 24px));
   gap: 4px;
-  padding: 6px;
-  border-radius: 26px;
+  padding: 5px;
+  border-radius: 32px;
   background: var(--am-glass);
   backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
   -webkit-backdrop-filter: blur(var(--am-glass-blur)) saturate(var(--am-glass-saturate));
@@ -21,24 +21,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  justify-content: center;
+  gap: 2px;
   flex: 1 1 0;
   min-width: 0;
-  padding: 7px 10px 6px;
-  border-radius: 20px;
-  font-size: 10.5px;
-  color: var(--am-text-2);
+  height: 56px;
+  border-radius: 28px;
+  font-size: 11px;
+  color: var(--am-text-1);
+  opacity: 0.62;
   transition: background-color var(--am-motion-normal) var(--am-ease-standard),
     color var(--am-motion-normal) var(--am-ease-standard),
+    opacity var(--am-motion-normal) var(--am-ease-standard),
     transform var(--am-motion-micro) var(--am-ease-spring);
 }
 .bottom-nav__item:active {
   transform: scale(0.94);
 }
 .bottom-nav__item--active {
-  background: color-mix(in srgb, var(--am-accent, #3d7bff) 18%, transparent);
-  color: color-mix(in srgb, var(--am-accent, #3d7bff) 72%, var(--am-text-1));
+  /* Halcyon: neutral 4.5% indicator pill + primary tint + 1.03 scale */
+  background: color-mix(in srgb, var(--am-text-1) 5%, transparent);
+  color: var(--am-accent);
   font-weight: 600;
+  opacity: 1;
+  transform: scale(1.03);
 }
 @media (min-width: 960px) {
   .bottom-nav {

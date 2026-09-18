@@ -7,6 +7,7 @@ import { fallbackPalette } from '@/utils/palette';
 import { formatPlays } from '@/utils/format';
 import { getNeteasePlaylistDetail } from '@/music/netease/netease-api';
 import { playerController } from '@/player';
+import { coverTransitionName, markCoverTransition } from '@/lib/coverTransition';
 import type { NetPlaylistSummary } from '@/music/netease/netease-api';
 import './components.css';
 import './net-playlist.css';
@@ -31,8 +32,17 @@ export function NetPlaylistCard({ playlist }: { playlist: NetPlaylistSummary }) 
   };
 
   return (
-    <button className="music-card" onClick={() => navigate('/ne-playlist/' + playlist.id)}>
-      <div className="music-card__cover">
+    <button
+      className="music-card"
+      onClick={() => {
+        markCoverTransition(playlist.id);
+        navigate('/ne-playlist/' + playlist.id, { viewTransition: true });
+      }}
+    >
+      <div
+        className="music-card__cover"
+        style={{ viewTransitionName: coverTransitionName(playlist.id) }}
+      >
         <Cover palette={fallbackPalette(playlist.id)} bare radius="var(--am-radius-xl)" />
         {playlist.coverUrl ? (
           <ProxyImg src={playlist.coverUrl} alt={playlist.name} className="net-pl-cover" />

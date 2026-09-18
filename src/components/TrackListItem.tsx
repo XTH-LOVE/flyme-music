@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/design-system/components/IconButton';
 import { TrackCover } from '@/components/TrackCover';
@@ -29,6 +29,31 @@ export function TrackListItem({ track, context, index, onRemove }: TrackListItem
   const active = current?.id === track.id && current?.source === track.source;
   const fav = favorites.includes(track.id);
 
+  // Long-press (mobile habit) opens the actions sheet; the following click
+  // that closes the gesture is suppressed so it never also starts playback.
+  const longPress = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
+  const clearLongPress = () => {
+    if (longPress.current.timer !== null) window.clearTimeout(longPress.current.timer);
+    longPress.current.timer = null;
+  };
+  const onRowPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    clearLongPress();
+    longPress.current.fired = false;
+    longPress.current.timer = window.setTimeout(() => {
+      longPress.current.timer = null;
+      longPress.current.fired = true;
+      setActionsOpen(true);
+    }, 480);
+  };
+  const onRowClick = () => {
+    if (longPress.current.fired) {
+      longPress.current.fired = false;
+      return;
+    }
+    playerController.playTrack(track, context);
+  };
+
   return (
     <>
       <div
@@ -36,7 +61,11 @@ export function TrackListItem({ track, context, index, onRemove }: TrackListItem
         role="button"
         tabIndex={0}
         aria-label={'播放 ' + track.name + ' - ' + track.artist.join(' / ')}
-        onClick={() => playerController.playTrack(track, context)}
+        onClick={onRowClick}
+        onPointerDown={onRowPointerDown}
+        onPointerUp={clearLongPress}
+        onPointerLeave={clearLongPress}
+        onPointerCancel={clearLongPress}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();

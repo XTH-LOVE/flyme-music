@@ -684,3 +684,26 @@
   height: min(84vw, 58vh);
   max-height: 100%;
 }
+
+/* ---- Cover blur backdrop: the artwork itself becomes the ambience ---- */
+.hc-bg__cover {
+  position: absolute;
+  inset: -12%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(64px) saturate(135%) brightness(0.92);
+  transform: scale(1.12);
+  opacity: 0.55;
+}
+/* Keep text readable on top of the artwork ambience. */
+.hc-bg__flow {
+  z-index: 1;
+}
+.hc-bg__noise {
+  z-index: 2;
+}
+/* Light theme keeps the airy look: pull the cover way back. */
+[data-theme='light'] .hc:not(.hc--imm) .hc-bg__cover {
+  opacity: 0.22;
+  filter: blur(72px) saturate(120%) brightness(1.04);
+}

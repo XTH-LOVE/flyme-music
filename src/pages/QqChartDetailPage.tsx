@@ -16,6 +16,7 @@ export function QqChartDetailPage() {
   const [data, setData] = useState<QqChartDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!topId) return undefined;
@@ -39,7 +40,7 @@ export function QqChartDetailPage() {
       alive = false;
       controller.abort();
     };
-  }, [topId]);
+  }, [topId, attempt]);
 
   if (loading) {
     return (
@@ -57,7 +58,7 @@ export function QqChartDetailPage() {
   }
 
   if (error || !data) {
-    return <EmptyState title="榜单加载失败" description={error ?? '请检查网络后重试'} />;
+    return <EmptyState title="榜单加载失败" description={error ?? '请检查网络后重试'} action={{ label: '重试', onClick: () => setAttempt((n) => n + 1) }} />;
   }
 
   const { meta, tracks } = data;

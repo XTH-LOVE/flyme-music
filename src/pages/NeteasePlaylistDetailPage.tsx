@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { TrackListItem } from '@/components/TrackListItem';
 import { ProxyImg } from '@/components/ProxyImg';
+import { ExpandableText } from '@/components/ExpandableText';
+import { coverTransitionName } from '@/lib/coverTransition';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
 import { useNeteasePlaylistDetail } from '@/music/netease/useNetease';
@@ -49,6 +51,9 @@ export function NeteasePlaylistDetailPage() {
   }
 
   const { meta, tracks } = data;
+  // Shared-element target: only one element per page carries the name, so
+  // leaving it applied across re-renders is safe and keeps the morph stable.
+  const vtName = coverTransitionName(String(id));
   const subscribed = collections.some((c) => c.id === String(id));
 
   const importAsMine = () => {
@@ -67,7 +72,7 @@ export function NeteasePlaylistDetailPage() {
   return (
     <div className="page">
       <div className="detail-hero">
-        <div className="detail-hero__cover">
+        <div className="detail-hero__cover" style={{ viewTransitionName: vtName }}>
           <div className="detail-hero__cover-fallback" aria-hidden="true">
             <Icon name="music" size={42} />
           </div>
@@ -79,7 +84,7 @@ export function NeteasePlaylistDetailPage() {
           <div className="detail-hero__tag">网易云歌单</div>
           <h1 className="detail-hero__title">{meta.name}</h1>
           {meta.creator ? <p className="detail-hero__meta">by {meta.creator}</p> : null}
-          {meta.description ? <p className="detail-hero__desc">{meta.description}</p> : null}
+          {meta.description ? <ExpandableText className="detail-hero__desc" text={meta.description} /> : null}
           <p className="detail-hero__meta">
             {tracks.length} 首 · {formatPlays(meta.playCount)} 次播放
           </p>

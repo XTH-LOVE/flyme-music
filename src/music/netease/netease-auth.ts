@@ -17,9 +17,15 @@ async function callAuth<T>(path: string, data: Record<string, unknown>, cookie =
 }
 
 export async function getNeteaseQrKey(): Promise<string> {
-  const response = await callAuth<QrKeyResponse>('/weapi/login/qrcode/unikey', { type: 1 });
-  if (response.code !== 200 || !response.unikey) throw new Error('获取登录二维码失败');
-  return response.unikey;
+  // Datacenter-IP risk control (-462) is probabilistic; retry twice before
+  // surfacing the failure.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await callAuth<QrKeyResponse>('/weapi/login/qrcode/unikey', { type: 1 });
+    if (response.code === 200 && response.unikey) return response.unikey;
+    if (![462, -462, -460].includes(response.code)) break;
+    await new Promise((r) => setTimeout(r, 700));
+  }
+  throw new Error('获取登录二维码失败，请稍后重试（网易云风控偶尔拦截，多试一两次即可）');
 }
 
 export interface NeteaseQrStatus {

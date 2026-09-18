@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/design-system/components/IconButton';
 import { TrackCover } from '@/components/TrackCover';
@@ -13,11 +14,25 @@ interface QueueSheetProps {
   onClose: () => void;
 }
 
-/** Queue drawer: reorder, remove, clear. Drawer on desktop, sheet on mobile. */
+/** Queue drawer: reorder (drag on desktop, buttons everywhere), remove, clear. */
 export function QueueSheet({ open, onClose }: QueueSheetProps) {
   const queue = usePlayerStore((s) => s.queue);
   const queueIndex = usePlayerStore((s) => s.queueIndex);
   const status = usePlayerStore((s) => s.status);
+  // HTML5 drag state: indices are within the "up next" slice (touch users
+  // keep the up/down buttons, which are unaffected by draggable).
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  const handleDrop = (target: number) => {
+    if (dragFrom !== null && dragFrom !== target) {
+      const from = queueIndex + 1 + dragFrom;
+      const to = queueIndex + 1 + target;
+      playerController.moveQueueItem(from, to);
+    }
+    setDragFrom(null);
+    setDragOver(null);
+  };
 
   const nowPlaying = queue[queueIndex];
   const upNext = queue.slice(queueIndex + 1);
@@ -66,10 +81,35 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
               return (
                 <div
                   key={track.source + ':' + track.id + '-' + realIndex}
-                  className="queue-item"
+                  className={
+                    'queue-item' +
+                    (dragFrom === i ? ' queue-item--dragging' : '') +
+                    (dragOver === i && dragFrom !== null && dragFrom !== i ? ' queue-item--drop' : '')
+                  }
                   role="button"
                   tabIndex={0}
                   aria-label={'播放 ' + track.name + ' - ' + track.artist.join(' / ')}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragFrom(i);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(i));
+                  }}
+                  onDragOver={(e) => {
+                    if (dragFrom === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDragOver(i);
+                  }}
+                  onDragLeave={() => setDragOver((cur) => (cur === i ? null : cur))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleDrop(i);
+                  }}
+                  onDragEnd={() => {
+                    setDragFrom(null);
+                    setDragOver(null);
+                  }}
                   onClick={() => playerController.jumpToQueueIndex(realIndex)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {

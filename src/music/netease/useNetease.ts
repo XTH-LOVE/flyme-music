@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
+  getNeteaseAlbum,
+  getNeteaseArtist,
   getNeteasePlaylistDetail,
   getRecommendPlaylists,
+  type NetAlbumDetail,
+  type NetArtistDetail,
   type NetPlaylistDetail,
   type NetPlaylistSummary,
 } from './netease-api';
@@ -31,7 +35,9 @@ export function useNeteaseRecommend(): {
   data: NetPlaylistSummary[] | null;
   loading: boolean;
   error: string | null;
+  reload: () => void;
 } {
+  const [nonce, setNonce] = useState(0);
   const [data, setData] = useState<NetPlaylistSummary[] | null>(readCache);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +70,9 @@ export function useNeteaseRecommend(): {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [nonce]);
 
-  return { data, loading, error };
+  return { data, loading, error, reload: () => setNonce((n) => n + 1) };
 }
 
 /** 真实歌单详情。 */
@@ -103,4 +109,79 @@ export function useNeteasePlaylistDetail(id: string | undefined): {
   }, [id]);
 
   return { data, loading, error };
+}
+// 真实网易云专辑（含全部曲目）。
+export function useNeteaseAlbum(id: string | undefined): {
+  data: NetAlbumDetail | null;
+  loading: boolean;
+  error: string | null;
+  reload: () => void;
+} {
+  const [data, setData] = useState<NetAlbumDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    if (!id) return undefined;
+    let alive = true;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    getNeteaseAlbum(id, controller.signal)
+      .then((detail) => {
+        if (!alive) return;
+        setData(detail);
+        setLoading(false);
+      })
+      .catch((e: unknown) => {
+        if (!alive || controller.signal.aborted) return;
+        setError(e instanceof Error ? e.message : String(e));
+        setLoading(false);
+      });
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [id, nonce]);
+
+  return { data, loading, error, reload: () => setNonce((n) => n + 1) };
+}
+
+// 真实网易云歌手（热门歌曲）。
+export function useNeteaseArtist(id: string | undefined): {
+  data: NetArtistDetail | null;
+  loading: boolean;
+  error: string | null;
+  reload: () => void;
+} {
+  const [data, setData] = useState<NetArtistDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    if (!id) return undefined;
+    let alive = true;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    getNeteaseArtist(id, controller.signal)
+      .then((detail) => {
+        if (!alive) return;
+        setData(detail);
+        setLoading(false);
+      })
+      .catch((e: unknown) => {
+        if (!alive || controller.signal.aborted) return;
+        setError(e instanceof Error ? e.message : String(e));
+        setLoading(false);
+      });
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [id, nonce]);
+
+  return { data, loading, error, reload: () => setNonce((n) => n + 1) };
 }

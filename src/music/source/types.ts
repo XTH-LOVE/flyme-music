@@ -5,7 +5,7 @@
  */
 import type { Song } from '../types';
 
-export type MusicSource = 'netease' | 'joox' | 'qq' | 'mock' | 'local';
+export type MusicSource = 'netease' | 'joox' | 'qq' | 'kuwo' | 'higequ' | 'mock' | 'local';
 
 export interface MusicTrack {
   id: string;
@@ -55,10 +55,13 @@ export interface SourceOption {
   label: string;
 }
 
-/** Searchable sources shown in the UI (QQ is browse-only via charts). */
+/** Searchable sources shown in the UI, roughly by catalogue size. */
 export const searchSourceOptions: SourceOption[] = [
   { source: 'netease', label: '网易云' },
+  { source: 'qq', label: 'QQ' },
+  { source: 'kuwo', label: '酷我' },
   { source: 'joox', label: 'Joox' },
+  { source: 'higequ', label: 'Hi歌' },
   { source: 'mock', label: '本地曲库' },
 ];
 
@@ -66,6 +69,8 @@ export const sourceLabels: Record<MusicSource, string> = {
   netease: '网易',
   qq: 'QQ',
   joox: 'Joox',
+  kuwo: '酷我',
+  higequ: 'Hi歌',
   mock: '本地',
   local: '文件',
 };

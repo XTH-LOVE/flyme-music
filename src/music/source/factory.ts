@@ -2,6 +2,8 @@ import type { MusicSource } from './types';
 import { JooxProvider } from './providers/joox-provider';
 import { NeteaseProvider } from './providers/netease-provider';
 import { QqProvider } from './providers/qq-provider';
+import { KuwoProvider } from './providers/kuwo-provider';
+import { HigequProvider } from './providers/higequ-provider';
 import { MockTrackProvider } from './providers/mock-provider';
 import type { BaseMusicProvider } from './base-provider';
 
@@ -9,7 +11,7 @@ export type TrackProvider = BaseMusicProvider | MockTrackProvider;
 
 /**
  * Singleton provider factory (mirrors Otter's MusicProviderFactory).
- * Remote sources: netease, qq, joox.
+ * Remote sources: netease, joox, qq, kuwo (GD API) and higequ (HTML-scraped).
  */
 class MusicProviderFactory {
   private instances = new Map<string, TrackProvider>();
@@ -28,6 +30,12 @@ class MusicProviderFactory {
         break;
       case 'qq':
         provider = new QqProvider();
+        break;
+      case 'kuwo':
+        provider = new KuwoProvider();
+        break;
+      case 'higequ':
+        provider = new HigequProvider();
         break;
       case 'mock':
         provider = new MockTrackProvider();

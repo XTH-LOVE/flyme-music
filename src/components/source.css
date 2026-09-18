@@ -3,7 +3,7 @@
   display: inline-block;
   margin-left: 6px;
   padding: 1px 6px;
-  border-radius: var(--am-radius-pill);
+  border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
   vertical-align: 1px;
@@ -17,7 +17,20 @@
   background: rgba(0, 168, 150, 0.14);
   color: #00a896;
 }
-.source-badge--mock {
+.source-badge--kuwo {
+  background: rgba(30, 136, 229, 0.14);
+  color: #1e88e5;
+}
+.source-badge--qq {
+  background: rgba(49, 194, 124, 0.14);
+  color: #31c27c;
+}
+.source-badge--higequ {
+  background: rgba(224, 123, 0, 0.14);
+  color: #e07b00;
+}
+.source-badge--mock,
+.source-badge--local {
   background: var(--am-surface-3);
   color: var(--am-text-2);
 }
@@ -26,6 +39,15 @@
 }
 [data-theme='dark'] .source-badge--joox {
   color: #4fd8c8;
+}
+[data-theme='dark'] .source-badge--kuwo {
+  color: #64b5f6;
+}
+[data-theme='dark'] .source-badge--qq {
+  color: #4ddb96;
+}
+[data-theme='dark'] .source-badge--higequ {
+  color: #ffa940;
 }
 
 /* ---------- Track cover img ---------- */

@@ -50,6 +50,34 @@ function persistPic(key: string, url: string): void {
   }
 }
 
+/**
+ * Cover-cache occupancy, for the storage page.
+ *
+ * `bytes` is the length of the persisted JSON string, i.e. an approximation of
+ * the localStorage footprint (UTF-16 code units), not a decoded byte count.
+ * That is the number that matters for quota, which is what the page reports.
+ */
+export function picCacheStats(): { count: number; bytes: number } {
+  let bytes = 0;
+  try {
+    bytes = (localStorage.getItem(PIC_STORE_KEY) ?? '').length;
+  } catch {
+    /* ignore */
+  }
+  return { count: picCache.size, bytes };
+}
+
+/** Drop every cached cover: in-memory maps plus the persisted copy. */
+export function clearPicCache(): void {
+  picCache.clear();
+  picInflight.clear();
+  try {
+    localStorage.removeItem(PIC_STORE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 function read<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null | undefined {

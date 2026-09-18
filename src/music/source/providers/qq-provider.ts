@@ -1,16 +1,16 @@
 import { BaseMusicProvider } from '../base-provider';
 import { requestMusicApiJSON } from '../provider-utils';
-import { getQqLyric } from '../../qq/qq-api';
+import { getQqLyric, searchQqSongs } from '../../qq/qq-api';
 import type { RawApiTrack } from '../types';
-import type { MusicSource, MusicTrack, SongLyric } from '../types';
+import type { MusicSource, MusicTrack, SearchPageResult, SongLyric } from '../types';
 
 /**
  * QQ Music source.
- * Chart data comes from QQ official endpoints; playback is resolved via
- * Joox (match by song name + artist, then take the Joox stream), because
+ * Search and chart data come from QQ official endpoints; playback is resolved
+ * via Joox (match by song name + artist, then take the Joox stream), because
  * QQ vkey streams are login/VIP-gated while Joox streams are open.
  */
-const norm = (s: string) => s.toLowerCase().replace(/[\s\(\)（）《》.,!?'"-]/g, '');
+const norm = (s: string) => s.toLowerCase().replace(/[\s()（）《》.,!?'"-]/g, '');
 
 /** track.id -> resolved joox stream url (TTL: stream links expire). */
 const JOOX_URL_TTL_MS = 10 * 60 * 1000;
@@ -18,6 +18,22 @@ const jooxUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 export class QqProvider extends BaseMusicProvider {
   source = 'qq' as MusicSource;
+
+  /**
+   * QQ 官方搜索。
+   *
+   * 基类的 search() 走 GD 聚合 API，而 GD **不支持** `tencent` 源（实测返回
+   * "Value of `source` is not supported"）。所以这里必须覆盖 —— 否则
+   * search() 抛出的错误会被调用方的 catch 吞掉，表现为"搜索永远没有结果"。
+   */
+  async search(
+    query: string,
+    page: number,
+    count: number,
+    signal?: AbortSignal,
+  ): Promise<SearchPageResult<MusicTrack>> {
+    return searchQqSongs(query, page, count, signal);
+  }
 
   /** Match the QQ track against Joox search and resolve a Joox stream. */
   async getUrl(track: MusicTrack, br = 192): Promise<string | null> {

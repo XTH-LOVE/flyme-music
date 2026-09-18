@@ -81,10 +81,33 @@ function pwaPlugin() {
       ],
     },
     workbox: {
-      globPatterns: ['**/*.{js,css,html,svg,jpg,jpeg,png,ico,woff2}'],
+      /*
+       * Precache the app shell only - HTML plus the icons. Precaching every
+       * built chunk meant roughly 1.1MB downloaded in the background on each
+       * update, competing with cover art and audio at exactly the moment the
+       * user is waiting on them.
+       *
+       * The JS/CSS chunks are content-hashed, so they are immutable: they get
+       * cached on first use (below), which keeps repeat visits and offline use
+       * working without paying for them upfront.
+       */
+      globPatterns: ['**/*.{html,svg,png,jpg,jpeg,ico}'],
       navigateFallback: 'index.html',
       navigateFallbackDenylist: [/^\/api\//],
       cleanupOutdatedCaches: true,
+      runtimeCaching: [
+        {
+          urlPattern: /\/assets\/.*\.(?:js|css|woff2)$/,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'aurora-assets',
+            expiration: {
+              maxEntries: 80,
+              maxAgeSeconds: 60 * 60 * 24 * 30,
+            },
+          },
+        },
+      ],
     },
   });
 }

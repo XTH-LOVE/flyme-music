@@ -163,3 +163,48 @@ describe('PlayerQueue mutation edge cases', () => {
     expect(q.next()).toBeNull();
   });
 });
+
+/*
+ * replaceCurrent backs the automatic source fallback: when a stream cannot be
+ * resolved the queue entry is swapped in place, so the user keeps their
+ * position in the queue and only the provider behind the song changes.
+ */
+describe('PlayerQueue replaceCurrent', () => {
+  it('swaps the current entry and leaves the rest of the queue alone', () => {
+    const q = new PlayerQueue();
+    q.load(abc(), 1);
+    const replacement = track('b-alt');
+    q.replaceCurrent(replacement);
+
+    expect(q.current?.id).toBe('b-alt');
+    expect(q.list.map((t) => t.id)).toEqual(['a', 'b-alt', 'c', 'd']);
+    expect(q.currentIndex).toBe(1);
+  });
+
+  it('keeps the position so the queue still knows what plays next', () => {
+    const q = new PlayerQueue();
+    q.load(abc(), 1);
+    q.replaceCurrent(track('b-alt'));
+
+    expect(q.currentIndex).toBe(1);
+    expect(q.next()?.id).toBe('c');
+    // Stepping back lands on the replacement, not the entry it displaced - the
+    // swap happened in place, which is the whole point.
+    expect(q.previous()?.id).toBe('b-alt');
+  });
+
+  it('does nothing on an empty or unloaded queue', () => {
+    const q = new PlayerQueue();
+    expect(() => q.replaceCurrent(track('x'))).not.toThrow();
+    expect(q.current).toBeNull();
+    expect(q.list).toEqual([]);
+  });
+
+  it('does nothing after clear', () => {
+    const q = new PlayerQueue();
+    q.load(abc(), 0);
+    q.clear();
+    expect(() => q.replaceCurrent(track('x'))).not.toThrow();
+    expect(q.current).toBeNull();
+  });
+});

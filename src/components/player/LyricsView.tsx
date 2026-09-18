@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
+import { usePlayerStore } from '@/store/usePlayerStore';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
 import type { MusicTrack } from '@/music/source/types';
 import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
@@ -30,6 +31,9 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   const setOffset = useLyricStore((s) => s.setOffset);
   const nudgeOffset = useLyricStore((s) => s.nudge);
   const [offsetOpen, setOffsetOpen] = useState(false);
+  // Only used to start/stop the per-frame wipe loop, so the store subscription
+  // costs nothing while playing (status changes are rare).
+  const playing = usePlayerStore((s) => s.status === 'playing');
   // Single-click seek only where a real mouse exists; on touch screens a
   // single tap must not seek (too easy to trigger while scrolling).
   const seekable =
@@ -128,11 +132,11 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   };
 
   /**
-   * How far through the current line we are, 0..1. Timestamps are line-level,
-   * so the gap to the next line is the only span we have to fill across.
+   * How far through the current line we are at `time`, 0..1. Timestamps are
+   * line-level, so the gap to the next line is the only span we can fill across.
    * Returns 0 when there is no next line (nothing to wipe toward).
    */
-  const wipeFor = (index: number): number => {
+  const wipeAt = (index: number, time: number): number => {
     if (index < 0 || index >= lines.length) return 0;
     const next = lines[index + 1];
     if (!next) return 0;
@@ -141,10 +145,40 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     // A huge gap means the sheet has a gap (instrumental, or a missing line);
     // filling across it would look broken.
     if (span <= 0 || span > 30) return 0;
-    return Math.min(1, Math.max(0, (currentTime - start) / span));
+    return Math.min(1, Math.max(0, (time - start) / span));
   };
 
-  const wipe = wipeFor(activeIndex);
+  /**
+   * The wipe is painted per frame, not per React render.
+   *
+   * The player's currentTime only reaches React on the audio element's
+   * `timeupdate` event, which browsers fire about four times a second - driving
+   * the fill from that state made it visibly step. Instead the active line's
+   * --wipe is written straight to the DOM from a rAF loop, which reads a
+   * continuously advancing currentTime and costs no re-renders.
+   */
+  useEffect(() => {
+    const el = containerRef.current?.querySelector<HTMLElement>('[data-active="true"]');
+    if (!el || activeIndex < 0) return;
+    // Paint once immediately so a paused (or not-yet-started) line is still
+    // positioned correctly.
+    el.style.setProperty('--wipe', (wipeAt(activeIndex, currentTime) * 100).toFixed(1) + '%');
+    if (!playing || scrubIdx !== null) return;
+    // Reduced-motion users get a solid active line (see halcyon.css); skip the
+    // per-frame loop entirely rather than repainting a value nobody sees.
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    let raf = 0;
+    const tick = () => {
+      el.style.setProperty('--wipe', (wipeAt(activeIndex, playerController.currentTime) * 100).toFixed(1) + '%');
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- wipeAt is stable per (lines, offset)
+  }, [activeIndex, playing, scrubIdx, lines, offset]);
 
   const renderBody = () => {
     if (!lines.length) return <div className="lyrics__line">歌词加载中…</div>;
@@ -167,7 +201,7 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
           className={cls}
           style={
             i === activeIndex
-              ? ({ '--wipe': (wipe * 100).toFixed(1) + '%' } as CSSProperties)
+              ? undefined
               : { transform: 'rotateX(' + signed * -2.4 + 'deg)' }
           }
           onClick={

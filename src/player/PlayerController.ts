@@ -240,6 +240,15 @@ class PlayerController {
     };
   }
 
+  /**
+   * Cheap read for per-frame UI. snapshot() copies the whole queue on every
+   * call, which is fine at React re-render rates but not at 60fps - the lyric
+   * wipe polls this once per frame.
+   */
+  get currentTime(): number {
+    return this.engine.currentTime;
+  }
+
   subscribe(listener: PlayerListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

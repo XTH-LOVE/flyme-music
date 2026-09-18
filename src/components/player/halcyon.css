@@ -849,7 +849,10 @@
   .hc-bg__flow--live {
     animation: none;
   }
+  /* The wipe is continuous motion tied to playback; show the active line solid
+     instead of filling. (The rAF loop is also skipped - see LyricsView.) */
   .lyrics__line--active .lyrics__text {
-    transition: none;
+    background-image: none;
+    color: var(--lyric-wipe-on);
   }
 }

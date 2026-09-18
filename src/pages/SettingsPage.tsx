@@ -404,6 +404,15 @@ export function SettingsPage() {
         </div>
         <div className="settings-row">
           <div className="settings-row__body">
+            <div className="settings-row__title">动态效果</div>
+            <div className="settings-row__desc">
+              播放器里封面的呼吸与背景流动。纯装饰，配置较低的机器关掉会更流畅
+            </div>
+          </div>
+          <Switch checked={settings.ambientMotion} onChange={settings.setAmbientMotion} />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
             <div className="settings-row__title">自动音量均衡</div>
             <div className="settings-row__desc">
               {settings.realSpectrum

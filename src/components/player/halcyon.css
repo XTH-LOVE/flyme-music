@@ -60,6 +60,9 @@
 }
 .hc-bg__flow--live {
   animation: hc-flow-drift 24s var(--am-ease-standard) infinite;
+  /* Promote the drifting layer. Without it the browser can repaint this
+     full-viewport gradient - and the blurred artwork beneath it - every frame. */
+  will-change: transform;
 }
 
 /* The standalone `scale` property is used on purpose: the cover element also
@@ -191,7 +194,11 @@
   touch-action: pan-y;
   transition: transform 90ms linear,
     filter var(--am-motion-page) var(--am-ease-standard);
-  will-change: transform;
+  /* Must name `scale` as well as `transform`: the breathing animation animates
+     the independent scale property, and `will-change: transform` alone does not
+     promote it - the browser would repaint a 54vh cover every frame instead of
+     compositing it. `transform` is still listed for the drag gesture. */
+  will-change: transform, scale;
 }
 .hc-cover--playing {
   animation: hc-breathe 8s var(--am-ease-standard) infinite;
@@ -856,4 +863,15 @@
   .hc-bg__flow--live {
     animation: none;
   }
+}
+
+/* ---- Ambient motion switch (Settings > 动态效果) ----
+ * Same outcome as the reduced-motion query, but chosen by the user rather than
+ * the OS - for anyone on slower hardware who would rather have the frames back.
+ */
+.hc--still .hc-cover--playing {
+  animation: none;
+}
+.hc--still .hc-bg__flow--live {
+  animation: none;
 }

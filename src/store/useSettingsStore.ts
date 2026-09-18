@@ -10,10 +10,17 @@ interface SettingsState {
   /** Route remote streams through our same-origin proxy so the Web Audio
    *  analyser unlocks the REAL rhythm spectrum. */
   realSpectrum: boolean;
+  /**
+   * Ambient motion in the player: the breathing cover and the drifting
+   * backdrop. Purely decorative, so it is switchable for anyone on slower
+   * hardware who would rather have the frames back.
+   */
+  ambientMotion: boolean;
   setQuality: (q: AudioQuality) => void;
   setAutoplayNext: (v: boolean) => void;
   setDynamicAccent: (v: boolean) => void;
   setRealSpectrum: (v: boolean) => void;
+  setAmbientMotion: (v: boolean) => void;
 }
 
 // v2: bumped so the default quality becomes lossless (highest available);
@@ -25,6 +32,7 @@ interface PersistedSettings {
   autoplayNext?: boolean;
   dynamicAccent?: boolean;
   realSpectrum?: boolean;
+  ambientMotion?: boolean;
 }
 
 function loadSettings(): PersistedSettings {
@@ -54,6 +62,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   // flaky routes. Real spectrum still applies to cached/local tracks, and
   // users can opt in from Settings if their network handles the proxy well.
   realSpectrum: persisted.realSpectrum ?? false,
+  ambientMotion: persisted.ambientMotion ?? true,
+  setAmbientMotion: (ambientMotion) => {
+    saveSettings({ ambientMotion });
+    set({ ambientMotion });
+  },
   setDynamicAccent: (dynamicAccent) => {
     saveSettings({ dynamicAccent });
     set({ dynamicAccent });

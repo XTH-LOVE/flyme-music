@@ -6,6 +6,7 @@ import { CommentsSheet } from '@/components/CommentsSheet';
 import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { useExtrasStore } from '@/store/useExtrasStore';
 import { useLyricStore } from '@/store/useLyricStore';
@@ -286,6 +287,7 @@ export function FullPlayer() {
   const shuffle = usePlayerStore((s) => s.shuffle);
   const repeat = usePlayerStore((s) => s.repeat);
   const lyricsMode = usePlayerStore((s) => s.lyricsMode);
+  const ambientMotion = useSettingsStore((s) => s.ambientMotion);
   const close = usePlayerStore((s) => s.closeFullPlayer);
   const toggleLyrics = usePlayerStore((s) => s.toggleLyricsMode);
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
@@ -702,8 +704,8 @@ export function FullPlayer() {
   /* ---------------- Desktop: Halcyon landscape layout ---------------- */
   if (isDesktop) {
     return (
-      <div className="full-player hc" {...dismissProps}>
-        <HalcyonBg track={current} live={playing} />
+      <div className={'full-player hc' + (ambientMotion ? '' : ' hc--still')} {...dismissProps}>
+        <HalcyonBg track={current} live={playing && ambientMotion} />
         <button className="hc-collapse" onClick={close} aria-label="收起">
           <Icon name="chevronLeft" size={22} className="hc-collapse__icon" />
         </button>
@@ -727,7 +729,9 @@ export function FullPlayer() {
 
             <div className="hc-cover-wrap">
               <div
-                className={'hc-cover' + (playing ? ' hc-cover--playing' : '')}
+                className={
+                  'hc-cover' + (playing && ambientMotion ? ' hc-cover--playing' : '')
+                }
                 style={{ transform: dragX ? 'translateX(' + dragX + 'px)' : undefined }}
                 onPointerDown={coverPointerDown}
                 onPointerMove={coverPointerMove}

@@ -217,6 +217,13 @@ class PlayerController {
     this.broadcast();
   }
 
+  /** Drop the pending songs only - the current track keeps playing. */
+  clearUpNext(): void {
+    this.queue.clearUpNext();
+    this.persistQueue();
+    this.broadcast();
+  }
+
   /* ---- state ---- */
 
   snapshot(): PlayerSnapshot {

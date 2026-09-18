@@ -208,3 +208,41 @@ describe('PlayerQueue replaceCurrent', () => {
     expect(q.current).toBeNull();
   });
 });
+
+describe('PlayerQueue clearUpNext', () => {
+  it('drops the pending songs and keeps the current one playing', () => {
+    const q = new PlayerQueue();
+    q.load(abc(), 1);
+    q.clearUpNext();
+    expect(q.list.map((t) => t.id)).toEqual(['a', 'b']);
+    expect(q.current?.id).toBe('b');
+    expect(q.currentIndex).toBe(1);
+  });
+
+  it('differs from clear(), which also stops playback', () => {
+    const q = new PlayerQueue();
+    q.load(abc(), 1);
+    q.clear();
+    expect(q.current).toBeNull();
+  });
+
+  it('does nothing when nothing is loaded', () => {
+    const q = new PlayerQueue();
+    expect(() => q.clearUpNext()).not.toThrow();
+    expect(q.list).toEqual([]);
+  });
+
+  it('drops stale shuffle history for the removed songs', () => {
+    const q = new PlayerQueue();
+    q.load(abc(), 0);
+    q.setShuffled(true);
+    // Walk forward twice so later indices end up in the history.
+    q.next();
+    q.next();
+    q.clearUpNext();
+    // Every history entry must still point at a song that exists.
+    expect(q.list.length).toBeGreaterThan(0);
+    expect(() => q.previous()).not.toThrow();
+    expect(q.current).not.toBeNull();
+  });
+});

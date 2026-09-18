@@ -162,6 +162,17 @@ export class PlayerQueue {
     this.shuffleHistory = [];
   }
 
+  /**
+   * Drop everything queued after the current song, leaving the playing track
+   * alone. The queue sheet's clear button sits under "接下来播放", so wiping the
+   * song that is actually playing was a surprise.
+   */
+  clearUpNext(): void {
+    if (this.index < 0) return;
+    this.items = this.items.slice(0, this.index + 1);
+    this.shuffleHistory = this.shuffleHistory.filter((h) => h <= this.index);
+  }
+
   private pushHistory(i: number): void {
     this.shuffleHistory.push(i);
     if (this.shuffleHistory.length > PlayerQueue.SHUFFLE_HISTORY_CAP) {

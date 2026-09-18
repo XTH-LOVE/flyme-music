@@ -71,9 +71,11 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
           <>
             <div className="queue-section-head">
               <div className="queue-section-title">接下来播放</div>
-              <button className="queue-clear" onClick={() => playerController.clearQueue()}>
+              {/* Only the pending songs: this button sits under 接下来播放, so
+                  clearing the whole queue would also stop the current track. */}
+              <button className="queue-clear" onClick={() => playerController.clearUpNext()}>
                 <Icon name="trash" size={14} />
-                清空队列
+                清空待播
               </button>
             </div>
             {upNext.map((track, i) => {
@@ -131,14 +133,19 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
                   <div className="queue-item__ops" onClick={(e) => e.stopPropagation()}>
                     <IconButton
                       size="sm"
-                      label="上移"
+                      label={i === 0 ? '已是最靠前的一首' : '上移'}
+                      // The first pending song sits directly after the playing
+                      // one; moving it "up" would put it behind the playhead,
+                      // where sequential playback would never reach it again.
+                      disabled={i === 0}
                       onClick={() => playerController.moveQueueItem(realIndex, realIndex - 1)}
                     >
                       <Icon name="chevronLeft" size={15} className="queue-up" />
                     </IconButton>
                     <IconButton
                       size="sm"
-                      label="下移"
+                      label={i === upNext.length - 1 ? '已是最后一首' : '下移'}
+                      disabled={i === upNext.length - 1}
                       onClick={() => playerController.moveQueueItem(realIndex, realIndex + 1)}
                     >
                       <Icon name="chevronRight" size={15} className="queue-down" />

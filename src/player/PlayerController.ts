@@ -1,5 +1,5 @@
-import type { MusicTrack } from '@/music/source/types';
-import { songToTrack } from '@/music/source/types';
+import type { MusicSource, MusicTrack } from '@/music/source/types';
+import { songToTrack, sourceLabels } from '@/music/source/types';
 import type { Song } from '@/music/types';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -27,6 +27,13 @@ class PlayerController {
   private userSeeked = false;
   /** Invalidates URL resolution started for a previous queue selection. */
   private playbackRequestId = 0;
+  /**
+   * Sources already tried for the track currently being started. Guards the
+   * automatic fallback against bouncing between two providers that both fail.
+   */
+  private triedSources = new Set<MusicSource>();
+  /** Upper bound on automatic provider hops per track. */
+  private static readonly MAX_FALLBACK_SOURCES = 3;
 
   constructor() {
     this.restorePersisted();
@@ -253,9 +260,12 @@ class PlayerController {
 
   /* ---- internals ---- */
 
-  private async startCurrent(): Promise<void> {
+  private async startCurrent(isFallback = false): Promise<void> {
     const track = this.queue.current;
     if (!track) return;
+    // A user-driven start clears the fallback history; re-entry from the
+    // fallback itself must keep it, or we would loop forever.
+    if (!isFallback) this.triedSources.clear();
     const requestId = ++this.playbackRequestId;
     const trackKey = track.source + ':' + track.id + ':' + track.url_id;
     this.userSeeked = false;
@@ -282,12 +292,42 @@ class PlayerController {
       this.engine.attachSource(this.attachUrlFor(url), this.userSeeked ? undefined : 0);
       this.broadcast();
     } else if (!url && stillCurrent && track.source !== 'mock') {
-      // Remote providers can be temporarily unavailable. Do not leave a
-      // silent simulated playback running after all retries are exhausted.
+      // Remote providers go down for stretches at a time - the GD aggregator's
+      // joox endpoint did exactly that, failing every song for minutes on end.
+      // Stop the optimistic clock, then look for the same song elsewhere
+      // instead of just giving up on the track.
       this.engine.pause();
-      notify('《' + track.name + '》暂时无法播放（可能受版权限制），可在歌曲菜单里换源重试');
       this.broadcast();
+      const switched = await this.switchToAlternateSource(track, requestId);
+      if (!switched) {
+        notify('《' + track.name + '》暂时无法播放（可能受版权限制），可在歌曲菜单里换源重试');
+      }
     }
+  }
+
+  /**
+   * Find the same song on another provider and restart playback there.
+   * Returns false when there is nothing left worth trying.
+   */
+  private async switchToAlternateSource(track: MusicTrack, requestId: number): Promise<boolean> {
+    if (this.triedSources.size >= PlayerController.MAX_FALLBACK_SOURCES) return false;
+    this.triedSources.add(track.source);
+
+    // Imported lazily on purpose: alternateSource imports the player singleton,
+    // so a static import here would close a module cycle.
+    const { findAlternateSource } = await import('@/player/alternateSource');
+    const alt = await findAlternateSource(track, this.triedSources);
+    if (!alt) return false;
+    // The user picked something else while we were searching - leave it alone.
+    if (this.playbackRequestId !== requestId) return true;
+
+    // Swap the entry in place so the queue (and the source badge) stay truthful.
+    this.queue.replaceCurrent(alt);
+    this.persistQueue();
+    notify('原音源暂时不可用，已切到「' + sourceLabels[alt.source] + '」播放');
+    this.broadcast();
+    await this.startCurrent(true);
+    return true;
   }
 
   /** Re-resolve the stream for the current track, keeping the position. */

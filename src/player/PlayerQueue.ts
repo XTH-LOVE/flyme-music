@@ -40,6 +40,16 @@ export class PlayerQueue {
     this.shuffleHistory = [];
   }
 
+  /**
+   * Swap the current entry for another track, keeping the rest of the queue.
+   * Used by the automatic source fallback: the song stays where it was in the
+   * queue, only the provider backing it changes.
+   */
+  replaceCurrent(track: MusicTrack): void {
+    if (this.index < 0 || this.index >= this.items.length) return;
+    this.items[this.index] = track;
+  }
+
   /** Append tracks to the end of the queue (AI "queue similar" feature). */
   append(tracks: MusicTrack[]): void {
     this.items.push(...tracks);

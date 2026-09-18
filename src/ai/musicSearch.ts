@@ -1,5 +1,5 @@
 import { getTrackProvider } from '@/music/source/factory';
-import type { MusicTrack } from '@/music/source/types';
+import type { MusicSource, MusicTrack } from '@/music/source/types';
 
 /** Words that mark a non-original version of a song. */
 const COVER_WORDS = [
@@ -80,13 +80,21 @@ export async function searchAllSources(
   count = 10,
   artistHint?: string,
   dislikes?: string[],
+  /**
+   * Extra providers to search alongside the default pair. The source fallback
+   * passes Hi歌 here: netease and joox both go through the same GD aggregator,
+   * so an outage there would take out the fallback search too - Hi歌 scrapes
+   * its own site and streams from a different CDN, which is the only genuinely
+   * independent option. Kept opt-in so ordinary searches do not hit it.
+   */
+  extraSources: MusicSource[] = [],
 ): Promise<MusicTrack[]> {
   const kw = keyword.trim();
   if (!kw) return [];
-  const results = await Promise.allSettled([
-    getTrackProvider('netease').search(kw, 1, Math.max(count, 12)),
-    getTrackProvider('joox').search(kw, 1, Math.max(count, 12)),
-  ]);
+  const sources: MusicSource[] = ['netease', 'joox', ...extraSources];
+  const results = await Promise.allSettled(
+    sources.map((source) => getTrackProvider(source).search(kw, 1, Math.max(count, 12))),
+  );
   const merged: MusicTrack[] = [];
   const seen = new Set<string>();
   for (const r of results) {

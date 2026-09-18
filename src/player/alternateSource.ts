@@ -1,7 +1,7 @@
 import { searchAllSources } from '@/ai/musicSearch';
 import { useAiStore } from '@/store/useAiStore';
 import { playerController } from '@/player';
-import type { MusicTrack } from '@/music/source/types';
+import type { MusicSource, MusicTrack } from '@/music/source/types';
 
 /**
  * "Play from another source": the same song (name + artist) re-searched on
@@ -20,13 +20,23 @@ function artistOverlap(a: string[], b: string[]): boolean {
   return left.some((x) => right.some((y) => x === y || x.includes(y) || y.includes(x)));
 }
 
-export async function findAlternateSource(track: MusicTrack): Promise<MusicTrack | null> {
+export async function findAlternateSource(
+  track: MusicTrack,
+  /**
+   * Sources already tried for this song. The automatic fallback passes them in
+   * so a track that fails on every provider cannot bounce between two of them.
+   */
+  exclude?: ReadonlySet<MusicSource>,
+): Promise<MusicTrack | null> {
   const dislikes = useAiStore.getState().dislikes;
   const query = (track.name + ' ' + (track.artist[0] ?? '')).trim();
-  const hits = await searchAllSources(query, 12, track.artist[0], dislikes);
+  // Hi歌 is included because netease and joox share the GD aggregator - if that
+  // is what is down, the fallback search has to reach something else entirely.
+  const hits = await searchAllSources(query, 12, track.artist[0], dislikes, ['higequ']);
   const want = norm(track.name);
   for (const hit of hits) {
     if (hit.source === track.source) continue;
+    if (exclude?.has(hit.source)) continue;
     const name = norm(hit.name);
     const sameSong =
       name === want ||

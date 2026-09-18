@@ -23,7 +23,7 @@ interface TrackCoverProps {
  */
 export function TrackCover({ track, radius, bare = false, title }: TrackCoverProps) {
   const [url, setUrl] = useState<string | null>(withPicSize(track.picUrl, '300y300') || null);
-  const { src: imgSrc, stage, onError } = useProxiedImage(url);
+  const { src: imgSrc, stage, onError, onLoad } = useProxiedImage(url);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -69,7 +69,10 @@ export function TrackCover({ track, radius, bare = false, title }: TrackCoverPro
           loading="lazy"
           referrerPolicy="no-referrer"
           onError={onError}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            setLoaded(true);
+            onLoad();
+          }}
         />
       ) : null}
       {!showImg && !bare && title ? <span className="am-cover__glyph">{title.slice(0, 1)}</span> : null}

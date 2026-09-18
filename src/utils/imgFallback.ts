@@ -40,21 +40,48 @@ function persist(): void {
 
 export type ImgStage = 'direct' | 'proxy';
 
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return '';
+  }
+}
+
+function isMarked(key: string): boolean {
+  const markedAt = directFailed.get(key);
+  if (markedAt === undefined) return false;
+  if (Date.now() - markedAt >= ENTRY_TTL_MS) {
+    directFailed.delete(key);
+    persist();
+    return false;
+  }
+  return true;
+}
+
+/**
+ * A CDN almost never fails for one artwork only: if p2.music.126.net is
+ * unreachable it is unreachable for every song on it. Tracking by exact URL
+ * meant each new cover paid the failing attempt again, so a page of results
+ * would hang one image at a time. The host is recorded alongside the URL so the
+ * rest of the page skips straight to the proxy.
+ */
 export function initialImgStage(url: string | null | undefined): ImgStage {
   if (!url) return 'direct';
-  const markedAt = directFailed.get(url);
-  if (markedAt === undefined) return 'direct';
-  if (Date.now() - markedAt >= ENTRY_TTL_MS) {
-    directFailed.delete(url);
-    persist();
-    return 'direct';
-  }
-  return 'proxy';
+  const host = hostOf(url);
+  if (isMarked(url) || (host && isMarked(host))) return 'proxy';
+  return 'direct';
 }
 
 export function markDirectFailed(url: string | null | undefined): void {
-  if (!url || directFailed.has(url)) return;
-  directFailed.set(url, Date.now());
+  if (!url) return;
+  let changed = false;
+  for (const key of [url, hostOf(url)]) {
+    if (!key || directFailed.has(key)) continue;
+    directFailed.set(key, Date.now());
+    changed = true;
+  }
+  if (!changed) return;
   if (directFailed.size > MAX_ENTRIES) {
     // Evict the oldest marks first.
     const oldest = [...directFailed.entries()]

@@ -40,11 +40,16 @@
 
 .lyrics__line--active {
   --lyric-wipe-on: #fff;
-  --lyric-wipe-off: rgba(255, 255, 255, 0.42);
+  /* Was 0.42 - close enough to the sung colour that the fill was hard to see
+     happening. The sung/unsung split is the whole point of the effect, so the
+     unsung half is pushed well back. Kept white rather than tinting it with the
+     accent colour: the accent follows the artwork and can be dark enough to be
+     unreadable on the ambient backdrop. */
+  --lyric-wipe-off: rgba(255, 255, 255, 0.28);
 }
 [data-theme='light'] .hc-p-lyrics .lyrics__line--active {
   --lyric-wipe-on: #1b1e26;
-  --lyric-wipe-off: rgba(27, 30, 38, 0.36);
+  --lyric-wipe-off: rgba(27, 30, 38, 0.26);
 }
 
 .lyrics__line--active .lyrics__text {

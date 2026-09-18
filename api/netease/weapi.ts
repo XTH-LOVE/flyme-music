@@ -1,5 +1,5 @@
 // Thin Vercel serverless wrapper. All logic lives in server/auroraApi.ts.
-import { handleNeteaseWeapi } from '../server/auroraApi';
+import { handleNeteaseWeapi } from '../../server/auroraApi';
 
 export default handleNeteaseWeapi;
 

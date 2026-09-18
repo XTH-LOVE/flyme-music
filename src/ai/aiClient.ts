@@ -74,7 +74,18 @@ export interface AiStatus {
   model: string;
 }
 
-const MODEL_ATTEMPT_TIMEOUT_MS = 7_500;
+/**
+ * Idle timeout: the longest a single attempt may go *without producing a
+ * token* before we give up on that model and fall through to the next one.
+ * The timer is re-armed on every delta, so a long answer that keeps streaming
+ * is never cut off - only a genuinely stalled one is.
+ */
+const MODEL_IDLE_TIMEOUT_MS = 20_000;
+/**
+ * Absolute ceiling per attempt. Guards against a model that dribbles one token
+ * just often enough to keep resetting the idle timer forever.
+ */
+const MODEL_TOTAL_TIMEOUT_MS = 180_000;
 
 export async function getAiStatus(): Promise<AiStatus> {
   if (isTauri()) return invokeAi<AiStatus>('ai_status');
@@ -216,16 +227,34 @@ export async function chatStreamWithFallback(
     const attemptController = new AbortController();
     const abortAttempt = () => attemptController.abort();
     signal?.addEventListener('abort', abortAttempt, { once: true });
-    const timeout = window.setTimeout(abortAttempt, MODEL_ATTEMPT_TIMEOUT_MS);
+    // Idle timer re-arms on every token; total timer is a hard ceiling.
+    let idleTimer = 0;
+    const armIdle = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(abortAttempt, MODEL_IDLE_TIMEOUT_MS);
+    };
+    armIdle();
+    const totalTimer = window.setTimeout(abortAttempt, MODEL_TOTAL_TIMEOUT_MS);
+    const onDeltaWithKeepAlive = (delta: string) => {
+      armIdle();
+      onDelta(delta);
+    };
     try {
-      const text = await chatStream({ model }, messages, onDelta, options.onThought, attemptController.signal);
+      const text = await chatStream(
+        { model },
+        messages,
+        onDeltaWithKeepAlive,
+        options.onThought,
+        attemptController.signal,
+      );
       if (text.trim()) return { text, model };
       lastError = new Error('模型返回空内容');
     } catch (error) {
       if (signal?.aborted) throw error;
       lastError = error;
     } finally {
-      window.clearTimeout(timeout);
+      window.clearTimeout(idleTimer);
+      window.clearTimeout(totalTimer);
       signal?.removeEventListener('abort', abortAttempt);
     }
   }

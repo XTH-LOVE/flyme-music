@@ -23,9 +23,12 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   const allowedPaths = new Set(['/models', '/chat/completions']);
 
   // Optional catch-all: params.path is the segments after /api/ai.
+  // NOTE: `'/' + segments.join('/') || '/chat/completions'` would be wrong -
+  // `+` binds tighter than `||`, so the empty case yields the truthy '/' and
+  // the fallback would never run (mirrors server/auroraApi.ts:340).
   const raw = context.params.path;
   const segments = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  const subPath = '/' + segments.join('/') || '/chat/completions';
+  const subPath = segments.length ? '/' + segments.join('/') : '/chat/completions';
 
   if (subPath === '/status') {
     return json({ configured: Boolean(apiKey), endpoint, model: configuredModel });

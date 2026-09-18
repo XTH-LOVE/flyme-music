@@ -174,7 +174,7 @@ pub fn run() {
 
         // System tray: left click toggles the window, menu has show/exit.
         use tauri::menu::{Menu, MenuItem};
-        use tauri::tray::{ClickType, TrayIconBuilder};
+        use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
         let show_item = MenuItem::with_id(app, "show", "显示 Aurora Music", true, None::<&str>)?;
         let exit_item = MenuItem::with_id(app, "exit", "退出", true, None::<&str>)?;
         let menu = Menu::with_items(app, &[&show_item, &exit_item])?;
@@ -187,7 +187,16 @@ pub fn run() {
             _ => {}
           })
           .on_tray_icon_event(|tray, event| {
-            if event.click_type == ClickType::Left {
+            // tauri 2.x models tray events as an enum; the older
+            // `tray::ClickType` / `event.click_type` API no longer exists.
+            // Match on button_state Up (release) so one physical click does not
+            // toggle twice (once on Down, once on Up).
+            if let TrayIconEvent::Click {
+              button: MouseButton::Left,
+              button_state: MouseButtonState::Up,
+              ..
+            } = event
+            {
               toggle_main_window(tray.app_handle());
             }
           });

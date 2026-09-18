@@ -31,8 +31,12 @@ export async function withStore<T = unknown>(
   version: number,
   storeName: string,
   mode: IDBTransactionMode,
-  // `any` here so both IDBRequest<value> (get/getAll) and IDBRequest<IDBValidKey>
-  // (put/add/delete) fit the same signature despite the handler `this` variance.
+  // `any` is deliberate, not laziness: IDBRequest is invariant in T through the
+  // `this` type of its onerror/onsuccess handlers, so no narrower type accepts
+  // both IDBRequest<value> (get/getAll) and IDBRequest<IDBValidKey>
+  // (put/add/delete). `unknown` was tried and fails to compile at every call
+  // site. The caller owns the expected shape via the T type parameter.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
   run: (store: IDBObjectStore) => IDBRequest<any> | void,
 ): Promise<T | undefined> {
   const db = await openDb(name, version, (db) => {

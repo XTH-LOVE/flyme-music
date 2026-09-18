@@ -15,9 +15,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Lint
+        run: npx eslint .
       - name: Typecheck
         run: npx tsc -b
       - name: Unit tests
         run: npx vitest run
       - name: Production build
         run: npm run build
+
+  # supabase/functions is Deno (URL imports + the Deno global), so it is
+  # deliberately excluded from tsconfig.server.json and from ESLint. Without
+  # this job the Edge Functions would ship completely unchecked.
+  edge-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck Edge Functions
+        run: deno check supabase/functions/*/index.ts

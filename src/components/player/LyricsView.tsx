@@ -153,6 +153,13 @@ const CJK = /[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]/g;
  * still leaves it finished before the next line arrives.
  */
 const SECONDS_PER_CJK = 0.32;
+/*
+ * Derived, not measured: no usable English sample set came back from the lyric
+ * API, so this is carried over from the measured CJK rate instead. A CJK
+ * character is about one syllable (~0.4s from the fit) and an English word
+ * averages roughly 1.4 syllables, giving ~0.56s per word. Treat it as a
+ * reasonable carry-over rather than a fitted number.
+ */
 const SECONDS_PER_WORD = 0.55;
 const SECONDS_BASE = 0.3;
 

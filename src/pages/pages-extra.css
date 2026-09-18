@@ -1,3 +1,43 @@
+
+.playlist-import {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+  border-radius: var(--am-radius-lg);
+  background: var(--am-surface-2);
+}
+.playlist-import__body {
+  min-width: 180px;
+}
+.playlist-import__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+.playlist-import__desc {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--am-text-2);
+}
+.playlist-import__input {
+  flex: 1;
+  min-width: 160px;
+}
+@media (max-width: 720px) {
+  .playlist-import {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .playlist-import__body {
+    width: 100%;
+  }
+  .playlist-import__input {
+    flex-basis: calc(100% - 90px);
+  }
+}
+
 .source-chips {
   display: flex;
   gap: 8px;

@@ -5,6 +5,9 @@ import { Chip } from '@/design-system/components/Chip';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
 import { getHighQualityPlaylists, type NetPlaylistSummary } from '@/music/netease/netease-api';
+import { importExternalPlaylist } from '@/music/playlistImport';
+import { usePlaylistStore } from '@/store/usePlaylistStore';
+import { notify } from '@/utils/notify';
 import { useNeteaseCollections } from '@/store/useNeteaseCollections';
 import './pages.css';
 import './pages-extra.css';
@@ -20,6 +23,10 @@ export function PlaylistSquarePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const collections = useNeteaseCollections((s) => s.items);
+  const createPlaylist = usePlaylistStore((s) => s.createPlaylist);
+  const addBatch = usePlaylistStore((s) => s.addBatch);
+  const [importUrl, setImportUrl] = useState('');
+  const [importing, setImporting] = useState(false);
   const cat = searchParams.get('cat') || '全部';
   const [items, setItems] = useState<NetPlaylistSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,9 +64,42 @@ export function PlaylistSquarePage() {
     load(cat, false);
   }, [cat, load]);
 
+  const handleImport = async () => {
+    if (!importUrl.trim() || importing) return;
+    setImporting(true);
+    try {
+      const imported = await importExternalPlaylist(importUrl);
+      const localId = createPlaylist(imported.name);
+      addBatch(localId, imported.tracks);
+      setImportUrl('');
+      notify('已导入「' + imported.name + '」：' + imported.tracks.length + ' 首');
+      navigate('/my-playlist/' + localId);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '歌单导入失败');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="page">
       <h1 className="page-title">歌单广场</h1>
+      <div className="playlist-import">
+        <div className="playlist-import__body">
+          <div className="playlist-import__title">导入外部歌单</div>
+          <div className="playlist-import__desc">粘贴网易云歌单链接或 ID，歌曲会复制到你的本地歌单</div>
+        </div>
+        <input
+          className="picker-create__input playlist-import__input"
+          value={importUrl}
+          placeholder="https://music.163.com/#/playlist?id=..."
+          onChange={(event) => setImportUrl(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') void handleImport(); }}
+        />
+        <button className="am-btn am-btn--primary am-btn--sm" disabled={!importUrl.trim() || importing} onClick={() => void handleImport()}>
+          {importing ? '导入中…' : '导入'}
+        </button>
+      </div>
       {collections.length ? (
         <>
           <h2 className="am-section-header">我收藏的歌单</h2>

@@ -23,11 +23,18 @@ describe('isAllowedRequest', () => {
     expect(isAllowedRequest({ ...base, origin: null, referer: 'https://aurora.example.com/stats' })).toBe(true);
   });
 
-  it('accepts Tauri webview and vite dev origins', () => {
+  it('accepts the Tauri webview origin on any deployment', () => {
     expect(isAllowedRequest({ ...base, origin: 'tauri://localhost', referer: null })).toBe(true);
     expect(isAllowedRequest({ ...base, origin: 'http://tauri.localhost', referer: null })).toBe(true);
-    expect(isAllowedRequest({ ...base, origin: 'http://localhost:5173', referer: null })).toBe(true);
-    expect(isAllowedRequest({ ...base, origin: null, referer: 'http://127.0.0.1:5173/ai' })).toBe(true);
+  });
+
+  it('accepts loopback origins only when the request was served from loopback', () => {
+    const local = { host: 'localhost:5173', extraAllowed: [] as string[] };
+    expect(isAllowedRequest({ ...local, origin: 'http://localhost:5173', referer: null })).toBe(true);
+    expect(isAllowedRequest({ ...local, origin: null, referer: 'http://127.0.0.1:5173/ai' })).toBe(true);
+    // A public deployment must not honour a forged loopback Origin/Referer.
+    expect(isAllowedRequest({ ...base, origin: 'http://localhost:5173', referer: null })).toBe(false);
+    expect(isAllowedRequest({ ...base, origin: null, referer: 'http://127.0.0.1:5173/ai' })).toBe(false);
   });
 
   it('rejects foreign origins and missing evidence', () => {

@@ -1,7 +1,40 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+/**
+ * CORS allowlist. This function holds the service-role key and can create
+ * accounts, so it must not answer arbitrary origins with a wildcard. Add your
+ * own deployment origins (and any preview domains) via the ALLOWED_ORIGINS
+ * secret, comma separated - no scheme-less entries.
+ *
+ * Note this is defence in depth, not the primary control: a non-browser client
+ * ignores CORS entirely, so mass signup is really bounded by the per-IP
+ * throttle below plus the Supabase Dashboard auth rate limits.
+ */
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://flyme-music.pages.dev',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://tauri.localhost',
+  'tauri://localhost',
+]
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  return {
+    ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+}
+
+function resolveOrigin(request: Request): string | null {
+  const origin = request.headers.get('origin')
+  if (!origin) return null
+  const extra = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean)
+  return [...DEFAULT_ALLOWED_ORIGINS, ...extra].includes(origin) ? origin : null
+}
+
 const normalize = (value: string) => value.trim().toLowerCase()
 const internalEmail = (username: string) => {
   if (/^[a-z0-9_]+$/.test(username)) return `account.${username}@users.auroramusic.invalid`
@@ -42,6 +75,10 @@ function registerThrottled(ip: string, now: number): boolean {
 }
 
 Deno.serve(async request => {
+  const cors = corsHeaders(resolveOrigin(request))
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
     const body = await request.json().catch(() => ({}))

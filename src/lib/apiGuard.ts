@@ -37,33 +37,50 @@ export function hostOf(value: string): string | null {
   }
 }
 
-/** Hosts that always belong to "us": the Tauri webviews and vite dev. */
-const LOCAL_HOSTS = new Set([
-  'localhost',
-  '127.0.0.1',
-  '[::1]',
-  'localhost:5173',
-  '127.0.0.1:5173',
-  'tauri.localhost',
-]);
+/**
+ * The packaged app's webview origin, which is always trusted: it is a
+ * first-party client that legitimately calls the deployed /api endpoints.
+ * Windows reports `http://tauri.localhost`, macOS/Linux/Android report
+ * `tauri://localhost`. These are matched on the RAW header value, because
+ * `tauri://localhost` parses down to the bare host "localhost" and would
+ * otherwise be indistinguishable from a forged loopback origin.
+ */
+const TAURI_ORIGINS = [
+  /^tauri:\/\/localhost(?::\d+)?\/?$/i,
+  /^https?:\/\/tauri\.localhost(?::\d+)?\/?$/i,
+];
+
+/** Loopback hosts, with or without a port. */
+function isLoopback(host: string): boolean {
+  const bare = host.replace(/:\d+$/, '').toLowerCase();
+  return bare === 'localhost' || bare === '127.0.0.1' || bare === '[::1]' || bare === '::1';
+}
 
 /**
  * Decide whether a request carries acceptable origin evidence. Requests with
  * neither Origin nor Referer are rejected - the browser app always sends one
  * of the two (default referrer policy), so only non-browser scripts hit that
  * path.
+ *
+ * NOTE ON RESIDUAL RISK: Origin/Referer are attacker-controlled outside a
+ * browser, so this fence is a cheap filter against drive-by scripts and
+ * scanners, NOT an authentication boundary. Loopback origins are therefore
+ * only honoured when the request was *served* from loopback as well; trusting
+ * them on a public deployment would let anyone in with a forged
+ * `Origin: http://localhost`. Anything that must be genuinely protected
+ * (i.e. /api/ai, which spends a server-owned key) needs real auth plus
+ * platform-level rate limiting.
  */
 export function isAllowedRequest({ host, origin, referer, extraAllowed }: GuardInput): boolean {
   const serving = host.trim().toLowerCase();
   if (!serving) return false;
-  const candidate = origin?.trim()
-    ? hostOf(origin)
-    : referer?.trim()
-      ? hostOf(referer)
-      : null;
+  const evidence = origin?.trim() || referer?.trim() || '';
+  if (!evidence) return false;
+  if (TAURI_ORIGINS.some((re) => re.test(evidence))) return true;
+  const candidate = hostOf(evidence);
   if (!candidate) return false;
   if (candidate === serving) return true;
-  if (LOCAL_HOSTS.has(candidate)) return true;
+  if (isLoopback(candidate) && isLoopback(serving)) return true;
   return extraAllowed.some((entry) => hostOf(entry.trim()) === candidate || entry.trim().toLowerCase() === candidate);
 }
 

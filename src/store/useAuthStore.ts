@@ -11,7 +11,7 @@ interface AuthState {
   loginUsername: (username: string, password: string) => Promise<{ ok: boolean; message?: string }>;
   logout: () => Promise<void>;
   updateProfile: (patch: { nickname?: string; avatarUrl?: string }) => Promise<void>;
-  uploadAvatar: (file: File) => Promise<{ ok: boolean; message?: string; url?: string }>;
+  uploadAvatar: (image: File | Blob) => Promise<{ ok: boolean; message?: string; url?: string }>;
 }
 function mapUser(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): LocalUser {
   const meta = user.user_metadata ?? {};
@@ -27,6 +27,39 @@ const STRONG_PASSWORD = /^(?=.*\p{L})(?=.*\d).{8,64}$/u;
 /** Accounts created under the legacy 6-digit numeric policy may still log in. */
 const LEGACY_PASSWORD = /^\d{6}$/;
 const PASSWORD_MESSAGE = '密码需要 8-64 位，且同时包含字母和数字';
+
+/**
+ * Shared with LoginPage so the submit-button gate and this store can never
+ * disagree. Login is laxer than register on purpose: legacy 6-digit accounts
+ * must still be able to sign in.
+ */
+export function isValidPassword(password: string, mode: 'login' | 'register' = 'register'): boolean {
+  return mode === 'login'
+    ? STRONG_PASSWORD.test(password) || LEGACY_PASSWORD.test(password)
+    : STRONG_PASSWORD.test(password);
+}
+
+export const PASSWORD_HINT = PASSWORD_MESSAGE;
+
+/** Supabase auth errors are raw English; map the common ones to Chinese. */
+function mapAuthError(message: string): string {
+  const table: [RegExp, string][] = [
+    [/invalid login credentials/i, '账号或密码错误'],
+    [/email not confirmed/i, '邮箱尚未验证，请先查收验证邮件'],
+    [/user already registered/i, '该邮箱已被注册'],
+    [/password should be at least/i, '密码太短，请至少 8 位且包含字母和数字'],
+    [/same password/i, '新密码不能与旧密码相同'],
+    [/signups not allowed/i, '当前暂停新用户注册'],
+    [/rate limit|too many requests/i, '操作太频繁，请稍后再试'],
+    [/edge function|non-2xx/i, '注册服务暂时不可用，请稍后再试'],
+    [/unable to validate email/i, '邮箱格式不正确'],
+    [/user not found/i, '账号不存在'],
+  ];
+  for (const [re, cn] of table) {
+    if (re.test(message)) return cn;
+  }
+  return message;
+}
 // Keep the historical address for ASCII accounts; encode Unicode names so they remain valid emails.
 const internalEmail = (username: string) => {
   const normalized = normalizeUsername(username);
@@ -44,7 +77,7 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
     if (!STRONG_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
     if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
     const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
-    if (error) return { ok: false, message: error.message };
+    if (error) return { ok: false, message: mapAuthError(error.message) };
     if (data.user && data.session) set({ user: mapUser(data.user), token: data.session.access_token });
     return { ok: true, message: data.session ? '注册成功' : '注册成功，请查收验证邮件后登录' };
   },
@@ -52,7 +85,7 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
     if (!STRONG_PASSWORD.test(password) && !LEGACY_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
     if (!supabase) return { ok: false, message: 'Supabase 尚未配置' };
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error || !data.user || !data.session) return { ok: false, message: error?.message || '登录失败' };
+    if (error || !data.user || !data.session) return { ok: false, message: mapAuthError(error?.message || '登录失败') };
     set({ user: mapUser(data.user), token: data.session.access_token });
     return { ok: true };
   },
@@ -61,15 +94,30 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
     const normalized = normalizeUsername(username);
     if (!/^[\p{L}\p{N}_]{2,20}$/u.test(normalized)) return { ok: false, message: '账号名需要 2-20 位中文、字母、数字或下划线' };
     if (!STRONG_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
-    const { data, error } = await supabase.functions.invoke('account-auth', { body: { action: 'register', displayName: displayName.trim() || 'Aurora 听友', username: normalized, password } });
-    if (error || data?.error) return { ok: false, message: data?.error || error?.message || '注册失败' };
+    try {
+      const { data, error } = await supabase.functions.invoke('account-auth', { body: { action: 'register', displayName: displayName.trim() || 'Aurora 听友', username: normalized, password } });
+      if (error || data?.error) return { ok: false, message: data?.error || mapAuthError(error?.message || '注册失败') };
+    } catch (e) {
+      // supabase-js wraps non-2xx function responses in FunctionsHttpError and
+      // hides the real Chinese message in the response body - dig it out.
+      const context = (e as { context?: Response }).context;
+      if (context instanceof Response) {
+        try {
+          const body = (await context.json()) as { error?: string };
+          if (body?.error) return { ok: false, message: body.error };
+        } catch {
+          /* fall through to the generic message */
+        }
+      }
+      return { ok: false, message: mapAuthError(e instanceof Error ? e.message : '注册失败') };
+    }
     return get().loginUsername(normalized, password);
   },
   loginUsername: async (username, password) => {
     if (supabase) {
       if (!STRONG_PASSWORD.test(password) && !LEGACY_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
       const { data, error } = await supabase.auth.signInWithPassword({ email: internalEmail(username), password });
-      if (error || !data.user || !data.session) return { ok: false, message: error?.message || '账号或密码错误' };
+      if (error || !data.user || !data.session) return { ok: false, message: mapAuthError(error?.message || '账号或密码错误') };
       set({ user: mapUser(data.user), token: data.session.access_token }); return { ok: true };
     }
     return { ok: false, message: 'Supabase 尚未配置' };
@@ -82,21 +130,29 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
     });
     if (!error && data.user) set({ user: mapUser(data.user) });
   },
-  uploadAvatar: async (file) => {
+  uploadAvatar: async (image) => {
     const user = get().user;
     if (!supabase || !user) return { ok: false, message: '请先登录 Aurora 账号' };
-    if (!file.type.startsWith('image/')) return { ok: false, message: '请选择图片文件' };
-    if (file.size > 5 * 1024 * 1024) return { ok: false, message: '图片不能超过 5MB' };
-    const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const contentType = image instanceof File && image.type.startsWith('image/') ? image.type : 'image/jpeg';
+    if (image.size > 5 * 1024 * 1024) return { ok: false, message: '图片不能超过 5MB' };
+    const ext = contentType === 'image/png' ? 'png' : 'jpg';
     const path = `${user.id}/avatar.${ext}`;
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
+    const { error } = await supabase.storage.from('avatars').upload(path, image, { upsert: true, contentType, cacheControl: '3600' });
     if (error) return { ok: false, message: '头像上传失败：' + error.message };
     const { data } = supabase.storage.from('avatars').getPublicUrl(path);
     const url = data.publicUrl + '?v=' + Date.now();
     await get().updateProfile({ avatarUrl: url });
     return { ok: true, url };
   },
-}), { name: 'aurora.cloud.auth', partialize: (state) => ({ token: state.token, user: state.user }) }));
+}), {
+  name: 'aurora.cloud.auth',
+  // Only the profile is persisted, for instant UI before getSession() resolves.
+  // The access token is deliberately NOT written to localStorage: supabase-js
+  // already persists the session itself, and a second copy of a bearer token
+  // in localStorage only widens the blast radius of an XSS. The in-memory
+  // `token` field is re-populated by getSession()/onAuthStateChange below.
+  partialize: (state) => ({ user: state.user }),
+}));
 
 if (supabase) {
   void supabase.auth.getSession().then(({ data }) => {

@@ -429,7 +429,11 @@ class PlayerController {
         volume?: number;
       };
       if (!Array.isArray(saved.queue) || !saved.queue.length) return;
-      this.queue.load(saved.queue, Math.min(saved.index ?? 0, saved.queue.length - 1));
+      // Clamp both ends. A negative index (corrupt or hand-edited storage) would
+      // otherwise leave a non-empty queue with no current track: the UI would
+      // show songs, but pressing play could not resolve anything.
+      const index = Math.max(0, Math.min(saved.index ?? 0, saved.queue.length - 1));
+      this.queue.load(saved.queue, index);
       if (saved.shuffle) this.queue.setShuffled(true);
       if (saved.repeat) this.repeat = saved.repeat;
       if (typeof saved.volume === 'number') {

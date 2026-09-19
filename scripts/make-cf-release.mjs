@@ -21,7 +21,7 @@
  *   npm run release:cf              # writes ./release-cf
  *   node scripts/make-cf-release.mjs <outDir>   # custom output
  */
-import { cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +29,6 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const distDir = path.join(root, 'dist');
 const functionsDir = path.join(root, 'functions');
-const guardFile = path.join(root, 'src', 'lib', 'apiGuard.ts');
 const outDir = process.argv[2]
   ? path.resolve(root, process.argv[2])
   : path.join(root, 'release-cf');
@@ -58,12 +57,54 @@ function fail(message) {
   process.exit(1);
 }
 
+/**
+ * Resolve an extensionless relative import the way the bundler will.
+ * Cloudflare accepts `'../../src/lib/apiGuard'` without the extension.
+ */
+function resolveImport(fromFile, specifier) {
+  const base = path.resolve(path.dirname(fromFile), specifier);
+  for (const candidate of [base + '.ts', base + '.tsx', path.join(base, 'index.ts')]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Every relative import under `functions/` that reaches outside it.
+ *
+ * Hardcoding this list is what broke the deploy when a second shared module was
+ * added, so it is discovered instead.
+ */
+async function collectExternalImports(dir, found = new Map()) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectExternalImports(full, found);
+      continue;
+    }
+    if (!/\.tsx?$/.test(entry.name)) continue;
+    const source = await readFile(full, 'utf8');
+    for (const match of source.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+      const resolved = resolveImport(full, match[1]);
+      if (!resolved) {
+        fail(
+          path.relative(root, full) + ' imports ' + match[1] + ' which does not resolve. ' +
+            'The deployed bundle would fail the same way.',
+        );
+      }
+      if (!resolved.startsWith(functionsDir + path.sep)) {
+        found.set(resolved, path.relative(root, full));
+      }
+    }
+  }
+  return found;
+}
+
 if (!existsSync(path.join(distDir, 'index.html'))) {
   fail('dist/index.html is missing - run `npm run build` first.');
 }
-if (!existsSync(guardFile)) {
-  fail('src/lib/apiGuard.ts is missing - functions/api/_shared.ts imports it at runtime.');
-}
+
+const externalImports = await collectExternalImports(functionsDir);
 
 const [distTime, srcTime, functionsTime] = await Promise.all([
   newestMtime(distDir),
@@ -78,12 +119,17 @@ await rm(outDir, { recursive: true, force: true });
 await cp(distDir, outDir, { recursive: true });
 await cp(functionsDir, path.join(outDir, 'functions'), { recursive: true });
 
-const guardTarget = path.join(outDir, 'src', 'lib', 'apiGuard.ts');
-await mkdir(path.dirname(guardTarget), { recursive: true });
-await cp(guardFile, guardTarget);
+// Shared modules the Functions import, mirrored at the same relative paths so
+// the deployed imports resolve exactly as they do in the repository.
+for (const [absolute, importedBy] of externalImports) {
+  const target = path.join(outDir, path.relative(root, absolute));
+  await mkdir(path.dirname(target), { recursive: true });
+  await cp(absolute, target);
+  console.log('  ' + path.relative(root, absolute) + '  (imported by ' + importedBy + ')');
+}
 
 console.log('[release:cf] bundle ready: ' + path.relative(root, outDir));
 console.log('  from dist/        -> .');
 console.log('  from functions/   -> functions/');
-console.log('  src/lib/apiGuard  -> src/lib/apiGuard.ts  (required by functions/api/_shared.ts)');
+console.log('  ' + externalImports.size + ' shared module(s) copied');
 console.log('Next: Cloudflare dashboard -> Workers & Pages -> Create new deployment -> drag this folder.');

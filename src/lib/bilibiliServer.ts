@@ -72,32 +72,46 @@ export async function bilibiliCookie(now = Date.now()): Promise<string | null> {
   }
 }
 
+export type BilibiliFailure = 'blocked' | 'upstream_error' | 'path_not_allowed';
+
 export interface BilibiliUpstream {
   status: number;
   body: string;
 }
 
 /**
- * Call one whitelisted Bilibili API path.
+ * A device identifier bilibili accepts without registration.
  *
- * `signal` is accepted so a slow upstream can be abandoned rather than holding
- * the request open; callers bound it with their own timeout.
+ * The site issues one via `buvid3` on the homepage, but that bootstrap fails
+ * from datacenter IPs (Cloudflare's included) - measured directly. The API also
+ * answers fine with no cookie at all in many cases, so this is only a retry
+ * lever, not a precondition.
  */
-export async function bilibiliUpstream(
+function generatedBuvid3(): string {
+  const hex = () => Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0');
+  const group = (n: number) => Array.from({ length: n }, hex).join('');
+  return `buvid3=${group(2)}-${group(2)}-${group(2)}-${group(2)}-${group(6)}infoc`;
+}
+
+function looksBlocked(status: number, body: string): boolean {
+  if (status === 412 || status === 403) return true;
+  // Risk control answers with an HTML page rather than JSON.
+  return body.trimStart().startsWith('<');
+}
+
+async function callOnce(
   path: string,
   params: URLSearchParams,
+  cookie: string | null,
   signal?: AbortSignal,
 ): Promise<BilibiliUpstream | null> {
-  if (!ALLOWED_PATHS.has(path)) return null;
-  const cookie = await bilibiliCookie();
-  if (!cookie) return null;
   try {
     const response = await fetch(`${BILIBILI_API}${path}?${params.toString()}`, {
       headers: {
         'User-Agent': UA,
         Referer: BILIBILI_HOME,
-        Cookie: cookie,
         Origin: 'https://www.bilibili.com',
+        ...(cookie ? { Cookie: cookie } : {}),
       },
       signal,
     });
@@ -105,6 +119,46 @@ export async function bilibiliUpstream(
   } catch {
     return null;
   }
+}
+
+/**
+ * Call one whitelisted Bilibili API path.
+ *
+ * Tries with whatever cookie we have - including none, because the API often
+ * answers fine without one and the homepage bootstrap does not work from a
+ * datacenter IP. Only if that comes back blocked is a generated device id tried,
+ * which is the retry lever rather than a precondition. The original design
+ * treated the cookie as required and gave up before even asking, which made the
+ * whole source unusable on Cloudflare.
+ *
+ * On failure the reason is returned rather than thrown, because the cases need
+ * different responses: `blocked` means bilibili is refusing this caller,
+ * `upstream_error` means it is briefly unreachable, and `path_not_allowed` is a
+ * caller bug.
+ */
+export async function bilibiliUpstream(
+  path: string,
+  params: URLSearchParams,
+  signal?: AbortSignal,
+): Promise<BilibiliUpstream | { failure: BilibiliFailure }> {
+  if (!ALLOWED_PATHS.has(path)) return { failure: 'path_not_allowed' };
+
+  const cached = await bilibiliCookie();
+  const first = await callOnce(path, params, cached, signal);
+  if (!first) return { failure: 'upstream_error' };
+  if (!looksBlocked(first.status, first.body)) return first;
+
+  // Blocked: retry once with a device id before giving up.
+  const retry = await callOnce(path, params, cached ?? generatedBuvid3(), signal);
+  if (!retry) return { failure: 'upstream_error' };
+  if (!looksBlocked(retry.status, retry.body)) return retry;
+  return { failure: 'blocked' };
+}
+
+export function isUpstreamFailure(
+  result: BilibiliUpstream | { failure: BilibiliFailure },
+): result is { failure: BilibiliFailure } {
+  return 'failure' in result;
 }
 
 /** Reset the cached cookie. Only used by tests. */

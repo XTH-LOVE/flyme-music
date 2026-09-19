@@ -1,4 +1,4 @@
-import { httpFetch } from '@/lib/apiTransport';
+import { httpFetch, isTauri } from '@/lib/apiTransport';
 import type { MusicTrack } from '@/music/source/types';
 
 /**
@@ -14,13 +14,37 @@ import type { MusicTrack } from '@/music/source/types';
  */
 
 const RELAY = '/api/bilibili';
+const BILIBILI_API = 'https://api.bilibili.com';
+const BILIBILI_HOME = 'https://www.bilibili.com/';
 
-export interface BilibiliSearchItem {
-  bvid: string;
-  title: string;
-  author: string;
-  cover: string;
-  durationSec: number;
+/**
+ * Which route to bilibili is even possible.
+ *
+ * Measured, not assumed: bilibili's risk control answers 412 to every API call
+ * from a datacenter IP, so the relay is blocked from Cloudflare (all four
+ * endpoints, with and without a device cookie). The packaged app is different -
+ * it requests through the user's own connection, which is not on that list, and
+ * has no CORS to work around - so it goes direct.
+ *
+ * The browser has no route: direct calls are blocked by CORS, and the relay is
+ * blocked by IP reputation. That case reports why rather than looking broken.
+ */
+function shouldCallDirectly(): boolean {
+  return isTauri();
+}
+
+async function relay<T>(path: string, params: Record<string, string>): Promise<T | null> {
+  const query = new URLSearchParams(params);
+  const url = shouldCallDirectly()
+    ? `${BILIBILI_API}${path}?${query.toString()}`
+    : `${RELAY}?${new URLSearchParams({ path, ...params }).toString()}`;
+  try {
+    const response = await httpFetch(url, shouldCallDirectly() ? { headers: { Referer: BILIBILI_HOME } } : undefined);
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
 /** Bilibili wraps matched keywords in <em> tags and HTML-escapes the rest. */
@@ -79,17 +103,6 @@ function toTrack(item: RawSearchItem): MusicTrack | null {
     source: 'bilibili',
     duration: parseDuration(item.duration),
   };
-}
-
-async function relay<T>(path: string, params: Record<string, string>): Promise<T | null> {
-  const query = new URLSearchParams({ path, ...params });
-  try {
-    const response = await httpFetch(`${RELAY}?${query.toString()}`);
-    if (!response.ok) return null;
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
 }
 
 export async function searchBilibili(

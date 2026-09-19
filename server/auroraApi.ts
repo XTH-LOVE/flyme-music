@@ -21,6 +21,13 @@ import {
   AI_DEFAULT_ENDPOINT,
   AI_DEFAULT_MODEL,
 } from '../src/lib/apiGuard';
+import {
+  ALLOWED_PATHS as ALLOWED_BILIBILI_PATHS,
+  bilibiliUpstream,
+  isUpstreamFailure,
+} from '../src/lib/bilibiliServer';
+
+const BILIBILI_TIMEOUT_MS = 10_000;
 
 const PC_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -337,6 +344,41 @@ export async function handleNeteasePublic(req: IncomingMessage, res: ServerRespo
 
 /** OpenAI-compatible AI pass-through. Credentials come from runtime
  * environment variables and are never accepted from browser requests. */
+/** Bilibili API relay. See src/lib/bilibiliServer.ts for why it is server-side. */
+export async function handleBilibili(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!guardRequest(req, res, 'weapi')) return;
+  const query = parseQuery(req);
+  const path = query.get('path') ?? '';
+  if (!ALLOWED_BILIBILI_PATHS.has(path)) {
+    res.statusCode = 400;
+    res.end(JSON.stringify({ error: 'path not allowed' }));
+    return;
+  }
+  // Forward every parameter except our own routing key.
+  const params = new URLSearchParams(query);
+  params.delete('path');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BILIBILI_TIMEOUT_MS);
+  try {
+    const upstream = await bilibiliUpstream(path, params, controller.signal);
+    if (isUpstreamFailure(upstream)) {
+      res.statusCode = 503;
+      res.end(JSON.stringify({ error: 'bilibili unavailable', reason: upstream.failure }));
+      return;
+    }
+    res.statusCode = upstream.status;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(upstream.body);
+  } catch (e) {
+    upstreamFailure(res, e, true);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function handleAi(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!guardRequest(req, res, 'ai')) return;
   const endpoint = (process.env.AURORA_AI_ENDPOINT || AI_DEFAULT_ENDPOINT).replace(/\/$/, '');

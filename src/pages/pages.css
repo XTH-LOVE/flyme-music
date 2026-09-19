@@ -17,6 +17,87 @@
   flex-direction: column;
   gap: 2px;
 }
+
+/* ---- Playlist toolbar: search, sort, dedupe, export ---- */
+.playlist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 8px;
+}
+.playlist-toolbar__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 0 12px;
+  height: 38px;
+  border-radius: var(--am-radius-md);
+  background: var(--am-surface-2);
+  color: var(--am-text-dim);
+}
+.playlist-toolbar__search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--am-text);
+  font-size: 14px;
+}
+.playlist-toolbar__clear {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--am-text-dim);
+}
+.playlist-toolbar__sorts,
+.playlist-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.playlist-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--am-surface-2);
+  color: var(--am-text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard);
+}
+.playlist-chip:hover {
+  background: var(--am-surface-3, var(--am-surface-2));
+}
+.playlist-chip--on {
+  background: var(--am-accent-soft);
+  color: var(--am-accent);
+}
+/* The icon set has no up/down chevrons; rotate the right one instead. */
+.playlist-chip__dir {
+  transition: transform var(--am-motion-micro) var(--am-ease-standard);
+}
+.playlist-chip__dir--asc {
+  transform: rotate(-90deg);
+}
+.playlist-chip__dir--desc {
+  transform: rotate(90deg);
+}
+.playlist-toolbar__hint {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--am-text-dim);
+}
 .chip-row {
   display: flex;
   gap: 8px;

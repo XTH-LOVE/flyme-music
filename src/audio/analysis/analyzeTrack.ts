@@ -108,32 +108,40 @@ export async function analyzeTrack(track: MusicTrack, options: AnalyzeOptions = 
     if (cached) return cached;
   }
 
-  options.onStage?.('resolving');
-  const streamUrl = await resolveTrackUrl(track, 128);
-  if (!streamUrl) return null;
-  if (options.signal?.aborted) return null;
+  // Every failure below returns null rather than throwing, because the contract
+  // is "null means no facts available" and callers branch on it. Resolving can
+  // fail, the download can 502, and the platform can refuse to decode - none of
+  // those should reach the caller as an exception.
+  try {
+    options.onStage?.('resolving');
+    const streamUrl = await resolveTrackUrl(track, 128);
+    if (!streamUrl) return null;
+    if (options.signal?.aborted) return null;
 
-  options.onStage?.('downloading');
-  const bytes = await fetchAudioBytes(streamUrl, options.signal);
-  if (options.signal?.aborted) return null;
+    options.onStage?.('downloading');
+    const bytes = await fetchAudioBytes(streamUrl, options.signal);
+    if (options.signal?.aborted) return null;
 
-  options.onStage?.('decoding');
-  const { samples, sampleRate } = await decode(bytes);
-  if (options.signal?.aborted) return null;
+    options.onStage?.('decoding');
+    const { samples, sampleRate } = await decode(bytes);
+    if (options.signal?.aborted) return null;
 
-  options.onStage?.('analyzing');
-  const features = await runAnalysis(samples, sampleRate);
+    options.onStage?.('analyzing');
+    const features = await runAnalysis(samples, sampleRate);
 
-  const card: FeatureCard = {
-    ...features,
-    trackKey: key,
-    track,
-    name: track.name,
-    artist: track.artist.join(' / '),
-    analyzedAt: Date.now(),
-  };
-  await writeCachedCard(key, card);
-  return card;
+    const card: FeatureCard = {
+      ...features,
+      trackKey: key,
+      track,
+      name: track.name,
+      artist: track.artist.join(' / '),
+      analyzedAt: Date.now(),
+    };
+    await writeCachedCard(key, card);
+    return card;
+  } catch {
+    return null;
+  }
 }
 
 export { FEATURES_VERSION };

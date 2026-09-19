@@ -6,9 +6,12 @@ import { useAiStore } from '@/store/useAiStore';
 import {
   analyzeTrack,
   buildTasteProfile,
+  describeLiveWindow,
   describeSimilarity,
   listCachedCards,
+  liveStatus,
   rankSimilar,
+  readLiveWindow,
   renderFactCard,
   renderTasteProfile,
   summarizeFactCard,
@@ -187,7 +190,7 @@ export function buildSystemPrompt(
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
     '\n· navigate {"to":"/settings 或其他 Aurora 路由"} —— 打开应用页面' +
     '\n· open_player {} —— 打开全屏播放器 · toggle_lyrics {} —— 切换歌词页 · set_theme {"mode":"light|dark|system"}' +
-    '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · taste_profile {} —— 已分析歌曲聚合出的听感画像 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
+    '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · describe_moment {} —— **实时**读取当前播放位置的频谱（仅在音频已接入 Web Audio 时可用，不可用时会返回原因） · taste_profile {} —— 已分析歌曲聚合出的听感画像 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
     '\n\n行动准则：' +
     '\n· 你有多轮行动能力：每次工具结果会以「[工具结果]」消息返回给你，看完可以继续调用下一个工具（最多连续 6 次），都做完再答复用户。' +
     '\n· 创建歌单属于需要用户确认的操作；先说明歌单名称和预计歌曲数量，等待确认后再执行。' +
@@ -281,6 +284,7 @@ export function describeToolCall(call: Record<string, unknown>): string {
   if (t === 'queue_similar') return '找相似歌曲';
   if (t === 'find_similar_by_sound') return '按听感找相似';
   if (t === 'taste_profile') return '汇总听感画像';
+  if (t === 'describe_moment') return '实时读取当前音频';
   if (t === 'radio') return '开播「' + String(call.mood ?? '') + '」电台';
   if (t === 'analyze_song') return '读取歌词分析';
   if (t === 'control') return '控制播放';
@@ -646,6 +650,44 @@ export async function executeTool(
           '上面是这首歌的**实测音频特征**。写分析时以它为依据：可以引用具体数字，' +
           '但不要描述没有测到的内容（具体乐器、编制、混音手法）。' +
           '如果某项标了「不确定」，要么不提，要么说明你没把握。',
+      },
+    };
+  }
+
+  if (tool === 'describe_moment') {
+    // Live reading of what is playing right now. Only possible when the audio is
+    // routed through Web Audio, so the unavailable case is reported with its
+    // actual reason - the model must be told it has no data rather than being
+    // left to guess, and the user is told what to turn on.
+    const status = liveStatus();
+    if (!status.available) {
+      return {
+        reply: status.message,
+        fact: {
+          action: 'describe_moment',
+          available: false,
+          reason: status.reason,
+          note:
+            '你**没有实时音频数据**，不要描述"现在这段在干什么"。可以说明为什么拿不到，或改用 analyze_song 的整曲实测数据。',
+        },
+      };
+    }
+    const window = readLiveWindow();
+    if (!window) {
+      return {
+        reply: '刚好没读到音频数据，再试一次。',
+        fact: { action: 'describe_moment', available: false, reason: 'not_ready' },
+      };
+    }
+    return {
+      reply: '',
+      fact: {
+        action: 'describe_moment',
+        available: true,
+        windowMs: window.windowMs,
+        reading: describeLiveWindow(window),
+        raw: window,
+        note: '这是**当前播放位置**的实时测量（约 ' + window.windowMs + ' 毫秒窗口）。只描述这些数字支持的内容，不要延伸到乐器或制作手法。',
       },
     };
   }

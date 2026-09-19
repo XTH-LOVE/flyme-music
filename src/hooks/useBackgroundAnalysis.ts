@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { analyzeInBackground, cancelBackgroundAnalysis, BACKGROUND_DELAY_MS } from '@/audio/analysis/background';
+import { resetLiveHistory } from '@/audio/analysis/live';
 
 /**
  * Quietly index tracks as they are played.
@@ -31,6 +32,9 @@ export function useBackgroundAnalysis(): void {
       // Leaving the track abandons the download rather than letting it finish
       // in the background for a song the user has already moved on from.
       cancelBackgroundAnalysis();
+      // Live readings compare against a few seconds ago; carrying those across a
+      // track change would describe a jump between two different songs.
+      resetLiveHistory();
     };
   }, [source, id, status]);
 }

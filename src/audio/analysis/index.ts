@@ -27,3 +27,12 @@ export {
   type TasteProfile,
 } from './profile';
 export { analyzeInBackground, cancelBackgroundAnalysis, isAnalyzing, BACKGROUND_DELAY_MS } from './background';
+export {
+  liveStatus,
+  readLiveWindow,
+  describeLiveWindow,
+  resetLiveHistory,
+  type LiveStatus,
+  type LiveUnavailableReason,
+  type LiveWindow,
+} from './live';

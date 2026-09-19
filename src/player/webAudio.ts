@@ -203,6 +203,33 @@ export function ensureWired(el: HTMLAudioElement): boolean {
   }
 }
 
+/**
+ * The high-resolution analyser, or null when the audio is not routed through
+ * Web Audio.
+ *
+ * Callers must treat null as "cannot measure right now" and say so, rather than
+ * reporting a zero reading that looks like silence. See the live-analysis
+ * status helper for the user-facing reason.
+ */
+export function getAnalysisAnalyser(): AnalyserNode | null {
+  return tainted ? null : levelAnalyser;
+}
+
+/** True once wiring failed permanently for this session (cross-origin, etc). */
+export function isWebAudioTainted(): boolean {
+  return tainted;
+}
+
+/** Whether the platform offers Web Audio at all. */
+export function hasWebAudioSupport(): boolean {
+  return typeof AudioContext !== 'undefined';
+}
+
+/** True when the currently wired element is actually producing sound. */
+export function isWiredElementPlaying(): boolean {
+  return Boolean(wiredElement && !wiredElement.paused);
+}
+
 export function isWired(): boolean {
   return analyser !== null && !tainted;
 }

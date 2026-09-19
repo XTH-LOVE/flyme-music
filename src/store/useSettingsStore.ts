@@ -16,11 +16,21 @@ interface SettingsState {
    * hardware who would rather have the frames back.
    */
   ambientMotion: boolean;
+  /**
+   * Index tracks in the background so sound-based similarity and the listening
+   * profile have something to work on.
+   *
+   * This downloads whole tracks, so it is a real bandwidth cost and the user is
+   * told so in Settings. On by default because the feature is inert without it,
+   * but always skipped on metered or data-saver connections.
+   */
+  backgroundAnalysis: boolean;
   setQuality: (q: AudioQuality) => void;
   setAutoplayNext: (v: boolean) => void;
   setDynamicAccent: (v: boolean) => void;
   setRealSpectrum: (v: boolean) => void;
   setAmbientMotion: (v: boolean) => void;
+  setBackgroundAnalysis: (v: boolean) => void;
 }
 
 // v2: bumped so the default quality becomes lossless (highest available);
@@ -33,6 +43,7 @@ interface PersistedSettings {
   dynamicAccent?: boolean;
   realSpectrum?: boolean;
   ambientMotion?: boolean;
+  backgroundAnalysis?: boolean;
 }
 
 function loadSettings(): PersistedSettings {
@@ -63,6 +74,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   // users can opt in from Settings if their network handles the proxy well.
   realSpectrum: persisted.realSpectrum ?? false,
   ambientMotion: persisted.ambientMotion ?? true,
+  backgroundAnalysis: persisted.backgroundAnalysis ?? true,
+  setBackgroundAnalysis: (backgroundAnalysis) => {
+    saveSettings({ backgroundAnalysis });
+    set({ backgroundAnalysis });
+  },
   setAmbientMotion: (ambientMotion) => {
     saveSettings({ ambientMotion });
     set({ ambientMotion });

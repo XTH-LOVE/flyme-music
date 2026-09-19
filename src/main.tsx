@@ -17,6 +17,20 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+/**
+ * Tag background failures so they are findable.
+ *
+ * A lot of this app is fire-and-forget: artwork resolution, source searches,
+ * offline caching. The browser already reports an unhandled rejection, but
+ * nothing in that report says it came from us - during the cover and search
+ * investigations it was genuinely hard to tell a real failure from an unrelated
+ * extension's noise. One greppable prefix fixes that; the default logging is
+ * left in place rather than swallowed.
+ */
+window.addEventListener('unhandledrejection', (event) => {
+  console.warn('[aurora] unhandled rejection:', event.reason);
+});
+
 // Dev-only debug handle: lets the console inspect playback state and the
 // Web Audio wiring without exposing anything in production builds.
 if (import.meta.env.DEV) {

@@ -127,6 +127,7 @@ export async function analyzeTrack(track: MusicTrack, options: AnalyzeOptions = 
   const card: FeatureCard = {
     ...features,
     trackKey: key,
+    track,
     name: track.name,
     artist: track.artist.join(' / '),
     analyzedAt: Date.now(),

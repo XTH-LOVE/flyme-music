@@ -18,6 +18,7 @@ import { registerAppNavigation } from '@/app/navigation';
 import { startLibrarySync } from '@/sync/librarySync';
 import { useListenRoom } from '@/hooks/useListenRoom';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useBackgroundAnalysis } from '@/hooks/useBackgroundAnalysis';
 import { useEffect } from 'react';
 
 export function AppLayout() {
@@ -27,6 +28,7 @@ export function AppLayout() {
   usePrefetch();
   useListenRoom();
   useKeyboardShortcuts();
+  useBackgroundAnalysis();
   useEffect(() => {
     startLibrarySync();
     let unlistenMedia: (() => void) | null = null;

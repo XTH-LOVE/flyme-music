@@ -5,11 +5,14 @@ import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { useAiStore } from '@/store/useAiStore';
 import {
   analyzeTrack,
+  buildTasteProfile,
   describeSimilarity,
   listCachedCards,
   rankSimilar,
   renderFactCard,
+  renderTasteProfile,
   summarizeFactCard,
+  MIN_PROFILE_TRACKS,
 } from '@/audio/analysis';
 import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { navigateAppRoute } from '@/app/navigation';
@@ -184,7 +187,7 @@ export function buildSystemPrompt(
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
     '\n· navigate {"to":"/settings 或其他 Aurora 路由"} —— 打开应用页面' +
     '\n· open_player {} —— 打开全屏播放器 · toggle_lyrics {} —— 切换歌词页 · set_theme {"mode":"light|dark|system"}' +
-    '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
+    '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · taste_profile {} —— 已分析歌曲聚合出的听感画像 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
     '\n\n行动准则：' +
     '\n· 你有多轮行动能力：每次工具结果会以「[工具结果]」消息返回给你，看完可以继续调用下一个工具（最多连续 6 次），都做完再答复用户。' +
     '\n· 创建歌单属于需要用户确认的操作；先说明歌单名称和预计歌曲数量，等待确认后再执行。' +
@@ -277,6 +280,7 @@ export function describeToolCall(call: Record<string, unknown>): string {
   if (t === 'create_playlist') return '创建歌单「' + String(call.title ?? '') + '」';
   if (t === 'queue_similar') return '找相似歌曲';
   if (t === 'find_similar_by_sound') return '按听感找相似';
+  if (t === 'taste_profile') return '汇总听感画像';
   if (t === 'radio') return '开播「' + String(call.mood ?? '') + '」电台';
   if (t === 'analyze_song') return '读取歌词分析';
   if (t === 'control') return '控制播放';
@@ -344,6 +348,27 @@ async function playlistTracks(theme: string, count: number, dislikes: string[]):
     }
   }
   return out;
+}
+
+/**
+ * Tracks from the local feature index that genuinely sound like `track`.
+ *
+ * Returns an empty list when the track cannot be analysed or nothing is close
+ * enough - the caller then falls back to keyword search rather than presenting a
+ * weak acoustic match as a strong one.
+ */
+async function soundBasedMatches(track: MusicTrack, limit = 8): Promise<MusicTrack[]> {
+  try {
+    const target = await analyzeTrack(track);
+    if (!target) return [];
+    const cards = await listCachedCards();
+    const candidates = cards
+      .filter((c) => c.trackKey !== target.trackKey && c.track)
+      .map((c) => ({ item: c.track, features: c }));
+    return rankSimilar(target, candidates, limit, 0.92).map((r) => r.item);
+  } catch {
+    return [];
+  }
 }
 
 export async function executeTool(
@@ -480,6 +505,27 @@ export async function executeTool(
   if (tool === 'queue_similar') {
     const current = usePlayerStore.getState().current;
     if (!current) return { reply: '现在没在放歌，先放一首我才能帮你找类似的。' };
+
+    // Prefer real acoustic similarity when the library has been indexed. This is
+    // the difference between "more by this artist" and "sounds like this".
+    const soundMatches = await soundBasedMatches(current);
+    if (soundMatches.length >= 3) {
+      ctx.found = soundMatches;
+      playerController.addToQueue(soundMatches);
+      return {
+        reply: '按听感挑了 ' + soundMatches.length + ' 首加进队列（不是按歌手，是按速度/明暗/频段/节奏这些实测特征）。',
+        tracks: soundMatches,
+        fact: {
+          action: 'queue_similar',
+          method: 'acoustic',
+          added: soundMatches.length,
+          tracks: trackFacts(soundMatches),
+        },
+      };
+    }
+
+    // Not enough indexed material yet: fall back to keyword search, and say so,
+    // rather than pretending the two are the same thing.
     const tracks = await searchAllSources(current.artist[0] ?? current.name, 10, current.artist[0], dislikes);
     const similar = tracks
       .filter((t) => !(t.id === current.id && t.source === current.source))
@@ -490,7 +536,13 @@ export async function executeTool(
     return {
       reply: '把 ' + similar.length + ' 首相似歌曲加进队列了，接着听就好。',
       tracks: similar,
-      fact: { action: 'queue_similar', added: similar.length, tracks: trackFacts(similar) },
+      fact: {
+        action: 'queue_similar',
+        method: 'keyword',
+        note: '这是按歌手/关键词找的，不是听感相似。要按听感找需要先多听几首让我建立特征索引。',
+        added: similar.length,
+        tracks: trackFacts(similar),
+      },
     };
   }
 
@@ -594,6 +646,26 @@ export async function executeTool(
           '上面是这首歌的**实测音频特征**。写分析时以它为依据：可以引用具体数字，' +
           '但不要描述没有测到的内容（具体乐器、编制、混音手法）。' +
           '如果某项标了「不确定」，要么不提，要么说明你没把握。',
+      },
+    };
+  }
+
+  if (tool === 'taste_profile') {
+    const cards = await listCachedCards();
+    const profile = buildTasteProfile(cards);
+    if (!profile) {
+      return {
+        reply: `我听过的歌还太少（已分析 ${cards.length} 首，至少需要 ${MIN_PROFILE_TRACKS} 首）才能说出你的口味，再多放几首吧。`,
+        fact: { action: 'taste_profile', analyzed: cards.length, profile: null },
+      };
+    }
+    return {
+      reply: '',
+      fact: {
+        action: 'taste_profile',
+        analyzed: cards.length,
+        profile: renderTasteProfile(profile),
+        note: '这是**实测音频特征**聚合出的听感画像，不是流派标签。引用时说明样本量，别当成全部收藏的结论。',
       },
     };
   }

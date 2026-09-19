@@ -20,3 +20,10 @@ export {
   type SimilarityReason,
 } from './similarity';
 export { trackKeyOf, type AudioFeatures, type FeatureCard } from './types';
+export {
+  buildTasteProfile,
+  renderTasteProfile,
+  MIN_PROFILE_TRACKS,
+  type TasteProfile,
+} from './profile';
+export { analyzeInBackground, cancelBackgroundAnalysis, isAnalyzing, BACKGROUND_DELAY_MS } from './background';

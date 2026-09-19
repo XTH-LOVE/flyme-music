@@ -64,10 +64,12 @@ export interface AudioFeatures {
   vector: number[];
 }
 
-export const FEATURES_VERSION = 1;
+export const FEATURES_VERSION = 2;
 
 export interface FeatureCard extends AudioFeatures {
   trackKey: string;
+  /** The original track, so a sound-based match can be queued without a re-search. */
+  track: MusicTrack;
   name: string;
   artist: string;
   analyzedAt: number;

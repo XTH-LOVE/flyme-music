@@ -1,0 +1,22 @@
+/**
+ * Local audio analysis: turns a track's audio into measured facts a model can
+ * quote, instead of leaving it to invent an arrangement from the lyrics.
+ */
+export { analyzePcm } from './features';
+export { renderFactCard, summarizeFactCard } from './factCard';
+export { analyzeTrack, FEATURES_VERSION, type AnalyzeOptions } from './analyzeTrack';
+export {
+  readCachedCard,
+  writeCachedCard,
+  clearCachedCards,
+  listCachedCards,
+} from './cache';
+export {
+  cosineSimilarity,
+  compareFeatures,
+  describeSimilarity,
+  rankSimilar,
+  type RankedCandidate,
+  type SimilarityReason,
+} from './similarity';
+export { trackKeyOf, type AudioFeatures, type FeatureCard } from './types';

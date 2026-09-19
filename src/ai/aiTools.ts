@@ -3,6 +3,14 @@ import { usePlayerStore } from '@/store/usePlayerStore';
 import { useLibraryStore, type PlayLogEntry } from '@/store/useLibraryStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { useAiStore } from '@/store/useAiStore';
+import {
+  analyzeTrack,
+  describeSimilarity,
+  listCachedCards,
+  rankSimilar,
+  renderFactCard,
+  summarizeFactCard,
+} from '@/audio/analysis';
 import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { navigateAppRoute } from '@/app/navigation';
 import { fetchLyricLines, lyricLineAt } from '@/utils/currentLyric';
@@ -176,12 +184,16 @@ export function buildSystemPrompt(
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
     '\n· navigate {"to":"/settings 或其他 Aurora 路由"} —— 打开应用页面' +
     '\n· open_player {} —— 打开全屏播放器 · toggle_lyrics {} —— 切换歌词页 · set_theme {"mode":"light|dark|system"}' +
-    '\n· analyze_song {} —— 取当前歌的完整歌词，由你来写分析 · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
+    '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
     '\n\n行动准则：' +
     '\n· 你有多轮行动能力：每次工具结果会以「[工具结果]」消息返回给你，看完可以继续调用下一个工具（最多连续 6 次），都做完再答复用户。' +
     '\n· 创建歌单属于需要用户确认的操作；先说明歌单名称和预计歌曲数量，等待确认后再执行。' +
     '\n· 建歌单不要拿主题词原样去搜（会搜出一堆歌名里带这个词的歌）：先拆成 2~3 组不同角度的关键词（场景/风格/语种）各搜一次，再从候选池挑风格搭配多样的歌，用序号建单。' +
-    '\n· 分析歌必须先调 analyze_song 读完整歌词，结合歌名写出有观点的分析（意象/情绪/编曲/共鸣），不要套话敷衍。' +
+    '\n· 分析歌必须先调 analyze_song。它返回的是**本地信号分析出的实测数据**（BPM/调性/动态曲线/频谱/结构边界），不是听感结论。' +
+    '\n  写分析时：能引用的数字就用数字（「副歌不是靠音量，是靠 1:12 起的动态抬升」远好过「编曲层层递进」）；' +
+    '**绝不描述你没测到的东西**（具体乐器、编制、制作手法、混音细节）——那会变成编造；标了「不确定」的项要么不提要么说明没把握。' +
+    '\n· 如果 analyze_song 返回音频分析不可用，就只谈歌词，并明确说明你只有歌词层面的信息。' +
+    '\n· 想说"像某首歌"时优先用 find_similar_by_sound，它比的是音频听感；只有它没有结果时才退回关键词搜索，并说明区别。' +
     '\n· 可以在调用工具前用一句话说明你要做什么。全部做完后用你的口吻自然总结，别提"工具/候选池/序号/规则"这些词。不要编造歌曲。'
   );
 }
@@ -264,6 +276,7 @@ export function describeToolCall(call: Record<string, unknown>): string {
   if (t === 'play') return '播放歌曲';
   if (t === 'create_playlist') return '创建歌单「' + String(call.title ?? '') + '」';
   if (t === 'queue_similar') return '找相似歌曲';
+  if (t === 'find_similar_by_sound') return '按听感找相似';
   if (t === 'radio') return '开播「' + String(call.mood ?? '') + '」电台';
   if (t === 'analyze_song') return '读取歌词分析';
   if (t === 'control') return '控制播放';
@@ -526,13 +539,48 @@ export async function executeTool(
   if (tool === 'analyze_song') {
     const current = usePlayerStore.getState().current;
     if (!current) return { reply: '现在没在放歌，没法分析。', fact: { action: 'analyze_song', error: '未在播放' } };
+
     let lyric = '';
     try {
       const lines = await fetchLyricLines(current);
       lyric = lines.map((l) => l.text).filter(Boolean).slice(0, 60).join('\n');
     } catch {
-      /* ignore */
+      /* ignore - an instrumental still has audio to analyse */
     }
+
+    // Analyse the audio itself. This is the whole point: the model is given
+    // measurements of the actual recording rather than being asked to describe
+    // a melody it has never heard.
+    let factCard = '';
+    let analysisError = '';
+    try {
+      const card = await analyzeTrack(current);
+      if (card) factCard = renderFactCard(card);
+      else analysisError = 'no_stream';
+    } catch {
+      analysisError = 'analysis_failed';
+    }
+
+    if (!factCard) {
+      // Be explicit rather than letting the model fill the gap with invention.
+      return {
+        reply: '',
+        fact: {
+          action: 'analyze_song',
+          song: current.name,
+          artist: current.artist.join('/'),
+          hasLyric: Boolean(lyric),
+          lyric,
+          audioAnalysis: null,
+          note:
+            '音频分析不可用（' +
+            analysisError +
+            '）。**你没有任何音频测量数据**，所以不要描述编曲、配器、制作或旋律走向。' +
+            '只能基于歌词与歌名来谈，并明确说明你听到的只是歌词层面的内容。',
+        },
+      };
+    }
+
     return {
       reply: '',
       fact: {
@@ -540,8 +588,64 @@ export async function executeTool(
         song: current.name,
         artist: current.artist.join('/'),
         hasLyric: Boolean(lyric),
+        audioAnalysis: factCard,
         lyric,
-        note: '请认真读完歌词，结合歌名与旋律感受写分析（主题意象/情绪/编曲/共鸣点），至少 3 句，别套话。',
+        note:
+          '上面是这首歌的**实测音频特征**。写分析时以它为依据：可以引用具体数字，' +
+          '但不要描述没有测到的内容（具体乐器、编制、混音手法）。' +
+          '如果某项标了「不确定」，要么不提，要么说明你没把握。',
+      },
+    };
+  }
+
+  if (tool === 'find_similar_by_sound') {
+    const current = usePlayerStore.getState().current;
+    if (!current) return { reply: '现在没在放歌，没法比对。', fact: { action: 'find_similar_by_sound', error: 'no_current_track' } };
+
+    const target = await analyzeTrack(current);
+    if (!target) {
+      return {
+        reply: '这首歌的音频暂时取不到，没法做听感比对，我改用关键词找找看。',
+        fact: { action: 'find_similar_by_sound', error: 'no_analysis' },
+      };
+    }
+
+    // Rank whatever has already been analysed locally. Nothing new is
+    // downloaded here: analysing the whole library on demand would be a
+    // multi-minute operation.
+    const cached = await listCachedCards();
+    const candidates = cached
+      .filter((c) => c.trackKey !== target.trackKey)
+      .map((c) => ({ item: c, features: c }));
+    const ranked = rankSimilar(target, candidates, 8, 0.9);
+
+    if (!ranked.length) {
+      return {
+        reply: '我听过并分析过的歌里，还没有和这首听感接近的。多放几首我就能比出来了。',
+        fact: {
+          action: 'find_similar_by_sound',
+          song: current.name,
+          analyzed: cached.length,
+          matches: [],
+          note: '这是基于已分析曲库的结果，不是全曲库。不要声称曲库里没有相似歌曲。',
+        },
+      };
+    }
+
+    return {
+      reply: '',
+      fact: {
+        action: 'find_similar_by_sound',
+        song: current.name,
+        summary: summarizeFactCard(target),
+        analyzed: cached.length,
+        matches: ranked.map((r) => ({
+          name: r.item.name,
+          artist: r.item.artist,
+          score: Number(r.score.toFixed(3)),
+          why: describeSimilarity(r.reason),
+        })),
+        note: '这是**音频听感**的相似（速度/明暗/频段/节奏密度/动态），不是关键词匹配。说明像在哪，别只说「风格相似」。',
       },
     };
   }

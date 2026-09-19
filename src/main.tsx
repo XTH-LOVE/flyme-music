@@ -31,6 +31,17 @@ window.addEventListener('unhandledrejection', (event) => {
   console.warn('[aurora] unhandled rejection:', event.reason);
 });
 
+/**
+ * Service Worker update detection: when a new deployment activates, the old
+ * page may still reference JS chunks that no longer exist (content-hashed).
+ * Reloading immediately ensures the new shell and its chunk map are used.
+ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+}
+
 // Dev-only debug handle: lets the console inspect playback state and the
 // Web Audio wiring without exposing anything in production builds.
 if (import.meta.env.DEV) {

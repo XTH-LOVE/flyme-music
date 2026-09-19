@@ -98,12 +98,12 @@ function pwaPlugin() {
       runtimeCaching: [
         {
           urlPattern: /\/assets\/.*\.(?:js|css|woff2)$/,
-          handler: 'CacheFirst',
+          handler: 'StaleWhileRevalidate',
           options: {
             cacheName: 'aurora-assets',
             expiration: {
               maxEntries: 80,
-              maxAgeSeconds: 60 * 60 * 24 * 30,
+              maxAgeSeconds: 60 * 60 * 24 * 7,
             },
           },
         },

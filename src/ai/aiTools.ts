@@ -534,7 +534,12 @@ export async function executeTool(
     const similar = tracks
       .filter((t) => !(t.id === current.id && t.source === current.source))
       .slice(0, 8);
-    if (!similar.length) return { reply: '没能找到类似的歌…' };
+    if (!similar.length) {
+      return {
+        reply: '没能找到类似的歌…',
+        fact: { action: 'queue_similar', method: 'keyword', added: 0, note: '关键词搜索也没有结果，不是听感比对的结果。' },
+      };
+    }
     ctx.found = similar;
     playerController.addToQueue(similar);
     return {

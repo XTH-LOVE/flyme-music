@@ -3,14 +3,21 @@
 // same-origin source for the rhythm spectrum. Range requests are forwarded
 // (206 + Content-Range) so <audio> can buffer and seek in chunks instead of
 // downloading the whole file in one go.
-import { PC_USER_AGENT, isHttpUrl, queryParam, guard, type PagesContext } from './_shared';
+import {
+  PC_USER_AGENT,
+  isAllowedProxyTarget,
+  sanitizeProxyContentType,
+  queryParam,
+  guard,
+  type PagesContext,
+} from './_shared';
 
 export async function onRequest(context: PagesContext): Promise<Response> {
   const request = context.request;
   const blocked = guard(request, context.env, 'media-proxy');
   if (blocked) return blocked;
   const target = queryParam(request, 'url');
-  if (!isHttpUrl(target)) {
+  if (!isAllowedProxyTarget(target)) {
     return new Response('bad url', { status: 400 });
   }
   const range = request.headers.get('range');
@@ -26,7 +33,8 @@ export async function onRequest(context: PagesContext): Promise<Response> {
       return new Response('upstream error', { status: upstream.status || 502 });
     }
     const headers: Record<string, string> = {
-      'Content-Type': upstream.headers.get('content-type') ?? 'application/octet-stream',
+      'Content-Type': sanitizeProxyContentType(upstream.headers.get('content-type'), 'media'),
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'no-store',
       'Accept-Ranges': 'bytes',
     };

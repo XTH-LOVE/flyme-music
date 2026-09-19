@@ -14,6 +14,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   isAllowedRequest,
+  isAllowedProxyTarget,
+  sanitizeProxyContentType,
   rateLimit,
   RATE_LIMITS,
   AI_DEFAULT_ENDPOINT,
@@ -45,10 +47,6 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
-}
-
-function isHttpUrl(target: string | null): target is string {
-  return Boolean(target && /^https?:\/\//.test(target));
 }
 
 /**
@@ -116,7 +114,7 @@ export async function handleProxy(req: IncomingMessage, res: ServerResponse): Pr
   const query = parseQuery(req);
   const target = query.get('url');
   const referer = query.get('referer') ?? '';
-  if (!isHttpUrl(target)) {
+  if (!isAllowedProxyTarget(target)) {
     badUrl(res);
     return;
   }
@@ -129,7 +127,10 @@ export async function handleProxy(req: IncomingMessage, res: ServerResponse): Pr
     });
     const text = await upstream.text();
     res.statusCode = upstream.status;
-    res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/json');
+    // Never echo an HTML-ish type back from our own origin - see
+    // sanitizeProxyContentType.
+    res.setHeader('Content-Type', sanitizeProxyContentType(upstream.headers.get('content-type'), 'text'));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store');
     res.end(text);
   } catch (e) {
@@ -141,7 +142,7 @@ export async function handleProxy(req: IncomingMessage, res: ServerResponse): Pr
 export async function handleImg(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!guardRequest(req, res, 'img')) return;
   const target = parseQuery(req).get('url');
-  if (!isHttpUrl(target)) {
+  if (!isAllowedProxyTarget(target)) {
     badUrl(res);
     return;
   }
@@ -157,8 +158,18 @@ export async function handleImg(req: IncomingMessage, res: ServerResponse): Prom
       res.end('upstream error');
       return;
     }
-    res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/jpeg');
-    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    const contentType = sanitizeProxyContentType(upstream.headers.get('content-type'), 'image');
+    if (contentType === 'application/octet-stream') {
+      // Not an image: refuse rather than relay someone else's document.
+      res.statusCode = 415;
+      res.end('not an image');
+      return;
+    }
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Artwork is immutable per URL, but keep it out of shared caches so a
+    // poisoned entry cannot outlive the request that created it.
+    res.setHeader('Cache-Control', 'private, max-age=2592000, immutable');
     await streamUpstreamBody(res, upstream.body);
   } catch (e) {
     upstreamFailure(res, e, true);
@@ -169,7 +180,7 @@ export async function handleImg(req: IncomingMessage, res: ServerResponse): Prom
 export async function handleMediaProxy(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!guardRequest(req, res, 'media-proxy')) return;
   const target = parseQuery(req).get('url');
-  if (!isHttpUrl(target)) {
+  if (!isAllowedProxyTarget(target)) {
     badUrl(res);
     return;
   }
@@ -189,7 +200,8 @@ export async function handleMediaProxy(req: IncomingMessage, res: ServerResponse
       return;
     }
     res.statusCode = upstream.status;
-    res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/octet-stream');
+    res.setHeader('Content-Type', sanitizeProxyContentType(upstream.headers.get('content-type'), 'media'));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     const len = upstream.headers.get('content-length');
     if (len) res.setHeader('Content-Length', len);
     res.setHeader('Accept-Ranges', 'bytes');

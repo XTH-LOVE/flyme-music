@@ -62,9 +62,9 @@ export function guard(request: Request, env: Env, scope: keyof typeof RATE_LIMIT
   return null;
 }
 
-export function isHttpUrl(target: string | null): target is string {
-  return Boolean(target && /^https?:\/\//.test(target));
-}
+// Re-exported from the shared guard so both backends have exactly one
+// definition - a second copy is how the two runtimes drifted before.
+export { isHttpUrl, isAllowedProxyTarget, sanitizeProxyContentType } from '../../src/lib/apiGuard';
 
 export function queryParam(request: Request, name: string): string | null {
   return new URL(request.url).searchParams.get(name);

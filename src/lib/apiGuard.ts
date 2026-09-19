@@ -84,6 +84,91 @@ export function isAllowedRequest({ host, origin, referer, extraAllowed }: GuardI
   return extraAllowed.some((entry) => hostOf(entry.trim()) === candidate || entry.trim().toLowerCase() === candidate);
 }
 
+/* ---------------- Proxy target and response hardening ---------------- */
+
+/** Scheme check only. Never sufficient on its own - see isAllowedProxyTarget. */
+export function isHttpUrl(target: string | null): target is string {
+  return Boolean(target && /^https?:\/\//i.test(target));
+}
+
+/** Hostnames that always resolve inside the deployment's own network. */
+const BLOCKED_HOST_SUFFIXES = ['.localhost', '.local', '.internal', '.home.arpa'];
+
+function isPrivateAddress(host: string): boolean {
+  // Bracketed IPv6 literal -> bare form.
+  const bare = host.replace(/^\[|\]$/g, '').toLowerCase();
+
+  if (bare === 'localhost' || bare === '::1' || bare === '::') return true;
+  if (BLOCKED_HOST_SUFFIXES.some((suffix) => bare.endsWith(suffix))) return true;
+
+  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10).
+  if (/^f[cd][0-9a-f]{0,2}:/.test(bare) || /^fe[89ab][0-9a-f]?:/.test(bare)) return true;
+
+  if (/^\d+$/.test(bare)) return true; // bare integer = alternative IPv4 encoding
+
+  const v4 = bare.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true; // link-local, incl. cloud metadata
+    if (a >= 224) return true; // multicast / reserved
+  }
+  return false;
+}
+
+/**
+ * Whether a URL is safe to fetch on the caller's behalf.
+ *
+ * `isHttpUrl` alone only checked the scheme, which made /api/proxy, /api/img and
+ * /api/media-proxy open relays: any host, any port. On Cloudflare the platform
+ * incidentally blocks loopback and metadata addresses, but the same code also
+ * runs on plain Node (server/auroraApi.ts) where nothing does - so the check has
+ * to live here rather than relying on the platform.
+ */
+export function isAllowedProxyTarget(target: string | null): target is string {
+  if (!isHttpUrl(target)) return false;
+  let url: URL;
+  try {
+    url = new URL(target);
+  } catch {
+    return false;
+  }
+  if (url.username || url.password) return false; // credentials in the URL
+  if (url.port && url.port !== '80' && url.port !== '443') return false;
+  return !isPrivateAddress(url.hostname);
+}
+
+/**
+ * Content types a proxy is allowed to hand back.
+ *
+ * The proxies echoed the upstream `Content-Type` verbatim, so a proxied
+ * third-party document came back as `text/html` **from our own origin** - one
+ * navigation away from running as same-origin script. Clients here only ever use
+ * `.text()` / `.json()`, so HTML-ish types are downgraded to text/plain: the data
+ * still arrives, the browser no longer treats it as a document.
+ */
+export function sanitizeProxyContentType(
+  upstream: string | null | undefined,
+  kind: 'image' | 'media' | 'text',
+): string {
+  const type = (upstream ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+
+  if (kind === 'image') {
+    // SVG can carry script and is deliberately excluded from the renderable set.
+    if (type.startsWith('image/') && type !== 'image/svg+xml') return upstream as string;
+    return 'application/octet-stream';
+  }
+  if (kind === 'media') {
+    if (type.startsWith('audio/') || type.startsWith('video/')) return upstream as string;
+    return 'application/octet-stream';
+  }
+  // text: keep JSON (clients parse it) but never a type the browser renders.
+  if (type === 'application/json' || type.endsWith('+json')) return upstream as string;
+  return 'text/plain; charset=utf-8';
+}
+
 /* ---------------- Best-effort rate limiting ---------------- */
 
 interface Bucket {

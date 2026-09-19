@@ -16,5 +16,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["server", "api", "functions", "src/lib/apiGuard.ts"]
+  "include": ["server", "api", "functions", "src/lib/apiGuard.ts", "src/lib/bilibiliServer.ts"]
 }

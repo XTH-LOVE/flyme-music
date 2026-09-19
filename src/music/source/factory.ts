@@ -4,6 +4,7 @@ import { NeteaseProvider } from './providers/netease-provider';
 import { QqProvider } from './providers/qq-provider';
 import { KuwoProvider } from './providers/kuwo-provider';
 import { HigequProvider } from './providers/higequ-provider';
+import { BilibiliProvider } from './providers/bilibili-provider';
 import { MockTrackProvider } from './providers/mock-provider';
 import type { BaseMusicProvider } from './base-provider';
 
@@ -36,6 +37,9 @@ class MusicProviderFactory {
         break;
       case 'higequ':
         provider = new HigequProvider();
+        break;
+      case 'bilibili':
+        provider = new BilibiliProvider();
         break;
       case 'mock':
         provider = new MockTrackProvider();

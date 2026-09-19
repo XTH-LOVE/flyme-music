@@ -5,7 +5,7 @@
  */
 import type { Song } from '../types';
 
-export type MusicSource = 'netease' | 'joox' | 'qq' | 'kuwo' | 'higequ' | 'mock' | 'local';
+export type MusicSource = 'netease' | 'joox' | 'qq' | 'kuwo' | 'higequ' | 'bilibili' | 'mock' | 'local';
 
 export interface MusicTrack {
   id: string;
@@ -61,6 +61,7 @@ export const searchSourceOptions: SourceOption[] = [
   { source: 'qq', label: 'QQ' },
   { source: 'kuwo', label: '酷我' },
   { source: 'joox', label: 'Joox' },
+  { source: 'bilibili', label: 'B站' },
   { source: 'higequ', label: 'Hi歌' },
   { source: 'mock', label: '本地曲库' },
 ];
@@ -70,6 +71,7 @@ export const sourceLabels: Record<MusicSource, string> = {
   qq: 'QQ',
   joox: 'Joox',
   kuwo: '酷我',
+  bilibili: 'B站',
   higequ: 'Hi歌',
   mock: '本地',
   local: '文件',

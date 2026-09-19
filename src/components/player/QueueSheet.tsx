@@ -50,7 +50,7 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
             <div className="queue-section-title">正在播放</div>
             <div className="queue-now">
               <div className="queue-item__cover">
-                <TrackCover track={nowPlaying} bare radius="var(--am-radius-sm)" />
+                <TrackCover track={nowPlaying} bare radius="var(--am-radius-sm)" priority />
               </div>
               <div className="queue-item__body">
                 <div className="queue-now__title">{nowPlaying.name}</div>

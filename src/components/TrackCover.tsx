@@ -13,6 +13,8 @@ interface TrackCoverProps {
   radius?: string;
   bare?: boolean;
   title?: string;
+  /** When true the image loads eagerly with high fetch priority (current track). */
+  priority?: boolean;
 }
 
 /**
@@ -21,18 +23,19 @@ interface TrackCoverProps {
  * (blob URL in the packaged app, /api/img in dev) when the CDN blocks
  * direct hotlinks.
  */
-export function TrackCover({ track, radius, bare = false, title }: TrackCoverProps) {
-  const [url, setUrl] = useState<string | null>(withPicSize(track.picUrl, '300y300') || null);
+export function TrackCover({ track, radius, bare = false, title, priority = false }: TrackCoverProps) {
+  const size = priority ? '500y500' : '300y300';
+  const [url, setUrl] = useState<string | null>(withPicSize(track.picUrl, size) || null);
   const { src: imgSrc, stage, onError, onLoad, imgRef } = useProxiedImage(url);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setUrl(withPicSize(track.picUrl, '300y300') || null);
+    setUrl(withPicSize(track.picUrl, size) || null);
     setLoaded(false);
     if (!track.picUrl && track.source !== 'mock') {
       let alive = true;
       resolveTrackPic(track).then((u) => {
-        if (alive && u) setUrl(withPicSize(u, '300y300'));
+        if (alive && u) setUrl(withPicSize(u, size));
       });
       return () => {
         alive = false;
@@ -67,7 +70,8 @@ export function TrackCover({ track, radius, bare = false, title }: TrackCoverPro
           className="track-cover-img"
           src={imgSrc}
           alt={title ?? track.name}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : undefined}
           // same-origin, not no-referrer. The proxy fallback is a same-origin
           // request, and /api/img only serves requests that carry origin
           // evidence; with no-referrer the browser sent none, so every proxied

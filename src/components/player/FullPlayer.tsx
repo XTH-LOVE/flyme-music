@@ -119,7 +119,7 @@ function ImmersiveCover({ track }: { track: MusicTrack }) {
             'hc-imm__layer' + (i === stack.length - 1 ? ' hc-imm__layer--top' : '')
           }
         >
-          <TrackCover track={t} bare />
+          <TrackCover track={t} bare priority />
         </div>
       ))}
     </>
@@ -169,7 +169,7 @@ function CoverSwap({ track }: { track: MusicTrack }) {
             'fp-cover-swap__layer' + (i === stack.length - 1 ? ' fp-cover-swap__layer--top' : '')
           }
         >
-          <TrackCover track={t} title={t.album} radius="14px" />
+          <TrackCover track={t} title={t.album} radius="14px" priority />
         </div>
       ))}
     </div>
@@ -835,7 +835,7 @@ export function FullPlayer() {
                 }}
                 aria-label="回到封面"
               >
-                <TrackCover track={current} bare radius="8px" />
+                <TrackCover track={current} bare radius="8px" priority />
               </div>
               <div className="hc-p-head__text">
                 <div className="hc-p-head__title">{current.name}</div>

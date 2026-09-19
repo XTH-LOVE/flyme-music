@@ -21,7 +21,7 @@ export type ImageStage = 'direct' | 'proxy' | 'failed';
  * on every image below the fold - which is exactly what happened, and combined
  * with host-level failure marking it took every cover down.
  */
-const DIRECT_TIMEOUT_MS = 3500;
+const DIRECT_TIMEOUT_MS = 2000;
 
 export function useProxiedImage(url: string | null | undefined) {
   const [stage, setStage] = useState<ImageStage>(() => initialImgStage(url) as ImageStage);

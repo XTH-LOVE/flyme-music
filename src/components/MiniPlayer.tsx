@@ -23,7 +23,7 @@ function MiniCoverSwap({ track }: { track: MusicTrack }) {
             'mini-cover-swap__layer' + (i === stack.length - 1 ? ' mini-cover-swap__layer--top' : '')
           }
         >
-          <TrackCover track={t} bare radius="50%" />
+          <TrackCover track={t} bare radius="50%" priority />
         </div>
       ))}
     </>

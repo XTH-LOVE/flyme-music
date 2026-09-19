@@ -24,7 +24,9 @@ export function ProxyImg({ src, alt = '', className, style }: ProxyImgProps) {
       style={style}
       alt={alt}
       loading="lazy"
-      referrerPolicy="no-referrer"
+      // See TrackCover: same-origin keeps the proxy fallback usable, since
+      // /api/img requires origin evidence that no-referrer suppressed.
+      referrerPolicy="same-origin"
       src={resolved}
       onError={onError}
     />

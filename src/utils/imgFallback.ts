@@ -73,10 +73,26 @@ export function initialImgStage(url: string | null | undefined): ImgStage {
   return 'direct';
 }
 
-export function markDirectFailed(url: string | null | undefined): void {
+/**
+ * Record that a direct CDN load failed.
+ *
+ * `host` decides how far the lesson generalises, and the two callers have
+ * genuinely different evidence:
+ *
+ *   - an `error` event means the CDN refused, which applies to everything on it,
+ *     so the host is marked and the rest of the page skips the failing attempt;
+ *   - a timeout only means this one image was slow, which on a poor connection
+ *     says nothing about the host. Marking the host there turned one slow image
+ *     into every cover on the page breaking.
+ */
+export function markDirectFailed(
+  url: string | null | undefined,
+  options: { host: boolean } = { host: true },
+): void {
   if (!url) return;
+  const keys = options.host ? [url, hostOf(url)] : [url];
   let changed = false;
-  for (const key of [url, hostOf(url)]) {
+  for (const key of keys) {
     if (!key || directFailed.has(key)) continue;
     directFailed.set(key, Date.now());
     changed = true;

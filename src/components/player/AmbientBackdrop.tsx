@@ -21,7 +21,7 @@ function BgImage({ track }: { track: MusicTrack }) {
       className="fp-bg__img"
       src={src}
       alt=""
-      referrerPolicy="no-referrer"
+      referrerPolicy="same-origin"
       onError={onError}
     />
   );

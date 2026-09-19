@@ -23,7 +23,7 @@ interface TrackCoverProps {
  */
 export function TrackCover({ track, radius, bare = false, title }: TrackCoverProps) {
   const [url, setUrl] = useState<string | null>(withPicSize(track.picUrl, '300y300') || null);
-  const { src: imgSrc, stage, onError, onLoad } = useProxiedImage(url);
+  const { src: imgSrc, stage, onError, onLoad, imgRef } = useProxiedImage(url);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -63,11 +63,17 @@ export function TrackCover({ track, radius, bare = false, title }: TrackCoverPro
       {showImg && imgSrc ? (
         <img
           key={stage + imgSrc}
+          ref={imgRef}
           className="track-cover-img"
           src={imgSrc}
           alt={title ?? track.name}
           loading="lazy"
-          referrerPolicy="no-referrer"
+          // same-origin, not no-referrer. The proxy fallback is a same-origin
+          // request, and /api/img only serves requests that carry origin
+          // evidence; with no-referrer the browser sent none, so every proxied
+          // cover came back 403. Cross-origin CDN loads still send no referrer,
+          // which is the privacy intent this was protecting.
+          referrerPolicy="same-origin"
           onError={onError}
           onLoad={() => {
             setLoaded(true);

@@ -45,8 +45,12 @@ export function TrackCover({ track, radius, bare = false, title, priority = fals
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.id, track.source, track.picUrl]);
 
-  // Prefer colors extracted from the real artwork; hash palette is a fallback.
-  const extracted = useCoverPalette(track.picUrl, track.id);
+  // Real-artwork palettes only for the covers users stare at (player views).
+  // FullPlayer and MonetAccent already extract the current track's palette
+  // through the same URL-keyed cache, so priority covers reuse that work;
+  // list rows skip the extra image fetch entirely and lean on the hash
+  // gradient until the artwork itself paints over it.
+  const extracted = useCoverPalette(priority ? track.picUrl : undefined, track.id);
   const palette = extracted ?? track.palette ?? fallbackPalette(track.id);
   const showImg = Boolean(imgSrc) && stage !== 'failed';
 

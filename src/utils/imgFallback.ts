@@ -5,9 +5,21 @@
  */
 const FAILED_KEY = 'aurora.img.direct_failed.v1';
 
-/** CDNs recover (cooldowns, region rerouting), so failures expire in a week. */
-const ENTRY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * CDNs recover within minutes (cooldowns, region rerouting), so failure
+ * marks expire quickly. The old week-long memory meant one transient error
+ * sentenced every cover on that host to the slow proxy for days - measured
+ * on this deployment: 0.15s direct vs 1.3s+ through the Pages proxy.
+ * Host-level marks (a whole CDN "down") expire the fastest so the direct
+ * path is retested soon; per-URL marks get a slightly longer memory.
+ */
+const URL_TTL_MS = 30 * 60 * 1000;
+const HOST_TTL_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 300;
+
+function ttlOf(key: string): number {
+  return key.startsWith('http') ? URL_TTL_MS : HOST_TTL_MS;
+}
 
 type StoredEntry = [string, number];
 
@@ -20,7 +32,7 @@ const directFailed: Map<string, number> = (() => {
     for (const entry of raw) {
       const pair: StoredEntry =
         Array.isArray(entry) && typeof entry[1] === 'number' ? entry : [entry as string, now];
-      if (typeof pair[0] === 'string' && now - pair[1] < ENTRY_TTL_MS) {
+      if (typeof pair[0] === 'string' && now - pair[1] < ttlOf(pair[0])) {
         map.set(pair[0], pair[1]);
       }
     }
@@ -51,7 +63,7 @@ function hostOf(url: string): string {
 function isMarked(key: string): boolean {
   const markedAt = directFailed.get(key);
   if (markedAt === undefined) return false;
-  if (Date.now() - markedAt >= ENTRY_TTL_MS) {
+  if (Date.now() - markedAt >= ttlOf(key)) {
     directFailed.delete(key);
     persist();
     return false;

@@ -2,12 +2,19 @@ import { useEffect } from 'react';
 import { playerController } from '@/player';
 import { fetchLyricLines } from '@/utils/currentLyric';
 import { resolveTrackPic } from '@/music/source/track-resolver';
+import { withPicSize } from '@/utils/imgFallback';
 
-/** Load an image into the browser cache so the <img> render is instant. */
-function preloadImage(url: string | null | undefined): void {
+/**
+ * Load an image into the browser cache so the <img> render is instant.
+ * The URL must be the EXACT one the player will display: TrackCover shows
+ * withPicSize(url, '500y500') for priority covers, so preloading the raw
+ * URL downloads a multi-megabyte original that never matches the cache key
+ * of the 500px thumbnail actually rendered - pure wasted bandwidth.
+ */
+function preloadPriorityImage(url: string | null | undefined): void {
   if (!url) return;
   const img = new Image();
-  img.src = url;
+  img.src = withPicSize(url, '500y500') || url;
 }
 
 /**
@@ -29,9 +36,9 @@ export function usePrefetch(): void {
       if (key === lastKey) return;
       lastKey = key;
       void fetchLyricLines(cur);
-      void resolveTrackPic(cur).then(preloadImage);
+      void resolveTrackPic(cur).then(preloadPriorityImage);
       const next = snap.queue[snap.queueIndex + 1];
-      if (next) void resolveTrackPic(next).then(preloadImage);
+      if (next) void resolveTrackPic(next).then(preloadPriorityImage);
     };
     warm();
     return playerController.subscribe(warm);

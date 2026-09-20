@@ -6,6 +6,7 @@ import { SectionHeader } from '@/design-system/components/SectionHeader';
 import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { useSettingsStore, type AudioQuality } from '@/store/useSettingsStore';
 import { useAiStore, type AiPersona } from '@/store/useAiStore';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { getAiStatus, listAiModels } from '@/ai/aiClient';
 import { isLevelMatching, setLevelMatching } from '@/player/webAudio';
 import {
@@ -42,6 +43,7 @@ const personaOptions: { key: AiPersona; label: string; desc: string }[] = [
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const { affordance: installAffordance, promptInstall } = useInstallPrompt();
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
   const themePureBlack = useThemeStore((s) => s.pureBlack);
@@ -498,6 +500,23 @@ export function SettingsPage() {
             <div className="settings-row__desc">版本 0.3.0 · HyperOS 风格现代音乐播放器 · Aurora AI 伴侣</div>
           </div>
         </div>
+        {installAffordance !== 'unavailable' ? (
+          <div className="settings-row">
+            <div className="settings-row__body">
+              <div className="settings-row__title">安装到设备</div>
+              <div className="settings-row__desc">
+                {installAffordance === 'prompt'
+                  ? '装成独立应用：有自己的图标，离线也能打开，已缓存的歌照常播放'
+                  : 'iPhone / iPad 上点浏览器的分享按钮，选择「添加到主屏幕」即可安装'}
+              </div>
+            </div>
+            {installAffordance === 'prompt' ? (
+              <button className="am-btn am-btn--primary am-btn--sm" onClick={() => void promptInstall()}>
+                安装
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">音源架构说明</div>

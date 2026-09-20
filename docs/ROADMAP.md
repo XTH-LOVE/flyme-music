@@ -39,7 +39,10 @@
 - [x] Voice input on the AI page (Web Speech API, feature-detected)
 - [x] AI DJ interludes every 5 session tracks (`proactive.ts`)
 - [x] Generative playlist covers (`playlistArt.ts`)
-- [ ] True shared-element transition (View Transitions API)
+- [x] True shared-element transition (View Transitions API) —
+      `lib/coverTransition.ts` names the artwork so the browser morphs it from
+      the playlist card into the detail page (`NetPlaylistCard` →
+      `NeteasePlaylistDetailPage`)
 - [ ] Gapless playback
 
 ## Phase 4 — Productization (in progress, Tauri instead of PWA)
@@ -67,7 +70,10 @@
 - [x] Netease playlist import + subscribe, surfaced on the playlist square
 - [x] Backup export/import (`utils/backup.ts`), listening reports, daily pick
 - [x] CI (tsc + vitest + build on push/PR)
-- [ ] PWA install + offline cache (web build)
+- [x] PWA install + offline cache (web build) — offline came earlier (IndexedDB
+      caches + service worker); install is now surfaced in Settings
+      (`hooks/useInstallPrompt.ts`), with Add-to-Home-Screen instructions on iOS
+      where no programmatic prompt exists
 - [ ] i18n (zh-CN / en)
 
 ## Phase 5 — Hardening backlog

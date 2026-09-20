@@ -6,6 +6,7 @@
  */
 import '../styles/global.css';
 import './official.css';
+import { initDownload } from './download';
 
 function initReveal(): void {
   const targets = document.querySelectorAll<HTMLElement>('.of-reveal');
@@ -39,3 +40,5 @@ function initReveal(): void {
 }
 
 initReveal();
+
+initDownload();

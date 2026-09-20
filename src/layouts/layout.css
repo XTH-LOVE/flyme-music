@@ -3,6 +3,17 @@
   height: 100%;
   display: flex;
   background: var(--am-bg);
+  /* Safe-area insets live on the shell, not on `.app-main`.
+     `viewport-fit=cover` puts the webview edge-to-edge, so without this the
+     page title renders underneath the Android status bar - the bottom inset was
+     already handled in a dozen places, the top was handled in none.
+     It is on the non-scrolling container on purpose: as padding on the scroll
+     area itself the inset would scroll away with the content and the header
+     would slide back under the status bar. */
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 .app-main {

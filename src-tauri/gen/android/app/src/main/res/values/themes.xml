@@ -2,6 +2,13 @@
     <!-- Base application theme. -->
     <style name="Theme.app" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
-        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+        <!--
+          `windowOptOutEdgeToEdgeEnforcement` was removed: MainActivity
+          calls enableEdgeToEdge(), so the app IS edge-to-edge, and the
+          theme saying otherwise is a contradiction. It is also the
+          likely reason the WebView reported a zero
+          env(safe-area-inset-top), which left the page header drawn
+          underneath the Android status bar.
+        -->
     </style>
 </resources>

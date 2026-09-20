@@ -294,3 +294,43 @@
   line-height: 1;
   user-select: none;
 }
+
+/* ---------- Narrow screens ---------- */
+
+/*
+ * A phone row is cover (42) + duration (35) + two buttons (56) + four 12px
+ * gaps, which on a 360px screen leaves the title roughly 115px - about seven
+ * Chinese characters at 15px. Long titles were being cut there, and it was
+ * never the font size: the row simply had no width left to give.
+ *
+ * Two lines instead of one roughly doubles the room, and the row grows by a
+ * line rather than by a fixed amount, so short titles are unaffected.
+ *
+ * The gaps tighten from 12 to 8 for the same reason. The duration is kept -
+ * it is real information, and hiding it would buy only about four more
+ * characters.
+ */
+@media (max-width: 560px) {
+  .song-item {
+    gap: 6px;
+    padding: 8px 6px;
+  }
+  /* The track number costs 20px plus a gap - about four characters - and on a
+     phone it is the least useful thing in the row: the position in a playlist
+     is visible from context, while a cut-off title is not recoverable. */
+  .song-item__index {
+    display: none;
+  }
+  .song-item__title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  /* The title can now be two lines, so the fixed row-height hint used by
+     `content-visibility` would under-estimate and make the scrollbar jump. */
+  .song-item {
+    contain-intrinsic-size: auto 76px;
+  }
+}

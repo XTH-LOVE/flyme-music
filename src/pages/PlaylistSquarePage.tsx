@@ -1,0 +1,157 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { NetPlaylistCard } from '@/components/NetPlaylistCard';
+import { Chip } from '@/design-system/components/Chip';
+import { EmptyState } from '@/design-system/components/EmptyState';
+import { Skeleton } from '@/design-system/components/Skeleton';
+import { getHighQualityPlaylists, type NetPlaylistSummary } from '@/music/netease/netease-api';
+import { importExternalPlaylist } from '@/music/playlistImport';
+import { usePlaylistStore } from '@/store/usePlaylistStore';
+import { notify } from '@/utils/notify';
+import { useNeteaseCollections } from '@/store/useNeteaseCollections';
+import './pages.css';
+import './pages-extra.css';
+
+const CATS = [
+  '全部', '华语', '欧美', '日语', '韩语', '粤语',
+  '流行', '说唱', '摇滚', '电子', '民谣', '轻音乐',
+  '古风', 'ACG', '影视原声', '治愈', '学习', '驾车', '夜晚', '怀旧',
+];
+
+/** 歌单广场：真实精品歌单，分类可切换，可翻页。 */
+export function PlaylistSquarePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const collections = useNeteaseCollections((s) => s.items);
+  const createPlaylist = usePlaylistStore((s) => s.createPlaylist);
+  const addBatch = usePlaylistStore((s) => s.addBatch);
+  const [importUrl, setImportUrl] = useState('');
+  const [importing, setImporting] = useState(false);
+  const cat = searchParams.get('cat') || '全部';
+  const [items, setItems] = useState<NetPlaylistSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const cursorRef = useRef(0);
+  const seqRef = useRef(0);
+
+  const load = useCallback(
+    (category: string, append: boolean) => {
+      const seq = ++seqRef.current;
+      setLoading(true);
+      setError(null);
+      const lasttime = append ? cursorRef.current : 0;
+      getHighQualityPlaylists(category === '全部' ? '全部' : category, lasttime)
+        .then((page) => {
+          if (seq !== seqRef.current) return;
+          cursorRef.current = page.lasttime;
+          setItems((prev) => (append ? [...prev, ...page.items] : page.items));
+          setHasMore(page.more && page.items.length > 0);
+          setLoading(false);
+        })
+        .catch((e: unknown) => {
+          if (seq !== seqRef.current) return;
+          setError(e instanceof Error ? e.message : String(e));
+          setLoading(false);
+        });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    cursorRef.current = 0;
+    setItems([]);
+    load(cat, false);
+  }, [cat, load]);
+
+  const handleImport = async () => {
+    if (!importUrl.trim() || importing) return;
+    setImporting(true);
+    try {
+      const imported = await importExternalPlaylist(importUrl);
+      const localId = createPlaylist(imported.name);
+      addBatch(localId, imported.tracks);
+      setImportUrl('');
+      notify('已导入「' + imported.name + '」：' + imported.tracks.length + ' 首');
+      navigate('/my-playlist/' + localId);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '歌单导入失败');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="page">
+      <h1 className="page-title">歌单广场</h1>
+      <div className="playlist-import">
+        <div className="playlist-import__body">
+          <div className="playlist-import__title">导入外部歌单</div>
+          <div className="playlist-import__desc">粘贴网易云歌单链接或 ID，歌曲会复制到你的本地歌单</div>
+        </div>
+        <input
+          className="picker-create__input playlist-import__input"
+          value={importUrl}
+          placeholder="https://music.163.com/#/playlist?id=..."
+          onChange={(event) => setImportUrl(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') void handleImport(); }}
+        />
+        <button className="am-btn am-btn--primary am-btn--sm" disabled={!importUrl.trim() || importing} onClick={() => void handleImport()}>
+          {importing ? '导入中…' : '导入'}
+        </button>
+      </div>
+      {collections.length ? (
+        <>
+          <h2 className="am-section-header">我收藏的歌单</h2>
+          <div className="chip-row chip-row--wrap">
+            {collections.map((c) => (
+              <Chip key={c.id} onClick={() => navigate('/ne-playlist/' + c.id)}>
+                {c.name}
+              </Chip>
+            ))}
+          </div>
+        </>
+      ) : null}
+      <div className="chip-row chip-row--wrap" style={{ marginTop: collections.length ? 0 : undefined }}>
+        {CATS.map((c) => (
+          <Chip
+            key={c}
+            active={cat === c}
+            onClick={() => setSearchParams({ cat: c })}
+          >
+            {c}
+          </Chip>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        {loading && !items.length ? (
+          <div className="grid-cards">
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <Skeleton key={i} height={180} radius="var(--am-radius-xl)" />
+            ))}
+          </div>
+        ) : error && !items.length ? (
+          <EmptyState icon="compass" title="歌单加载失败" description={error} action={{ label: '重试', onClick: () => { cursorRef.current = 0; setItems([]); load(cat, false); } }} />
+        ) : (
+          <>
+            <div className="grid-cards">
+              {items.map((pl) => (
+                <NetPlaylistCard key={pl.id} playlist={pl} />
+              ))}
+            </div>
+            {hasMore ? (
+              <button
+                className="am-btn am-btn--secondary am-btn--md load-more"
+                disabled={loading}
+                onClick={() => load(cat, true)}
+              >
+                {loading ? '加载中…' : '加载更多'}
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

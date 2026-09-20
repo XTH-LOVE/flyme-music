@@ -1,0 +1,203 @@
+/* ---------- 全屏登录页（QQ 音乐风格） ---------- */
+.login-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 235px);
+  padding-top: 10px;
+}
+.login-page__back {
+  position: absolute;
+  top: 2px;
+  left: -8px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--am-text-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.login-page__back--right {
+  left: auto;
+  right: -8px;
+}
+.login-page__title {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  margin: 6px 0 44px;
+}
+.login-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.login-page__field {
+  width: 100%;
+  min-height: 62px;
+  padding: 0 52px;
+  border: 0;
+  border-radius: 31px;
+  background: var(--am-surface);
+  box-shadow: 0 4px 20px rgba(16, 16, 20, 0.06);
+  color: var(--am-text-1);
+  font-family: inherit;
+  font-size: 16px;
+  text-align: center;
+  outline: 0;
+  transition: box-shadow var(--am-motion-normal) var(--am-ease-standard);
+}
+.login-page__field:focus {
+  box-shadow: 0 4px 24px rgba(16, 16, 20, 0.1), 0 0 0 2px var(--am-accent-soft);
+}
+.login-page__field::placeholder {
+  color: var(--am-text-3);
+  font-weight: 500;
+}
+.login-page__msg {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--am-danger);
+}
+.login-page__submit {
+  margin-top: 26px;
+  width: 100%;
+  min-height: 62px;
+  border: 0;
+  border-radius: 32px;
+  background: color-mix(in srgb, var(--am-accent) 45%, var(--am-surface-2));
+  color: rgba(255, 255, 255, 0.85);
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-indent: 6px;
+  cursor: default;
+  transition: background-color var(--am-motion-normal) var(--am-ease-standard),
+    transform var(--am-motion-micro) var(--am-ease-spring);
+}
+.login-page__submit--ready {
+  background: var(--am-accent);
+  color: #fff;
+  cursor: pointer;
+}
+.login-page__submit--ready:active {
+  transform: scale(0.98);
+}
+.login-page__submit:disabled {
+  opacity: 1;
+}
+.login-page__agree {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 12.5px;
+  color: var(--am-text-2);
+}
+.login-page__agree b {
+  color: var(--am-accent);
+  font-weight: 600;
+}
+.login-page__agree-dot {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--am-text-3);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.login-page__agree-dot--on {
+  border-color: var(--am-accent);
+  background: var(--am-accent);
+}
+.login-page__agree-dot-inner {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+}
+.login-page__switch {
+  margin-top: auto;
+  padding-top: 26px;
+  padding-bottom: 8px;
+  display: flex;
+  justify-content: space-evenly;
+}
+.login-page__quick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--am-text-1);
+  font-size: 12.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.login-page__quick-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--am-surface);
+  box-shadow: 0 2px 12px rgba(16, 16, 20, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--am-text-1);
+  transition: transform var(--am-motion-micro) var(--am-ease-spring),
+    border-color var(--am-motion-micro) var(--am-ease-standard);
+}
+.login-page__quick:active .login-page__quick-icon {
+  transform: scale(0.92);
+  border-color: var(--am-accent);
+  color: var(--am-accent);
+}
+
+.login-page__field {
+  padding-right: 52px;
+  text-align: left;
+}
+.login-page__eye {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--am-text-3);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.login-page__pw {
+  position: relative;
+}
+.login-page__eye {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--am-text-3);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+}

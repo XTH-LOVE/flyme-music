@@ -1,0 +1,86 @@
+/* A-Z scrubber for long lists (Halcyon FastIndexBar). Fixed to the right edge
+   so it stays reachable while the list scrolls. */
+.fast-index {
+  position: fixed;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  padding: 6px 5px;
+  border-radius: var(--am-radius-pill);
+  transition: background-color var(--am-motion-normal) var(--am-ease-standard);
+}
+.fast-index--active {
+  background: color-mix(in srgb, var(--am-text-1) 7%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.fast-index__bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The bar owns its gesture: dragging must scrub, never scroll the page. */
+  touch-action: none;
+  cursor: pointer;
+  max-height: 62vh;
+  overflow: hidden;
+}
+
+.fast-index__letter {
+  /* Shrinks toward min-height rather than clipping when the viewport is short,
+     so all 27 entries stay reachable. */
+  flex: 0 1 15px;
+  min-height: 9px;
+  height: 15px;
+  line-height: 15px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--am-text-2);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.fast-index__letter--empty {
+  opacity: 0.35;
+}
+.fast-index__letter--on {
+  color: var(--am-accent);
+  opacity: 1;
+}
+
+/* Floating letter preview, shown to the left of the bar while scrubbing. */
+.fast-index__bubble {
+  position: absolute;
+  right: 100%;
+  margin-right: 8px;
+  transform: translateY(-50%);
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--am-text-1);
+  background: var(--am-glass);
+  backdrop-filter: blur(20px) saturate(var(--am-glass-saturate));
+  -webkit-backdrop-filter: blur(20px) saturate(var(--am-glass-saturate));
+  border: 1px solid var(--am-glass-border);
+  box-shadow: var(--am-shadow-glass);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms var(--am-ease-standard);
+}
+.fast-index--active .fast-index__bubble {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fast-index,
+  .fast-index__bubble {
+    transition-duration: 1ms;
+  }
+}

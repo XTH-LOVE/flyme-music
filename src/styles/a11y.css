@@ -1,0 +1,41 @@
+/* Loaded last: lazy-route spinner, simulated playback badge, reduced motion. */
+.am-route-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--am-accent-soft, rgba(61, 123, 255, 0.2));
+  border-top-color: var(--am-accent, #3d7bff);
+  animation: am-route-spin 0.8s linear infinite;
+}
+@keyframes am-route-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.am-sim-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.4;
+  vertical-align: middle;
+  background: var(--am-accent-soft, rgba(61, 123, 255, 0.12));
+  color: var(--am-accent, #3d7bff);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

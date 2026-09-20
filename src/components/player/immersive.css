@@ -1,0 +1,136 @@
+/* ---------- Immersive full-bleed cover mode ---------- */
+.hc-imm__layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 720ms var(--am-ease-standard);
+}
+.hc-imm__layer--top {
+  opacity: 1;
+}
+.hc-imm__layer .am-cover {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: auto !important;
+  border-radius: 0 !important;
+}
+.hc-imm__layer .track-cover-img {
+  object-fit: cover;
+}
+.hc-imm__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.44) 0%,
+    rgba(0, 0, 0, 0.05) 26%,
+    rgba(0, 0, 0, 0.02) 46%,
+    rgba(0, 0, 0, 0.66) 100%
+  );
+}
+.hc-imm__content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 26px calc(26px + env(safe-area-inset-bottom));
+}
+.hc-imm__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.hc-imm__top-tools {
+  display: flex;
+  gap: 8px;
+}
+.hc--imm .hc-iconbtn {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.hc--imm .hc-iconbtn:hover {
+  background: rgba(0, 0, 0, 0.34);
+}
+.hc--imm .hc-iconbtn--fav {
+  color: #ff9ab4;
+}
+.hc-imm__bottom {
+  margin-top: auto;
+}
+.hc-imm__title {
+  font-size: 26px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hc-imm__artist {
+  margin-top: 4px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hc-imm__lyric {
+  margin-top: 10px;
+  min-height: 20px;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hc--imm .hc-progress-block {
+  margin-top: 10px;
+}
+.hc--imm .hc-times {
+  color: rgba(255, 255, 255, 0.8);
+}
+.hc--imm .hc-pill {
+  background: rgba(255, 255, 255, 0.16);
+}
+.hc--imm .hc-transport {
+  height: 78px;
+}
+.hc--imm .hc-tbtn {
+  color: rgba(255, 255, 255, 0.92);
+}
+.hc--imm .hc-tbtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.hc--imm .hc-tbtn--on {
+  background: rgba(255, 255, 255, 0.2);
+}
+.hc--imm .hc-play {
+  color: #fff;
+}
+.hc--imm .hc-play:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+@media (min-width: 960px) {
+  .hc-imm__content {
+    padding: 22px 40px 30px;
+  }
+  .hc-imm__title {
+    font-size: 30px;
+  }
+}
+
+/* ---------- Drag-down dismiss ---------- */
+.hc-dismissing .hc-body,
+.hc-dismissing .hc-p-body,
+.hc-dismissing .hc-imm__content {
+  will-change: transform, opacity;
+}

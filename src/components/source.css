@@ -1,0 +1,174 @@
+/* ---------- Source badge ---------- */
+.source-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: 1px;
+  letter-spacing: 0.4px;
+}
+.source-badge--netease {
+  background: rgba(236, 65, 65, 0.12);
+  color: #ec4141;
+}
+.source-badge--joox {
+  background: rgba(0, 168, 150, 0.14);
+  color: #00a896;
+}
+.source-badge--kuwo {
+  background: rgba(30, 136, 229, 0.14);
+  color: #1e88e5;
+}
+.source-badge--qq {
+  background: rgba(49, 194, 124, 0.14);
+  color: #31c27c;
+}
+.source-badge--higequ {
+  background: rgba(224, 123, 0, 0.14);
+  color: #e07b00;
+}
+.source-badge--mock,
+.source-badge--local {
+  background: var(--am-surface-3);
+  color: var(--am-text-2);
+}
+[data-theme='dark'] .source-badge--netease {
+  color: #ff7a7a;
+}
+[data-theme='dark'] .source-badge--joox {
+  color: #4fd8c8;
+}
+[data-theme='dark'] .source-badge--kuwo {
+  color: #64b5f6;
+}
+[data-theme='dark'] .source-badge--qq {
+  color: #4ddb96;
+}
+[data-theme='dark'] .source-badge--higequ {
+  color: #ffa940;
+}
+
+/* ---------- Track cover img ---------- */
+.track-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Inherit the container radius so img and mask arcs align exactly -
+     mismatched radii leak the palette gradient into the corners. */
+  border-radius: inherit;
+}
+
+/* Smooth swap from palette backdrop to transparent once artwork loads */
+.am-cover {
+  transition: background 240ms ease;
+}
+
+/* ---------- Playlist picker ---------- */
+.picker-create {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.picker-create__input {
+  flex: 1;
+  height: 38px;
+  padding: 0 14px;
+  border: none;
+  outline: none;
+  border-radius: var(--am-radius-md);
+  background: var(--am-surface-2);
+  color: var(--am-text-1);
+  font-size: 14px;
+}
+.picker-create__input:focus {
+  box-shadow: 0 0 0 1.5px var(--am-accent);
+}
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.picker-empty {
+  text-align: center;
+  color: var(--am-text-3);
+  font-size: 13px;
+  padding: 24px 0;
+}
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: var(--am-radius-md);
+  text-align: left;
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard);
+}
+.picker-item:hover {
+  background: var(--am-surface-2);
+}
+.picker-item__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--am-radius-sm);
+  background: var(--am-accent-soft);
+  color: var(--am-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.picker-item__body {
+  flex: 1;
+  min-width: 0;
+}
+.picker-item__name {
+  font-size: 14.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker-item__count {
+  font-size: 12px;
+  color: var(--am-text-2);
+}
+.picker-item__check {
+  color: var(--am-accent);
+}
+.picker-item__chevron {
+  color: var(--am-text-3);
+}
+
+/* ---------- User playlist cards ---------- */
+.user-pl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+.user-pl-card__cover {
+  aspect-ratio: 1;
+  border-radius: var(--am-radius-xl);
+  overflow: hidden;
+  box-shadow: var(--am-shadow-card);
+  background: var(--am-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--am-text-3);
+}
+.user-pl-card__title {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-pl-card__subtitle {
+  font-size: 12px;
+  color: var(--am-text-2);
+}

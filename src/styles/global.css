@@ -1,0 +1,457 @@
+/* Flyme Music global theme — v2 (HyperOS × Noctis inspired).
+   CSS custom properties are the runtime source of truth. */
+
+:root {
+  /* Halcyon (Miuix) light palette */
+  --am-bg: #f4f4f7;
+  --am-surface: #ffffff;
+  --am-surface-2: #ececf0;
+  --am-surface-3: #e0e0e6;
+  --am-surface-1: rgba(255, 255, 255, 0.72);
+  --am-border-soft: rgba(16, 16, 20, 0.09);
+  --am-text-1: #16181c;
+  --am-text-2: rgba(0, 0, 0, 0.6);
+  --am-text-3: rgba(0, 0, 0, 0.38);
+  --am-accent: #3482ff;
+  --am-accent-2: #7a5cff;
+  --am-accent-soft: rgba(52, 130, 255, 0.12);
+  --am-danger: #e5484d;
+  --am-divider: #e0e0e0;
+  --am-scrim: rgba(0, 0, 0, 0.3);
+  --am-glass: rgba(255, 255, 255, 0.62);
+  --am-glass-border: rgba(255, 255, 255, 0.58);
+  --am-glass-blur: 30px;
+  --am-glass-saturate: 1.5;
+  --am-glass-highlight: rgba(255, 255, 255, 0.36);
+  --am-glass-shadow: 0 12px 40px rgba(16, 16, 20, 0.14);
+  /* Tint for the finger-following press glow. Light surfaces need a dark wash
+     to register at all; dark surfaces need a light one. */
+  --am-press-glow: rgba(16, 16, 20, 0.06);
+
+  --am-radius-sm: 8px;
+  --am-radius-md: 14px;
+  --am-radius-lg: 16px;
+  --am-radius-xl: 20px;
+  --am-radius-xxl: 28px;
+  --am-radius-cover: 32px;
+  --am-radius-pill: 999px;
+
+  --am-shadow-card: 0 1px 2px rgba(16, 16, 20, 0.04), 0 4px 16px rgba(16, 16, 20, 0.05);
+  --am-shadow-card-hover: 0 6px 28px rgba(16, 16, 20, 0.11);
+  --am-shadow-floating: 0 12px 40px rgba(16, 16, 20, 0.14);
+  --am-shadow-glass: 0 6px 28px rgba(16, 16, 20, 0.09);
+  /* Inner shadow pair for liquid glass: a bright top lip reads as thickness,
+     a soft inner drop reads as the glass sitting proud of the surface. */
+  --am-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  --am-inner-shadow: inset 0 2px 12px rgba(16, 16, 20, 0.1);
+  --am-inner-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+
+  --am-motion-micro: 120ms;
+  --am-motion-normal: 200ms;
+  --am-motion-page: 300ms;
+  --am-motion-sheet: 380ms;
+  --am-motion-slow: 560ms;
+  --am-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --am-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --am-ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  --am-font: 'MiSans', 'MiSans Semibold', 'HarmonyOS Sans', 'PingFang SC', 'Segoe UI', system-ui,
+    -apple-system, sans-serif;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  /* Halcyon (Miuix) dark palette */
+  --am-bg: #101014;
+  --am-surface: #1d1d21;
+  --am-surface-2: #1d1d21;
+  --am-surface-3: #242429;
+  --am-surface-1: rgba(29, 29, 33, 0.72);
+  --am-border-soft: rgba(255, 255, 255, 0.10);
+  --am-text-1: #f2f2f2;
+  --am-text-2: rgba(255, 255, 255, 0.55);
+  --am-text-3: rgba(255, 255, 255, 0.35);
+  --am-accent: #3482ff;
+  --am-accent-2: #9c7bff;
+  --am-accent-soft: rgba(52, 130, 255, 0.17);
+  --am-danger: #f12522;
+  --am-divider: #393940;
+  --am-scrim: rgba(0, 0, 0, 0.6);
+  --am-glass: rgba(17, 17, 20, 0.6);
+  --am-glass-border: rgba(255, 255, 255, 0.09);
+  --am-glass-blur: 30px;
+  --am-glass-saturate: 1.45;
+  --am-glass-highlight: rgba(255, 255, 255, 0.16);
+  --am-glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --am-press-glow: rgba(255, 255, 255, 0.1);
+
+  --am-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.32);
+  --am-shadow-card-hover: 0 6px 28px rgba(0, 0, 0, 0.45);
+  --am-shadow-floating: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --am-shadow-glass: 0 6px 28px rgba(0, 0, 0, 0.4);
+  --am-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --am-inner-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.36);
+  --am-inner-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- Press glow ----------
+   Finger-following radial highlight for tappable surfaces. usePressGlow writes
+   --press-x / --press-y on pointerdown; everything else here is declarative.
+
+   `isolation: isolate` is load-bearing: it makes the element its own stacking
+   context so the z-index:-1 pseudo-element lands above the element's own
+   background but below its content. Without it the glow drops behind the
+   background and is never seen. */
+.press-glow {
+  position: relative;
+  isolation: isolate;
+}
+.press-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    140px circle at var(--press-x, 50%) var(--press-y, 50%),
+    var(--am-press-glow) 0%,
+    transparent 68%
+  );
+  transition: opacity var(--am-motion-normal) var(--am-ease-standard);
+}
+.press-glow:active::after {
+  opacity: 1;
+}
+/* For surfaces that are opaque artwork rather than a bare row: the glow has to
+   sit *over* the image to be seen at all, so it is raised above the content. */
+.press-glow--over::after {
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .press-glow::after {
+    transition-duration: 1ms;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--am-bg);
+  color: var(--am-text-1);
+  font-family: var(--am-font);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  transition: background-color var(--am-motion-page) var(--am-ease-standard),
+    color var(--am-motion-page) var(--am-ease-standard);
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+input {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: var(--am-accent-soft);
+}
+
+/* Restrained HyperOS-style scrollbar */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--am-surface-3);
+  border-radius: var(--am-radius-pill);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--am-text-3);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Shared animation utilities */
+@keyframes am-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes am-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes am-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes am-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes am-shimmer {
+  from {
+    background-position: -400px 0;
+  }
+  to {
+    background-position: 400px 0;
+  }
+}
+
+.am-page-enter {
+  animation: am-page-in var(--am-motion-page) var(--am-ease-out) both;
+}
+
+/* ============ Visual polish layer (2026-09) ============ */
+
+/* Halcyon press language: spring scale, no ripple. */
+.am-btn:active {
+  transform: scale(0.96);
+}
+.am-btn {
+  transition: transform var(--am-motion-micro) var(--am-ease-spring),
+    background-color var(--am-motion-micro) var(--am-ease-standard),
+    color var(--am-motion-micro) var(--am-ease-standard);
+}
+.chip:active {
+  transform: scale(0.95);
+}
+.am-switch:active .am-switch__thumb {
+  transform: scale(1.15);
+}
+
+/* Equal-width digits: durations, counters and progress never jitter. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sheet scrim gets the same glass treatment the dialog scrim already has. */
+.am-sheet-scrim {
+  backdrop-filter: blur(8px) saturate(115%);
+  -webkit-backdrop-filter: blur(8px) saturate(115%);
+}
+
+/* Card hover: lift the card, breathe the cover. */
+.music-card:hover {
+  transform: translateY(-4px);
+}
+.music-card .music-card__cover img,
+.music-card .music-card__cover .net-pl-cover {
+  transition: transform 360ms var(--am-ease-standard);
+}
+.music-card:hover .music-card__cover img,
+.music-card:hover .music-card__cover .net-pl-cover {
+  transform: scale(1.05);
+}
+.user-pl-card {
+  transition: transform var(--am-motion-normal) var(--am-ease-standard),
+    box-shadow var(--am-motion-normal) var(--am-ease-standard);
+}
+.user-pl-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Now-playing anchor: accent rail + tinted title. */
+.song-item--active {
+  position: relative;
+}
+.song-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 24%;
+  bottom: 24%;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--am-accent);
+}
+.song-item--active .song-item__title {
+  color: var(--am-accent);
+  font-weight: 700;
+}
+
+/* Empty state: small illustration moment instead of a lone glyph. */
+.am-empty__icon {
+  position: relative;
+  background: color-mix(in srgb, var(--am-accent) 9%, var(--am-surface-2));
+  color: var(--am-accent);
+  box-shadow:
+    0 14px 34px -16px color-mix(in srgb, var(--am-accent) 45%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--am-accent) 18%, transparent);
+}
+.am-empty__icon::before,
+.am-empty__icon::after {
+  position: absolute;
+  font-size: 13px;
+  color: var(--am-accent);
+  opacity: 0.55;
+  animation: am-note-float 4.2s ease-in-out infinite;
+}
+.am-empty__icon::before {
+  content: '♪';
+  top: -8px;
+  left: -14px;
+}
+.am-empty__icon::after {
+  content: '♫';
+  bottom: -6px;
+  right: -16px;
+  animation-delay: 2.1s;
+}
+@keyframes am-note-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(8deg);
+  }
+}
+
+/* View transition pacing (shared-element morphs stay snappy). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+}
+
+/* List entrance stagger (first paint of each list; reduced-motion is
+   already neutralised globally in a11y.css). */
+@keyframes am-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* Only the first screenful staggers in. Rows revealed later by the
+     progressive list mount as the user scrolls into them, and there the same
+     fade-in reads as a flicker - the fill mode starts them at opacity 0, so
+     they would blink in up to 190ms after arriving on screen. */
+  .song-list > .song-item:nth-child(-n + 12) {
+    animation: am-row-in 280ms var(--am-ease-standard) both;
+  }
+  .song-list > .song-item:nth-child(1) { animation-delay: 0ms; }
+  .song-list > .song-item:nth-child(2) { animation-delay: 24ms; }
+  .song-list > .song-item:nth-child(3) { animation-delay: 48ms; }
+  .song-list > .song-item:nth-child(4) { animation-delay: 72ms; }
+  .song-list > .song-item:nth-child(5) { animation-delay: 96ms; }
+  .song-list > .song-item:nth-child(6) { animation-delay: 120ms; }
+  .song-list > .song-item:nth-child(7) { animation-delay: 144ms; }
+  .song-list > .song-item:nth-child(8) { animation-delay: 168ms; }
+  .song-list > .song-item:nth-child(n + 9) { animation-delay: 190ms; }
+  .grid-cards > * {
+    animation: am-row-in 320ms var(--am-ease-standard) both;
+  }
+  .grid-cards > *:nth-child(1) { animation-delay: 0ms; }
+  .grid-cards > *:nth-child(2) { animation-delay: 40ms; }
+  .grid-cards > *:nth-child(3) { animation-delay: 80ms; }
+  .grid-cards > *:nth-child(4) { animation-delay: 120ms; }
+  .grid-cards > *:nth-child(5) { animation-delay: 160ms; }
+  .grid-cards > *:nth-child(6) { animation-delay: 200ms; }
+  .grid-cards > *:nth-child(n + 7) { animation-delay: 240ms; }
+}
+
+/* Home hero ambient slowly drifts so the page breathes. */
+.home-ambient {
+  animation: home-ambient-drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes home-ambient-drift {
+  from {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, 2.5%, 0) scale(1.08);
+  }
+}
+.home-hero__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--am-text-2);
+}
+
+/* Clamped long text with expand-on-tap. */
+.clamp-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: default;
+}
+.clamp-text--clamped {
+  cursor: pointer;
+}
+.clamp-text--open {
+  -webkit-line-clamp: unset;
+}
+
+/* OLED pure black: deeper surfaces only when dark mode is active. */
+[data-theme='dark'][data-black='1'] {
+  --am-bg: #000;
+  --am-surface-2: #131316;
+  --am-surface-3: #1c1c22;
+  --am-surface-1: rgba(20, 20, 24, 0.72);
+  --am-glass: rgba(14, 14, 18, 0.6);
+}

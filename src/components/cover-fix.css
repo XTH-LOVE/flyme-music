@@ -1,0 +1,35 @@
+/*
+ * Hardening: an <img> sized with width/height 100% inside an aspect-ratio
+ * container can form a pathological intrinsic-sizing loop inside CSS Grid
+ * auto tracks (Chromium resolves the percentage against the document
+ * height), blowing tracks up to ~11000px.
+ * Fix: absolutely position cover media so it never contributes to
+ * intrinsic sizes, and clamp grid items with min-width: 0.
+ */
+.net-pl-cover,
+.track-cover-img,
+.detail-hero__cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.music-card__cover,
+.user-pl-card__cover,
+.recent-card__cover,
+.mini-player__cover,
+.queue-item__cover,
+.full-player__cover,
+.detail-hero__cover,
+.song-item__cover,
+.artist-card__avatar {
+  position: relative;
+}
+
+.music-card,
+.user-pl-card {
+  min-width: 0;
+}

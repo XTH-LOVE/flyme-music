@@ -1,0 +1,25 @@
+.banner--net {
+  background: var(--am-surface);
+  color: var(--am-text-1);
+  border: 1px solid var(--am-divider);
+  box-shadow: var(--am-shadow-card);
+}
+.banner--net .banner__tag {
+  color: var(--am-accent);
+  opacity: 1;
+}
+.banner--net .banner__desc {
+  color: var(--am-text-2);
+  opacity: 1;
+}
+.chart-card--link {
+  cursor: pointer;
+  text-align: left;
+  min-height: 120px;
+  transition: transform var(--am-motion-normal) var(--am-ease-standard),
+    box-shadow var(--am-motion-normal) var(--am-ease-standard);
+}
+.chart-card--link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--am-shadow-card-hover);
+}

@@ -1,5 +1,7 @@
 # Flyme Music
 
+> 由 **缐廷华** 设计与开发 · <https://github.com/XTH-LOVE>
+
 一款具有 **Xiaomi HyperOS 设计语言**、融合现代音乐播放器体验的高级音乐应用。
 
 > HyperOS + 现代音乐播放器 + 高级简约 + 轻量 Liquid Glass

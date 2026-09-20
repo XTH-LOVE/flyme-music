@@ -10,7 +10,8 @@
     <title>Flyme Music — HyperOS 风格现代音乐播放器</title>
   </head>
   <body>
-    <script type="module" src="/src/official/main.ts"></script>
+        <div class="of-progress" data-scroll-progress aria-hidden="true"></div>
+<script type="module" src="/src/official/main.ts"></script>
 
     <header class="of-nav">
       <div class="of-nav__inner">
@@ -23,7 +24,9 @@
           <a href="#preview">界面</a>
           <a href="#about">关于</a>
         </nav>
+        <a href="#gallery">界面</a>
         <a href="#download">下载</a>
+        <a href="#history">版本</a>
         <a class="of-btn of-btn--primary of-nav__cta" href="/">立即体验</a>
       </div>
     </header>
@@ -44,6 +47,27 @@
             <a class="of-btn of-btn--primary of-btn--lg" href="/">立即体验</a>
             <a class="of-btn of-btn--secondary of-btn--lg" href="#features">了解特性</a>
           </div>
+
+          <!-- Live from the release API, so the page never quotes a stale
+               version or size. Filled by src/official/download.ts. -->
+          <dl class="of-stats" data-dl="stats" hidden>
+            <div class="of-stat">
+              <dt class="of-stat__label">最新版本</dt>
+              <dd class="of-stat__value" data-dl="stat-version">—</dd>
+            </div>
+            <div class="of-stat">
+              <dt class="of-stat__label">安装包</dt>
+              <dd class="of-stat__value" data-dl="stat-size">—</dd>
+            </div>
+            <div class="of-stat">
+              <dt class="of-stat__label">发布日期</dt>
+              <dd class="of-stat__value" data-dl="stat-date">—</dd>
+            </div>
+            <div class="of-stat">
+              <dt class="of-stat__label">平台</dt>
+              <dd class="of-stat__value">Android 7.0+</dd>
+            </div>
+          </dl>
           <div class="of-hero__mark-wrap" aria-hidden="true">
             <img src="/flyme-mark.jpg" alt="" class="of-hero__mark" />
           </div>
@@ -170,6 +194,103 @@
       </section>
 
       <!-- About / Footer -->
+      <section class="of-section" id="stack">
+        <div class="of-section__inner">
+          <h2 class="of-section__title of-reveal">一套代码，三个平台</h2>
+          <p class="of-section__desc of-reveal">同一份 React 代码库编译出网页版、Windows 桌面版与 Android 应用，播放核心、设计系统与歌词引擎完全共用。</p>
+          <div class="of-stack">
+            <div class="of-stack__item of-reveal"><span class="of-stack__name">Tauri 2</span><span class="of-stack__role">桌面与移动端外壳</span></div>
+            <div class="of-stack__item of-reveal"><span class="of-stack__name">React 18 + Vite 6</span><span class="of-stack__role">界面与构建</span></div>
+            <div class="of-stack__item of-reveal"><span class="of-stack__name">Rust</span><span class="of-stack__role">音频标签解析、代理与签名下载</span></div>
+            <div class="of-stack__item of-reveal"><span class="of-stack__name">Cloudflare Pages</span><span class="of-stack__role">网页版与更新服务</span></div>
+            <div class="of-stack__item of-reveal"><span class="of-stack__name">GitHub Actions</span><span class="of-stack__role">自动构建与签名发布</span></div>
+            <div class="of-stack__item of-reveal"><span class="of-stack__name">Web Audio + Canvas</span><span class="of-stack__role">频谱、特征提取与动态背景</span></div>
+          </div>
+          <p class="of-stack__note of-reveal">全部离线可用 · 无广告 · 无第三方统计埋点</p>
+        </div>
+      </section>
+
+      <section class="of-section of-section--social" data-showcase="social" hidden>
+        <div class="of-section__inner">
+          <div class="of-social">
+            <div class="of-social__item">
+              <span class="of-social__value" data-count-to="stars">0</span>
+              <span class="of-social__label">GitHub Star</span>
+            </div>
+            <div class="of-social__item">
+              <span class="of-social__value" data-count-to="downloads">0</span>
+              <span class="of-social__label">累计下载</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="of-section" id="gallery">
+        <div class="of-section__inner">
+          <h2 class="of-section__title of-reveal">看得见的设计</h2>
+          <p class="of-section__desc of-reveal">同一套设计系统在手机与桌面上的样子。</p>
+          <div class="of-gallery">
+            <figure class="of-device of-reveal">
+              <div class="of-device__screen">
+                <div class="of-mock">
+                  <div class="of-mock__bar"><span class="of-mock__dot"></span>正在播放</div>
+                  <div class="of-mock__art"></div>
+                  <div class="of-mock__title">晴天</div>
+                  <div class="of-mock__artist">周杰伦 · 叶惠美</div>
+                  <div class="of-mock__lines">
+                    <span>故事的小黄花</span>
+                    <span class="of-mock__line--on">从出生那年就飘着</span>
+                    <span>童年的荡秋千</span>
+                  </div>
+                </div>
+              </div>
+              <figcaption class="of-device__caption">沉浸式歌词</figcaption>
+            </figure>
+
+            <figure class="of-device of-reveal">
+              <div class="of-device__screen">
+                <div class="of-mock">
+                  <div class="of-mock__bar"><span class="of-mock__dot"></span>播放队列</div>
+                  <ul class="of-mock__list">
+                    <li><span class="of-mock__idx">1</span><span class="of-mock__cover"></span><span class="of-mock__row">晴天</span></li>
+                    <li><span class="of-mock__idx">2</span><span class="of-mock__cover"></span><span class="of-mock__row">稻香</span></li>
+                    <li class="of-mock__row--on"><span class="of-mock__idx">3</span><span class="of-mock__cover"></span><span class="of-mock__row">夜曲</span></li>
+                    <li><span class="of-mock__idx">4</span><span class="of-mock__cover"></span><span class="of-mock__row">七里香</span></li>
+                  </ul>
+                </div>
+              </div>
+              <figcaption class="of-device__caption">队列拖拽排序</figcaption>
+            </figure>
+
+            <figure class="of-device of-reveal">
+              <div class="of-device__screen">
+                <div class="of-mock">
+                  <div class="of-mock__bar"><span class="of-mock__dot"></span>听歌统计</div>
+                  <div class="of-mock__stat"><b>1,204</b><span>播放记录</span></div>
+                  <div class="of-mock__bars">
+                    <i style="height:38%"></i><i style="height:62%"></i><i style="height:45%"></i>
+                    <i style="height:84%"></i><i style="height:56%"></i><i style="height:72%"></i>
+                    <i style="height:30%"></i><i style="height:66%"></i><i style="height:50%"></i>
+                    <i style="height:90%"></i><i style="height:58%"></i><i style="height:74%"></i>
+                  </div>
+                </div>
+              </div>
+              <figcaption class="of-device__caption">听歌日历与统计</figcaption>
+            </figure>
+          </div>
+          <p class="of-gallery__note of-reveal">以上为界面示意。真机截图可直接替换：把图片放进 <code>public/screenshots/</code>，并把 <code>of-mock</code> 换成 <code>&lt;img&gt;</code>。</p>
+        </div>
+      </section>
+
+      <section class="of-section" id="history">
+        <div class="of-section__inner">
+          <h2 class="of-section__title of-reveal">版本历史</h2>
+          <p class="of-section__desc of-reveal">每一次发布都记录在案。</p>
+          <ol class="of-timeline" data-showcase="timeline"></ol>
+          <p class="of-timeline__empty" data-showcase="timeline-empty" hidden>暂时无法获取版本记录。</p>
+        </div>
+      </section>
+
       <footer class="of-footer" id="about">
         <div class="of-footer__inner">
           <div class="of-footer__brand">
@@ -183,8 +304,11 @@
             <a href="/">立即体验</a>
             <a href="#features">设计语言</a>
             <a href="#preview">界面预览</a>
+            <a href="#download">下载 Android 版</a>
+            <a href="#stack">技术栈</a>
+            <a href="/">网页版</a>
           </nav>
-          <p class="of-footer__copy">© 2026 Flyme Music · 原创虚构内容，未使用任何受版权保护的资源</p>
+          <p class="of-footer__copy">© 2026 Flyme Music · 由 <strong>缐廷华</strong> 设计与开发 · <a href="https://github.com/XTH-LOVE">github.com/XTH-LOVE</a></p>
         </div>
       </footer>
     </main>

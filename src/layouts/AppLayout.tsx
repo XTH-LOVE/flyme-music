@@ -20,6 +20,7 @@ import { useListenRoom } from '@/hooks/useListenRoom';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useBackgroundAnalysis } from '@/hooks/useBackgroundAnalysis';
 import { useEffect } from 'react';
+import { UpdateCapsule } from '@/components/UpdateCapsule';
 
 export function AppLayout() {
   usePlaybackSync();
@@ -74,6 +75,7 @@ export function AppLayout() {
   }, []);
   return (
     <div className="app-shell">
+      <UpdateCapsule />
       <MonetAccent />
       <Sidebar />
       <main className="app-main">

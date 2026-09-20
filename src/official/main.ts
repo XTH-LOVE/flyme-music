@@ -7,6 +7,7 @@
 import '../styles/global.css';
 import './official.css';
 import { initDownload } from './download';
+import { initShowcase } from './showcase';
 
 function initReveal(): void {
   const targets = document.querySelectorAll<HTMLElement>('.of-reveal');
@@ -42,3 +43,4 @@ function initReveal(): void {
 initReveal();
 
 initDownload();
+initShowcase();

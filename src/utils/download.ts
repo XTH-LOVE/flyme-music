@@ -1,6 +1,7 @@
 import type { MusicTrack } from '@/music/source/types';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { bitrateForQuality } from '@/music/source/quality';
 import { isTauri } from '@/lib/apiTransport';
 import { notify } from '@/utils/notify';
 import { saveBlobInBrowser } from '@/utils/saveBlob';
@@ -44,8 +45,7 @@ async function fetchMediaBlob(url: string): Promise<Blob> {
 export async function downloadTrack(track: MusicTrack): Promise<void> {
   // Download at the configured quality (default: highest); the resolver
   // falls back to lower bitrates when the quality is unavailable.
-  const quality = useSettingsStore.getState().quality;
-  const br = quality === 'lossless' ? 999 : quality === 'high' ? 320 : 192;
+  const br = bitrateForQuality(useSettingsStore.getState().quality);
   const url = await resolveTrackUrl(track, br);
   if (!url) throw new Error('无法获取下载地址（可能受版权限制）');
 

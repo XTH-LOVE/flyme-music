@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { shouldSpendBandwidth } from './background';
+import { isMeteredConnection, shouldSpendBandwidth } from './background';
 
 /**
  * Background analysis downloads whole tracks. It runs unattended, so the gate
@@ -71,5 +71,37 @@ describe('shouldSpendBandwidth', () => {
     // disable the feature for everyone on those browsers.
     setConnection(undefined);
     expect(shouldSpendBandwidth().ok).toBe(true);
+  });
+});
+
+/**
+ * The connection fact is separate from the analysis setting: the next-track
+ * audio prefetch honours one and not the other, so a metered check that
+ * followed the setting would either leak data or block prefetching.
+ */
+describe('isMeteredConnection', () => {
+  it('is false on an ordinary connection', () => {
+    setConnection({ effectiveType: '4g', type: 'wifi' });
+    expect(isMeteredConnection()).toBe(false);
+  });
+
+  it('is true on cellular and when the user asked to save data', () => {
+    setConnection({ type: 'cellular' });
+    expect(isMeteredConnection()).toBe(true);
+    setConnection({ saveData: true, effectiveType: '4g' });
+    expect(isMeteredConnection()).toBe(true);
+  });
+
+  it('ignores the analysis setting, which does not govern playback', () => {
+    setConnection({ type: 'cellular' });
+    useSettingsStore.setState({ backgroundAnalysis: true });
+    expect(isMeteredConnection()).toBe(true);
+    useSettingsStore.setState({ backgroundAnalysis: false });
+    // Still true: turning analysis off says nothing about the connection.
+    expect(isMeteredConnection()).toBe(true);
+    setConnection(undefined);
+    useSettingsStore.setState({ backgroundAnalysis: false });
+    // And an ordinary connection is usable even with analysis disabled.
+    expect(isMeteredConnection()).toBe(false);
   });
 });

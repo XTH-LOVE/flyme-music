@@ -2,6 +2,7 @@ import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { songToTrack, sourceLabels } from '@/music/source/types';
 import type { Song } from '@/music/types';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
+import { bitrateForQuality } from '@/music/source/quality';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { notify } from '@/utils/notify';
 import { setPlaybackFailure, clearPlaybackFailure } from './playbackFailure';
@@ -311,8 +312,7 @@ class PlayerController {
     this.engine.play();
     this.broadcast();
 
-    const quality = useSettingsStore.getState().quality;
-    const br = quality === 'lossless' ? 999 : quality === 'high' ? 320 : 192;
+    const br = bitrateForQuality(useSettingsStore.getState().quality);
     const url = await resolveTrackUrl(track, br);
     // Compare by source:id - bare ids collide across netease/qq/joox.
     const cur = this.queue.current;
@@ -376,8 +376,7 @@ class PlayerController {
     if (!track || track.source === 'mock') return;
     const requestId = ++this.playbackRequestId;
     const trackKey = track.source + ':' + track.id + ':' + track.url_id;
-    const quality = useSettingsStore.getState().quality;
-    const br = quality === 'lossless' ? 999 : quality === 'high' ? 320 : 192;
+    const br = bitrateForQuality(useSettingsStore.getState().quality);
     const url = await resolveTrackUrl(track, br);
     const cur = this.queue.current;
     const stillCurrent =

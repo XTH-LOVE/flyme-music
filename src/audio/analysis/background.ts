@@ -33,13 +33,37 @@ function connection(): NetworkInformation | undefined {
  * universally supported: `saveData` is the user's explicit request, and
  * `type`/`effectiveType` catch mobile data where saveData may be unset.
  */
-export function shouldSpendBandwidth(): { ok: boolean; reason?: 'disabled' | 'save_data' | 'metered' } {
-  if (!useSettingsStore.getState().backgroundAnalysis) return { ok: false, reason: 'disabled' };
+export type BandwidthRefusal = 'save_data' | 'metered';
+
+/**
+ * Why this connection should not be spent on background work, if any.
+ *
+ * Split out from the setting check because it is a fact about the network
+ * rather than a preference: the next-track audio prefetch honours this too,
+ * while `backgroundAnalysis` only governs whether tracks get analysed.
+ *
+ * Both signals are honoured because neither is universally supported:
+ * `saveData` is the user's explicit request, and `type`/`effectiveType` catch
+ * mobile data where saveData may be unset.
+ */
+export function connectionRefusal(): BandwidthRefusal | null {
   const conn = connection();
-  if (conn?.saveData) return { ok: false, reason: 'save_data' };
+  if (conn?.saveData) return 'save_data';
   if (conn?.type === 'cellular' || conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g') {
-    return { ok: false, reason: 'metered' };
+    return 'metered';
   }
+  return null;
+}
+
+/** True when spending bandwidth here would come out of someone's data plan. */
+export function isMeteredConnection(): boolean {
+  return connectionRefusal() !== null;
+}
+
+export function shouldSpendBandwidth(): { ok: boolean; reason?: 'disabled' | BandwidthRefusal } {
+  if (!useSettingsStore.getState().backgroundAnalysis) return { ok: false, reason: 'disabled' };
+  const refusal = connectionRefusal();
+  if (refusal) return { ok: false, reason: refusal };
   return { ok: true };
 }
 

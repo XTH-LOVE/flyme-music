@@ -43,7 +43,13 @@
       `lib/coverTransition.ts` names the artwork so the browser morphs it from
       the playlist card into the detail page (`NetPlaylistCard` →
       `NeteasePlaylistDetailPage`)
-- [ ] Gapless playback
+- [ ] Gapless playback — the network half is done: `hooks/usePrefetch.ts` warms
+      the next track's stream URL and audio bytes 30s before the current one
+      ends, skipping metered connections, so the transition no longer waits on
+      the first bytes. Sample-accurate gapless needs two audio elements swapping
+      under `PlayerEngine` (plus the Web Audio rewire, sleep fade, rate and
+      `userSeeked` invariants that go with it) — a playback-core change, left
+      open deliberately rather than rushed
 
 ## Phase 4 — Productization (in progress, Tauri instead of PWA)
 

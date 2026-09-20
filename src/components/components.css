@@ -168,7 +168,11 @@
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(70px + env(safe-area-inset-bottom));
+  /* 86px, not 70: the floating glass nav pill is 62px tall (a 50px bubble plus
+     5px padding and a 1px border on each side) and sits at 10px, so its top
+     edge is at 72px. At 70 the mini player overlapped it by 2px, which is what
+     made the two look welded together. 86 leaves a 14px gap. */
+  bottom: calc(86px + env(safe-area-inset-bottom));
   z-index: 120;
   cursor: pointer;
 }

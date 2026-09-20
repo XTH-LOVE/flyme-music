@@ -97,6 +97,45 @@ function PlaylistCard({ id, name, tracks }: { id: string; name: string; tracks: 
   );
 }
 
+function mmss(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+/**
+ * Measured section boundaries, offered as actions.
+ *
+ * The analysis knows where the chorus starts; leaving that as a number inside a
+ * paragraph asks the user to go scrub for it. Only shown while the track being
+ * described is the one playing, because seeking is relative to whatever is
+ * current - on an older card these would jump the wrong song.
+ */
+function SectionJumps({ track, sections }: { track: MusicTrack; sections?: AiMessage['sections'] }) {
+  const isCurrent = usePlayerStore(
+    (s) => Boolean(s.current && s.current.source === track.source && s.current.id === track.id),
+  );
+  if (!isCurrent || !sections?.length) return null;
+
+  const chorus = sections.find((s) => s.likelyChorus);
+  const loudest = sections.find((s) => s.isLoudest);
+  const targets: Array<{ key: string; label: string; at: number }> = [];
+  if (chorus) targets.push({ key: 'chorus', label: '跳到副歌', at: chorus.startSec });
+  // Same section twice would be two buttons doing the same thing.
+  if (loudest && loudest !== chorus) targets.push({ key: 'loudest', label: '跳到最响段', at: loudest.startSec });
+  if (!targets.length) return null;
+
+  return (
+    <div className="ai-song-event__jumps">
+      {targets.map((t) => (
+        <button key={t.key} className="ai-jump" type="button" onClick={() => playerController.seek(t.at)}>
+          <Icon name="play" size={12} />
+          {t.label} {mmss(t.at)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MessageView({ m, onRetry }: { m: AiMessage; onRetry?: () => void }) {
   if (m.kind === 'song' && m.tracks?.length) {
     const t = m.tracks[0];
@@ -127,6 +166,7 @@ function MessageView({ m, onRetry }: { m: AiMessage; onRetry?: () => void }) {
               {m.text}
               {m.streaming ? <span className="ai-card__cursor" /> : null}
             </div>
+            <SectionJumps track={t} sections={m.sections} />
             {m.analysisStatus === 'error' && onRetry ? (
               <button className="ai-song-event__retry" onClick={onRetry} type="button">
                 <Icon name="arrowRight" size={14} />

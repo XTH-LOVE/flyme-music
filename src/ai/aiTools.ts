@@ -186,7 +186,8 @@ export function buildSystemPrompt(
     '\n· search_tracks {"query":"关键词","count":8,"artist":"可选"} —— 双音源搜索，结果进入候选池并按序号返回' +
     '\n· play {"indices":[0,2]} —— 播放候选池里的歌（缺省播第一首）；也可 {"query":"歌名"} 现搜现放' +
     '\n· create_playlist {"title":"歌单名","indices":[..]} —— 用候选池里挑好的歌建歌单；也可 {"title":"..","query":"主题"} 直接建' +
-    '\n· queue_similar {} · control {"action":"toggle|next|previous|volume_up|volume_down|lyrics"} · radio {"mood":"心情"}' +
+    '\n· queue_similar {} · control {"action":"toggle|next|previous|volume_up|volume_down|lyrics|seek","seconds":可选} · radio {"mood":"心情"}' +
+    '\n· control 的 seek 用 {"action":"seek","seconds":58} 跳到指定秒数——analyze_song 给出结构边界后，用户说「跳到副歌」就用它；seconds 必须来自实测边界，不要凭感觉给数字' +
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
     '\n· navigate {"to":"/settings 或其他 Aurora 路由"} —— 打开应用页面' +
     '\n· open_player {} —— 打开全屏播放器 · toggle_lyrics {} —— 切换歌词页 · set_theme {"mode":"light|dark|system"}' +
@@ -577,6 +578,20 @@ export async function executeTool(
       case 'lyrics':
         snap.toggleLyricsMode();
         return { reply: '歌词页切换好啦。', fact: { action: 'control', did: 'lyrics' } };
+      case 'seek': {
+        // Seconds, and only ever a boundary the local analysis measured - the
+        // tool description says as much, and a made-up timestamp would land the
+        // user in the middle of nowhere.
+        const seconds = Number(call.seconds);
+        if (!Number.isFinite(seconds) || seconds < 0) {
+          return { reply: '（不知道要跳到哪一秒）', fact: { action: 'control', error: 'seek 缺少 seconds' } };
+        }
+        const total = snap.duration || 0;
+        const target = total > 0 ? Math.min(seconds, Math.max(0, total - 1)) : seconds;
+        playerController.seek(target);
+        const label = Math.floor(target / 60) + ':' + String(Math.floor(target % 60)).padStart(2, '0');
+        return { reply: '跳到 ' + label + '。', fact: { action: 'control', did: 'seek', seconds: target } };
+      }
       default:
         return { reply: '（没听懂要控制什么）', fact: { action: 'control', error: '未知 action' } };
     }

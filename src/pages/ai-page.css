@@ -197,6 +197,30 @@
   font-size: 12px;
   font-weight: 600;
 }
+/* Measured section boundaries, offered as actions rather than prose. */
+.ai-song-event__jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.ai-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.12));
+  border-radius: 999px;
+  color: var(--am-text-1);
+  background: var(--am-surface-1, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  transition: transform 120ms var(--am-ease-standard, ease);
+}
+.ai-jump:active {
+  transform: scale(0.97);
+}
 .ai-card {
   max-width: 88%;
   padding: 10px 14px;

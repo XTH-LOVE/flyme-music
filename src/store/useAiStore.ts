@@ -25,6 +25,19 @@ export interface AiMessage {
   analysisStatus?: 'pending' | 'ready' | 'error' | 'skipped';
   /** User-facing analysis progress summary, never raw hidden chain-of-thought. */
   thought?: string;
+  /**
+   * Measured section boundaries for the message's track, when it was analysed.
+   *
+   * Kept on the message so the commentary can offer a jump: the analysis knows
+   * where the chorus starts, and a number in prose is something the user has to
+   * act on themselves. Deliberately the measured subset - no invented labels.
+   */
+  sections?: Array<{
+    startSec: number;
+    endSec: number;
+    isLoudest: boolean;
+    likelyChorus: boolean;
+  }>;
   ts?: number;
 }
 

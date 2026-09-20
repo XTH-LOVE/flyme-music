@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MusicTrack } from '@/music/source/types';
+import { playerController } from '@/player';
 
 /**
  * The analysis tools were added without any coverage of the dispatch layer, and
@@ -261,5 +262,35 @@ describe('queue_similar', () => {
     const result = await executeTool({ tool: 'queue_similar' });
     expect(factOf(result).method).toBe('acoustic');
     expect(h.searchAllSources).not.toHaveBeenCalled();
+  });
+});
+
+describe('control seek', () => {
+  beforeEach(() => {
+    vi.mocked(playerController.seek).mockClear();
+  });
+
+  it('seeks to a boundary the analysis measured', async () => {
+    const result = await executeTool({ tool: 'control', action: 'seek', seconds: 58 });
+    expect(playerController.seek).toHaveBeenCalledWith(58);
+    expect(result.reply).toContain('0:58');
+  });
+
+  it('clamps a boundary past the end of the track', async () => {
+    // The mocked snapshot reports duration 200; seeking past it would stop the
+    // element at the end instead of playing anything.
+    await executeTool({ tool: 'control', action: 'seek', seconds: 500 });
+    expect(playerController.seek).toHaveBeenCalledWith(199);
+  });
+
+  it('refuses a seek with no usable timestamp', async () => {
+    // The prompt says seconds must come from measured boundaries; a missing or
+    // malformed value must not become a silent jump to zero.
+    const missing = await executeTool({ tool: 'control', action: 'seek' });
+    expect(playerController.seek).not.toHaveBeenCalled();
+    expect(missing.reply).toContain('不知道');
+
+    await executeTool({ tool: 'control', action: 'seek', seconds: -3 });
+    expect(playerController.seek).not.toHaveBeenCalled();
   });
 });

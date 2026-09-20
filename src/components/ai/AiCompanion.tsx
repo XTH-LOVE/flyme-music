@@ -126,7 +126,18 @@ export function AiCompanion() {
     // measurements to work from. An ungrounded one is re-run, because the
     // track may well have been analysed since it was written.
     const upgrading = Boolean(cachedText && !cached?.grounded);
-    if (!configured || (cachedText && !upgrading)) return undefined;
+    if (!configured || (cachedText && !upgrading)) {
+      // The commentary itself is settled, but its measured sections are still
+      // worth attaching: the jump affordance should survive a replay too.
+      if (configured && cachedText) {
+        void readCachedCard(trackKeyOf(current)).then((card) => {
+          if (card?.sections?.length) {
+            useAiStore.getState().updateMessage(messageId, { sections: card.sections });
+          }
+        });
+      }
+      return undefined;
+    }
     const song = current;
     const controller = new AbortController();
     requestRef.current = controller;
@@ -163,6 +174,11 @@ export function AiCompanion() {
             ]);
           }
           if (controller.signal.aborted) return;
+          // Carry the measured boundaries onto the message so the commentary
+          // can offer a jump instead of leaving the user to scrub for it.
+          if (card?.sections?.length) {
+            useAiStore.getState().updateMessage(messageId, { sections: card.sections });
+          }
           // Upgrading an existing commentary is only worth it if there is
           // something new to say; otherwise the text on screen already stands.
           if (upgrading && !card) {

@@ -6,7 +6,7 @@
 
 ## 1. 目标与背景
 
-Flyme Music 的「一起听」AI（Aurora）已具备多轮工具调用 Agent（search_tracks / play / create_playlist / radio / control / analyze_song 等）、三种人设、听歌统计上下文。但每次对话都是"失忆"的：不记得用户上次说过喜欢谁、讨厌什么、聊过什么。
+Flyme Music 的「一起听」AI（Flyme）已具备多轮工具调用 Agent（search_tracks / play / create_playlist / radio / control / analyze_song 等）、三种人设、听歌统计上下文。但每次对话都是"失忆"的：不记得用户上次说过喜欢谁、讨厌什么、聊过什么。
 
 本期为 AI 增加跨会话长期记忆，使推荐与对话随使用越来越个性化，且对用户完全透明可管理。
 

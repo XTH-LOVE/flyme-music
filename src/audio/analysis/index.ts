@@ -27,6 +27,7 @@ export {
   type TasteProfile,
 } from './profile';
 export { analyzeInBackground, cancelBackgroundAnalysis, isAnalyzing, BACKGROUND_DELAY_MS } from './background';
+export { warmupAnalysis, cancelWarmup, warmupCandidates, WARMUP_BUDGET } from './warmup';
 export {
   liveStatus,
   readLiveWindow,

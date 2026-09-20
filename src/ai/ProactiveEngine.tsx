@@ -43,7 +43,7 @@ export function ProactiveEngine() {
         session,
       }).then(({ text }) => {
         state.pushMessage({ id: nextAiMsgId(), role: 'ai', kind: 'chat', text });
-        if (kind === 'weekly') notify('Aurora 为你生成了上周听歌报告');
+        if (kind === 'weekly') notify('Flyme 为你生成了上周听歌报告');
         markFired(kind, variant, Date.now());
       });
     };

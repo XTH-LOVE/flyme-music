@@ -41,7 +41,7 @@ export interface RoomStatePatch {
 }
 
 function assertSupabase(): SupabaseClient {
-  if (!supabaseConfigured || !supabase) throw new Error('需要先配置并登录 Aurora 账号');
+  if (!supabaseConfigured || !supabase) throw new Error('需要先配置并登录 Flyme 账号');
   return supabase;
 }
 
@@ -58,7 +58,7 @@ export function generateRoomCode(): string {
 export async function createRoom(profile: RoomProfile): Promise<ListenRoomRow> {
   const db = assertSupabase();
   const user = (await db.auth.getUser()).data.user;
-  if (!user) throw new Error('请先登录 Aurora 账号');
+  if (!user) throw new Error('请先登录 Flyme 账号');
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateRoomCode();
     const { data, error } = await db

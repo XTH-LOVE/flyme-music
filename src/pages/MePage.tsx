@@ -90,7 +90,7 @@ export function MePage() {
     try {
       const backup = await readBackupFile(file);
       if (!backup) {
-        setBackupMsg('不是有效的 Aurora 备份文件');
+        setBackupMsg('不是有效的 Flyme 备份文件');
         return;
       }
       restoreBackupToStorage(backup);

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development or executing-plans. Checkbox tracking.
 
-**Goal:** Aurora 主动开口：每日时段问候、连听里程碑关心、每周 AI 听歌报告（时间线 + 周报全局 toast），全量本地触发判定 + 静默降级。
+**Goal:** Flyme 主动开口：每日时段问候、连听里程碑关心、每周 AI 听歌报告（时间线 + 周报全局 toast），全量本地触发判定 + 静默降级。
 
 **Architecture:** 新模块 `src/ai/proactive.ts`（纯函数触发判定 `evaluateTriggers` + 生成层 `generateProactive` + 本地模板）；headless 组件 `src/ai/ProactiveEngine.tsx` 挂在 AppLayout；`useAiStore` 增 `proactive` 开关；SettingsPage 加开关行。
 

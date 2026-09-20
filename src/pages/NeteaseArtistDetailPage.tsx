@@ -1,7 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { TrackListItem } from '@/components/TrackListItem';
-import { ProgressiveList } from '@/components/ProgressiveList';
+import { LocatableTrackList } from '@/components/LocatableTrackList';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
 import { useNeteaseArtist } from '@/music/netease/useNetease';
@@ -67,15 +66,7 @@ export function NeteaseArtistDetailPage() {
           </div>
         </div>
       </div>
-      <div className="song-list">
-        <ProgressiveList
-          items={tracks}
-          resetKey={id}
-          renderItem={(track, i) => (
-            <TrackListItem key={track.id + ':' + i} track={track} context={tracks} index={i} />
-          )}
-        />
-      </div>
+      <LocatableTrackList tracks={tracks} resetKey={id} />
     </div>
   );
 }

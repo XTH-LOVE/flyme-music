@@ -2,7 +2,7 @@
 
 ## 目标
 
-把 Flyme Music（AuroraMusic）打包成**完全自带的桌面（Windows NSIS）+ Android** 应用：
+把 Flyme Music（FlymeMusic）打包成**完全自带的桌面（Windows NSIS）+ Android** 应用：
 
 - 运行期不依赖 vite dev server 的 `/api` 代理，也不依赖任何线上后端
 - AI 的 API key 编译进 Rust 侧，前端不持有

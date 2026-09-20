@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
+import { analyseLyricVoices, voiceSide } from '@/utils/lyricVoices';
 import type { MusicTrack } from '@/music/source/types';
 import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
 import './fullplayer.css';
@@ -77,10 +78,15 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [track.id, track.source]);
 
+  // Duet voices and backing vocals, read from the sheet's own conventions.
+  const voices = useMemo(() => analyseLyricVoices(lines.map((line) => line.text)), [lines]);
+
   let activeIndex = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].time + offset <= currentTime) activeIndex = i;
-    else break;
+    if (lines[i].time + offset > currentTime) break;
+    // A line that is only an aside never becomes "the line being sung"; the
+    // highlight stays on the last line that actually had words.
+    if (!voices.lines[i].allBackground) activeIndex = i;
   }
 
   useEffect(() => {
@@ -130,8 +136,10 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   const renderBody = () => {
     if (!lines.length) return <div className="lyrics__line">歌词加载中…</div>;
     return lines.map((line, i) => {
+      const parsed = voices.lines[i];
       const dist = Math.abs(i - activeIndex);
       const signed = Math.max(-6, Math.min(6, i - activeIndex));
+      const side = voices.duet ? voiceSide(parsed.voice) : 'center';
       const cls =
         'lyrics__line' +
         (i === activeIndex
@@ -140,7 +148,9 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
             ? ' lyrics__line--near'
             : dist >= 4
               ? ' lyrics__line--far'
-              : '');
+              : '') +
+        (voices.duet ? ' lyrics__line--' + side : '') +
+        (parsed.allBackground ? ' lyrics__line--aside' : '');
       return (
         <button
           key={track.id + '-' + i}
@@ -165,7 +175,18 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
                 }
           }
         >
-          <span className="lyrics__text">{line.text || '· · ·'}</span>
+          <span className="lyrics__text">
+            {parsed.runs.length
+              ? parsed.runs.map((run, r) => (
+                  <span
+                    key={r}
+                    className={run.background ? 'lyrics__bg' : undefined}
+                  >
+                    {run.text}
+                  </span>
+                ))
+              : '· · ·'}
+          </span>
           {showTrans && line.trans ? <span className="lyrics__trans">{line.trans}</span> : null}
         </button>
       );

@@ -8,7 +8,7 @@ const STEPS: { icon: 'user' | 'settings' | 'mic'; title: string; desc: string; t
   {
     icon: 'user',
     title: '登录账号',
-    desc: '扫码登录网易云或注册 Aurora 账号，歌单与收藏多端同步',
+    desc: '扫码登录网易云或注册 Flyme 账号，歌单与收藏多端同步',
     to: '/me',
     cta: '去登录',
   },
@@ -21,7 +21,7 @@ const STEPS: { icon: 'user' | 'settings' | 'mic'; title: string; desc: string; t
   },
   {
     icon: 'mic',
-    title: '试试 Aurora AI',
+    title: '试试 Flyme AI',
     desc: '说「播放周杰伦 晴天」或「建个雨天歌单」，她真的会做',
     to: '/ai',
     cta: '去聊天',
@@ -57,9 +57,9 @@ export function OnboardingCard() {
         <Icon name="close" size={15} />
       </button>
       <div className="onboarding-card__head">
-        <img src="/aurora-mark.jpg" width={40} height={40} alt="" />
+        <img src="/flyme-mark.jpg" width={40} height={40} alt="" />
         <div>
-          <div className="onboarding-card__title">欢迎来到 Aurora Music</div>
+          <div className="onboarding-card__title">欢迎来到 Flyme Music</div>
           <div className="onboarding-card__sub">
             {step + 1} / {STEPS.length} · {current.title}
           </div>

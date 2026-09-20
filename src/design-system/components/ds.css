@@ -201,6 +201,7 @@
   text-align: center;
 }
 .am-empty__icon {
+  position: relative;
   width: 56px;
   height: 56px;
   border-radius: var(--am-radius-xl);
@@ -210,6 +211,20 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 4px;
+}
+/* Shaped variant: the badge becomes a Material 3 Expressive silhouette, so the
+   rounded square's own fill is dropped in favour of the shape's. */
+.am-empty__icon--shaped {
+  background: none;
+}
+.am-empty__shape {
+  position: absolute;
+  inset: 0;
+  color: var(--am-accent-soft);
+}
+.am-empty__glyph {
+  position: relative;
+  z-index: 1;
 }
 .am-empty__title {
   font-size: 15px;

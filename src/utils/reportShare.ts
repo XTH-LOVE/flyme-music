@@ -119,7 +119,7 @@ export async function shareListeningReport(
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '400 22px system-ui, "Microsoft YaHei", sans-serif';
-  ctx.fillText('Aurora Music · 听歌报告', W / 2, H - 60);
+  ctx.fillText('Flyme Music · 听歌报告', W / 2, H - 60);
 
   const fileName = '听歌报告-' + rangeLabel(range, Date.now()) + '.png';
   if (isTauri()) {

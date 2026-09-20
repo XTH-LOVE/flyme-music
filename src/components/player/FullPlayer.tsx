@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { Slider } from '@/design-system/components/Slider';
 import { TrackCover } from '@/components/TrackCover';
@@ -19,12 +19,17 @@ import { fallbackPalette } from '@/utils/palette';
 import { useCoverPalette } from '@/utils/coverPalette';
 import { shareLyricCard } from '@/utils/lyricShare';
 import { fetchLyricLines, lyricLineAt, type MiniLyricLine } from '@/utils/currentLyric';
+import { plainLyricLines } from '@/utils/lyricVoices';
 import type { MusicTrack } from '@/music/source/types';
 import { LyricsView } from './LyricsView';
 import { QueueSheet } from './QueueSheet';
 import { Visualizer } from './Visualizer';
+import { AmbientCanvas } from './AmbientCanvas';
 import { pipSupported, openPiPLyrics, closePiPLyrics, isPipOpen } from './PiPLyrics';
 import { EQ_PRESETS, getEqPreset, isWired, setEqPreset } from '@/player/webAudio';
+import { flingVelocity, trimSamples, type DragSample } from '@/player/dismissGesture';
+import { glowFillWidth, glowHeadOpacity } from '@/utils/glowProgress';
+import { deviceTier } from '@/utils/deviceTier';
 import './fullplayer.css';
 import './halcyon.css';
 import './QueueEnhance.css';
@@ -89,15 +94,32 @@ function useLyricLines(track: MusicTrack): MiniLyricLine[] {
   return lines;
 }
 
+/**
+ * Same lines, with voice tags and backing vocals stripped.
+ *
+ * The one-line strips have no room for a duet layout or a dimmer aside, so they
+ * get the plain text instead - a strip showing "男：…" or "（和声）" is just
+ * noise in a 20px band.
+ */
+function useSungLines(track: MusicTrack): MiniLyricLine[] {
+  const lines = useLyricLines(track);
+  return useMemo(() => plainLyricLines(lines), [lines]);
+}
+
 /** Halcyon background: two stacked gradient layers crossfade on track change. */
 function HalcyonBg({ track, live }: { track: MusicTrack; live: boolean }) {
   const stack = useCrossfadeStack(track);
+  const extracted = useCoverPalette(track.picUrl, track.id);
+  const palette = extracted ?? track.palette ?? fallbackPalette(track.id);
 
   return (
     <div className="hc-bg">
       {stack.map((t, i) => (
         <HcBgLayer key={t.source + ':' + t.id} t={t} top={i === stack.length - 1} />
       ))}
+      {/* The colour field sits above the artwork layers so its palette wash is
+          actually visible, and below the flow scrim so text contrast holds. */}
+      <AmbientCanvas palette={palette} live={live} />
       {/* The ambient drift only runs while playing - a moving background behind
           a paused player looks like a bug, not a flourish. */}
       <div className={'hc-bg__flow' + (live ? ' hc-bg__flow--live' : '')} />
@@ -128,14 +150,14 @@ function ImmersiveCover({ track }: { track: MusicTrack }) {
 
 /** Active lyric line for the immersive mini-lyric strip. */
 function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
-  const lines = useLyricLines(track);
+  const lines = useSungLines(track);
   const line = lyricLineAt(lines, currentTime);
   return <div className="hc-imm__lyric">{line?.text ?? ''}</div>;
 }
 
 /** Mobile cover page: single active lyric line right below the cover. */
 function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
-  const lines = useLyricLines(track);
+  const lines = useSungLines(track);
   // Same global timing correction the lyrics view applies, so the strip and the
   // full lyric sheet never disagree about which line is current.
   const offset = useLyricStore((s) => s.offset);
@@ -192,6 +214,10 @@ function GlowProgress({
   const dragging = useRef(false);
   const [active, setActive] = useState(false);
   const frac = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
+  // Weak devices get the plain dot: the blurred sprite is the only part of the
+  // bar that costs anything per frame. Halcyon makes the same call, picking a
+  // Canvas bar over its shader one.
+  const lite = deviceTier() === 'low';
 
   const posFrom = (clientX: number) => {
     const el = ref.current;
@@ -234,7 +260,9 @@ function GlowProgress({
   return (
     <div
       ref={ref}
-      className={'hc-glow' + (active ? ' hc-glow--active' : '')}
+      className={
+        'hc-glow' + (active ? ' hc-glow--active' : '') + (lite ? ' hc-glow--lite' : '')
+      }
       role="slider"
       tabIndex={0}
       aria-label="播放进度"
@@ -261,8 +289,14 @@ function GlowProgress({
       }}
     >
       <div className="hc-glow__track">
-        <div className="hc-glow__fill" style={{ width: frac * 100 + '%' }}>
-          <div className="hc-glow__head" />
+        {/* The fill stops at a circle once it is as wide as it is tall, which
+            is the Dynamic Island degenerate case, and the comet fades in over
+            the first few percent so it never hangs off the start of the bar. */}
+        <div className="hc-glow__fill" style={{ width: glowFillWidth(frac) }}>
+          <div
+            className="hc-glow__head"
+            style={{ '--hc-head-fade': String(glowHeadOpacity(frac)) } as CSSProperties}
+          />
         </div>
       </div>
     </div>
@@ -272,6 +306,15 @@ function GlowProgress({
 /** Elements that must never trigger the drag-down dismiss gesture. */
 const INTERACTIVE_SEL =
   'button, a, input, .hc-glow, .am-slider, .lyrics, .lyrics-wrap, .hc-cover, .hc-transport, .hc-volume, .am-sheet-root, .hc-more, .mini-glass';
+
+/** Downward drag distance that dismisses, in px. */
+const DISMISS_DISTANCE = 130;
+/** ...or this downward speed, so a short flick closes without travelling far. */
+const DISMISS_VELOCITY = 800;
+/** Below this the gesture is treated as a jitter, not a flick. */
+const DISMISS_VELOCITY_MIN_TRAVEL = 24;
+/** Top corner radius at full dismiss progress — the "card peeling" look. */
+const DISMISS_CORNER_RADIUS = 30;
 
 /**
  * Halcyon-style player: classic split view + immersive full-bleed cover mode,
@@ -348,7 +391,16 @@ export function FullPlayer() {
   const [dismissX, setDismissX] = useState(0);
   const [dismissActive, setDismissActive] = useState(false);
   const dragRef = useRef({ startX: 0, dx: 0, active: false });
-  const dismissRef = useRef({ startX: 0, startY: 0, dx: 0, dy: 0, edge: false, active: false });
+  const dismissRef = useRef({
+    startX: 0,
+    startY: 0,
+    dx: 0,
+    dy: 0,
+    edge: false,
+    active: false,
+    /** Trailing pointer samples, trimmed to the velocity window on each move. */
+    samples: [] as DragSample[],
+  });
   // Reactive media query: a render-time matchMedia read would freeze the
   // layout when the window is resized or rotated while the player is closed.
   const isDesktop = useIsDesktop();
@@ -451,6 +503,7 @@ export function FullPlayer() {
       dy: 0,
       edge: edgeZone,
       active: true,
+      samples: [{ t: e.timeStamp, y: e.clientY }],
     };
     setDismissActive(true);
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -472,6 +525,10 @@ export function FullPlayer() {
       return;
     }
     if (d.dy > 0) setDismissY(Math.min(d.dy, 420));
+    // Fed every move, not just the downward ones: an up-then-down flick should
+    // measure the flick, not the reversal.
+    d.samples.push({ t: e.timeStamp, y: e.clientY });
+    trimSamples(d.samples, e.timeStamp);
   };
   const dismissUp = () => {
     const d = dismissRef.current;
@@ -480,9 +537,14 @@ export function FullPlayer() {
     setDismissActive(false);
     if (d.edge && d.dx >= 80) close();
     setDismissX(0);
-    if (d.dy >= 130) close();
+    // A short, fast flick closes even though the distance threshold was not
+    // reached - dragging 130px on a tall phone is a long way to travel.
+    const flung =
+      d.dy >= DISMISS_VELOCITY_MIN_TRAVEL && flingVelocity(d.samples) >= DISMISS_VELOCITY;
+    if (d.dy >= DISMISS_DISTANCE || flung) close();
     setDismissY(0);
   };
+  const dismissProgress = Math.min(1, dismissY / DISMISS_DISTANCE);
   const dismissStyle: React.CSSProperties | undefined =
     dismissY > 0 || dismissX > 0 || dismissActive
       ? {
@@ -494,9 +556,13 @@ export function FullPlayer() {
             dismissX > 0
               ? Math.max(0.3, 1 - dismissX / 900)
               : Math.max(0.25, 1 - dismissY / 650),
+          // Corners grow as the panel is pulled away, so it reads as a card
+          // being peeled off the stack rather than a slab sliding down.
+          borderTopLeftRadius: dismissX > 0 ? undefined : DISMISS_CORNER_RADIUS * dismissProgress,
+          borderTopRightRadius: dismissX > 0 ? undefined : DISMISS_CORNER_RADIUS * dismissProgress,
           transition: dismissActive
             ? 'none'
-            : 'transform 280ms var(--am-ease-spring), opacity 240ms var(--am-ease-standard)',
+            : 'transform 280ms var(--am-ease-spring), opacity 240ms var(--am-ease-standard), border-radius 280ms var(--am-ease-spring)',
         }
       : undefined;
   const dismissProps = {
@@ -815,8 +881,17 @@ export function FullPlayer() {
 
   /* ---------------- Mobile: Halcyon portrait layout ---------------- */
   return (
-    <div className={'full-player hc hc--p' + (lyricsMode ? ' hc--p-lyrics' : '')} {...dismissProps}>
-      <HalcyonBg track={current} live={playing} />
+    <div
+      className={
+        'full-player hc hc--p' +
+        (lyricsMode ? ' hc--p-lyrics' : '') +
+        (ambientMotion ? '' : ' hc--still')
+      }
+      {...dismissProps}
+    >
+      {/* The portrait layout used to pass `playing` alone, so the motion
+          setting was silently ignored on phones. */}
+      <HalcyonBg track={current} live={playing && ambientMotion} />
 
       <div className="hc-p-body" style={dismissStyle}>
         {lyricsMode ? (

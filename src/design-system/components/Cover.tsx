@@ -12,6 +12,22 @@ interface CoverProps {
 /**
  * Local cover renderer: layered gradients instead of network images,
  * so the app runs fully offline with zero copyright risk.
+ *
+ * The three background layers are the whole design and each one earns its
+ * place: a specular highlight top-left, a vignette bottom-right, and the
+ * palette underneath. Removing any of them flattens the cover into a plain
+ * swatch.
+ *
+ * A procedural vinyl placeholder was tried here and reverted. It does not fit
+ * this component's role: `Cover` is not a *fallback for missing artwork*, it is
+ * *the* renderer for every local album, playlist and card, so a record disc
+ * replaced the design rather than filling a gap - and a large pale disc under
+ * the glyph read as a smudge at card sizes. Halcyon's `DefaultAlbumCover` works
+ * there because it only appears when a file has no embedded art.
+ *
+ * If a vinyl treatment is wanted later, it has to be an overlay that keeps
+ * these gradients and adds grooves, not a replacement for them - and it needs
+ * to be looked at at 96px, 160px and 240px before it ships.
  */
 export function Cover({ palette, title, radius, bare = false }: CoverProps) {
   const style: React.CSSProperties = {

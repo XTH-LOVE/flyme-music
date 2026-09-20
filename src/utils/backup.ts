@@ -13,11 +13,18 @@ import { saveBlobInBrowser } from '@/utils/saveBlob';
 export const BACKUP_VERSION = 1;
 
 /** Marker written into every new backup file. */
-export const BACKUP_APP = 'aurora-music';
-/** Marker from before the Flyme→Aurora rename; still accepted on import. */
-const LEGACY_BACKUP_APP = 'flyme-music';
+export const BACKUP_APP = 'flyme-music';
+/**
+ * Marker written by the Aurora-era builds, still accepted on import.
+ *
+ * The product has been called both names, so a backup file in the wild may
+ * carry either marker. Both are accepted and normalised to the current one, so
+ * an export from either era keeps importing. Never drop one of these without
+ * checking that nobody still has a file carrying it.
+ */
+const LEGACY_BACKUP_APP = 'aurora-music';
 
-export interface AuroraBackup {
+export interface FlymeBackup {
   app: typeof BACKUP_APP;
   schema: number;
   exportedAt: number;
@@ -36,7 +43,7 @@ export interface BackupPayload {
   playlists?: UserPlaylist[];
 }
 
-export function buildBackup(payload: BackupPayload): AuroraBackup {
+export function buildBackup(payload: BackupPayload): FlymeBackup {
   return {
     app: BACKUP_APP,
     schema: BACKUP_VERSION,
@@ -62,7 +69,7 @@ export function backupFileName(now = new Date()): string {
 }
 
 /** Validate an unknown parsed object into a usable backup (best-effort). */
-export function parseBackup(raw: unknown): AuroraBackup | null {
+export function parseBackup(raw: unknown): FlymeBackup | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   // Accept the current marker and the pre-rename legacy marker; normalize to
@@ -102,7 +109,7 @@ const STORAGE_KEYS = {
 } as const;
 
 /** Write a parsed backup into the canonical localStorage keys (no reload). */
-export function restoreBackupToStorage(backup: AuroraBackup): void {
+export function restoreBackupToStorage(backup: FlymeBackup): void {
   localStorage.setItem(STORAGE_KEYS.favorites, JSON.stringify(backup.favorites));
   localStorage.setItem(STORAGE_KEYS.recentTracks, JSON.stringify(backup.recentTracks));
   localStorage.setItem(STORAGE_KEYS.playLog, JSON.stringify(backup.playLog));
@@ -111,7 +118,7 @@ export function restoreBackupToStorage(backup: AuroraBackup): void {
 }
 
 /** Read a JSON backup file selected by the user. */
-export function readBackupFile(file: File): Promise<AuroraBackup | null> {
+export function readBackupFile(file: File): Promise<FlymeBackup | null> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('读取文件失败'));

@@ -16,7 +16,7 @@ function relTime(ts: number): string {
   return Math.floor(days / 30) + ' 个月前';
 }
 
-/** Manageable list of what Aurora remembers about the user. */
+/** Manageable list of what Flyme remembers about the user. */
 export function MemoryPanel() {
   const open = useAiStore((s) => s.memoryPanelOpen);
   const setOpen = useAiStore((s) => s.setMemoryPanelOpen);
@@ -32,7 +32,7 @@ export function MemoryPanel() {
     <div className="ai-memory-mask" onClick={() => setOpen(false)}>
       <div className="ai-memory-panel" onClick={(e) => e.stopPropagation()}>
         <div className="ai-memory-head">
-          <b>Aurora 的记忆</b>
+          <b>Flyme 的记忆</b>
           <button className="ai-memory-close" onClick={() => setOpen(false)}>×</button>
         </div>
         {memories.length === 0 ? (

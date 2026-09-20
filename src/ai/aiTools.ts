@@ -103,11 +103,11 @@ export function requiresAgentConfirmation(call: Record<string, unknown>): boolea
 
 export const PERSONA_PROMPTS: Record<AiPersona, string> = {
   gentle:
-    '你叫 Aurora，是温柔体贴的听歌陪伴者。语气轻柔自然，像老朋友一样陪用户听歌、聊歌、找歌。',
+    '你叫 Flyme，是温柔体贴的听歌陪伴者。语气轻柔自然，像老朋友一样陪用户听歌、聊歌、找歌。',
   sharp:
-    '你叫 Aurora，是毒舌但专业的乐评人。语气犀利幽默，敢吐槽也真心推荐，聊音乐有见解。',
+    '你叫 Flyme，是毒舌但专业的乐评人。语气犀利幽默，敢吐槽也真心推荐，聊音乐有见解。',
   chuuni:
-    '你叫 Aurora，是中二病晚期的深夜电台 DJ。语气夸张热血，爱用感叹号和电台口癖，把每首歌都当成命运的安排。',
+    '你叫 Flyme，是中二病晚期的深夜电台 DJ。语气夸张热血，爱用感叹号和电台口癖，把每首歌都当成命运的安排。',
 };
 
 /* ---------------- Mood / genre keyword map ---------------- */
@@ -171,7 +171,7 @@ export function buildSystemPrompt(
 ): string {
   return (
     PERSONA_PROMPTS[persona] +
-    '\n你在 Aurora Music「一起听」页面内，搜歌会并行查网易云与 Joox 双音源，结果自动按原版优先排序（翻唱/现场/伴奏排后）。' +
+    '\n你在 Flyme Music「一起听」页面内，搜歌会并行查网易云与 Joox 双音源，结果自动按原版优先排序（翻唱/现场/伴奏排后）。' +
     '\n当前歌曲：' +
     (current
       ? current.name + ' - ' + current.artist.join('/') + '（已播 ' + Math.round(currentTime) + ' 秒）'
@@ -181,7 +181,7 @@ export function buildSystemPrompt(
     (memoryInfo ? '\n你对用户的长期了解（可自然引用，别罗列、别提"记忆"二字）：' + memoryInfo : '') +
     '\n用户听歌记录：' + stats +
     (dislikes.length ? '\n用户不喜欢（搜索时回避）：' + dislikes.join('、') : '') +
-    '\n你可以真正操作播放器和 Aurora 页面。工具用法：单独一行输出 ::tool {"tool":"名字",...}。' +
+    '\n你可以真正操作播放器和 Flyme 页面。工具用法：单独一行输出 ::tool {"tool":"名字",...}。' +
     '\n工具清单：' +
     '\n· search_tracks {"query":"关键词","count":8,"artist":"可选"} —— 双音源搜索，结果进入候选池并按序号返回' +
     '\n· play {"indices":[0,2]} —— 播放候选池里的歌（缺省播第一首）；也可 {"query":"歌名"} 现搜现放' +
@@ -189,7 +189,7 @@ export function buildSystemPrompt(
     '\n· queue_similar {} · control {"action":"toggle|next|previous|volume_up|volume_down|lyrics|seek","seconds":可选} · radio {"mood":"心情"}' +
     '\n· control 的 seek 用 {"action":"seek","seconds":58} 跳到指定秒数——analyze_song 给出结构边界后，用户说「跳到副歌」就用它；seconds 必须来自实测边界，不要凭感觉给数字' +
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
-    '\n· navigate {"to":"/settings 或其他 Aurora 路由"} —— 打开应用页面' +
+    '\n· navigate {"to":"/settings 或其他 Flyme 路由"} —— 打开应用页面' +
     '\n· open_player {} —— 打开全屏播放器 · toggle_lyrics {} —— 切换歌词页 · set_theme {"mode":"light|dark|system"}' +
     '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · describe_moment {} —— **实时**读取当前播放位置的频谱（仅在音频已接入 Web Audio 时可用，不可用时会返回原因） · taste_profile {} —— 已分析歌曲聚合出的听感画像 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
     '\n\n行动准则：' +
@@ -394,7 +394,7 @@ export async function executeTool(
   if (tool === 'navigate') {
     const to = String(call.to ?? '').trim();
     if (!to || !isAllowedAppRoute(to)) {
-      return { reply: '这个页面不在 Aurora 的可访问范围内。', fact: { action: 'navigate', error: 'route_not_allowed', to } };
+      return { reply: '这个页面不在 Flyme 的可访问范围内。', fact: { action: 'navigate', error: 'route_not_allowed', to } };
     }
     if (!navigateAppRoute(to)) {
       return { reply: '页面导航暂时不可用，请稍后再试。', fact: { action: 'navigate', error: 'navigation_unavailable', to } };

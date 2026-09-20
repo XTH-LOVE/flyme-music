@@ -87,7 +87,7 @@ export function ListenRoomCard() {
       {!user ? (
         <Link className="ai-side-card__link" to="/me">
           <Icon name="user" size={14} />
-          一起听需要先登录 Aurora 账号
+          一起听需要先登录 Flyme 账号
         </Link>
       ) : null}
     </div>

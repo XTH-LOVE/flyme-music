@@ -61,10 +61,10 @@ function isRiskBody(text: string): boolean {
 function pwaPlugin() {
   return VitePWA({
     registerType: 'autoUpdate',
-    includeAssets: ['favicon.svg', 'aurora-mark.jpg'],
+    includeAssets: ['favicon.svg', 'flyme-mark.jpg'],
     manifest: {
-      name: 'Aurora Music',
-      short_name: 'Aurora',
+      name: 'Flyme Music',
+      short_name: 'Flyme',
       description: 'HyperOS 风格的现代音乐播放器：沉浸式歌词、动态环境色、轻量 Liquid Glass。',
       lang: 'zh-CN',
       start_url: '/',
@@ -78,7 +78,37 @@ function pwaPlugin() {
         // Chrome / Edge / Android accept the SVG; dropping real 192 and 512 PNG
         // files into public/ and listing them here would improve iOS.
         { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-        { src: '/aurora-mark.jpg', sizes: '1254x1254', type: 'image/jpeg', purpose: 'any' },
+        { src: '/flyme-mark.jpg', sizes: '1254x1254', type: 'image/jpeg', purpose: 'any' },
+      ],
+      /*
+       * Long-press shortcuts on the installed icon. Halcyon exposes the same
+       * thing from its launcher icon; on the web this is the only equivalent,
+       * and it is worth having because the two destinations people actually
+       * jump into - what they own, and what they have been listening to - are
+       * both two taps deep in the sidebar.
+       */
+      shortcuts: [
+        {
+          name: '本地音乐',
+          short_name: '本地',
+          url: '/local',
+          description: '播放本设备上的音频文件',
+          icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+        },
+        {
+          name: '听歌统计',
+          short_name: '统计',
+          url: '/stats',
+          description: '播放报告与听歌日历',
+          icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+        },
+        {
+          name: '搜索',
+          short_name: '搜索',
+          url: '/search',
+          description: '跨音源搜索歌曲',
+          icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+        },
       ],
     },
     workbox: {

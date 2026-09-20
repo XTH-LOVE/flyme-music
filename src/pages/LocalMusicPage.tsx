@@ -1,14 +1,23 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { SectionHeader } from '@/design-system/components/SectionHeader';
 import { EmptyState } from '@/design-system/components/EmptyState';
+import { DuplicateSongsPanel } from '@/components/DuplicateSongsPanel';
 import { TrackListItem } from '@/components/TrackListItem';
+import { LocatePlayingButton, usePlayingIndex } from '@/components/LocatePlayingButton';
 import { ProgressiveList } from '@/components/ProgressiveList';
+import { FastIndexBar } from '@/components/FastIndexBar';
+import { collectIndexLetters, indexBarLetters, indexKeyOf } from '@/utils/indexLetters';
+import { rowSelector } from '@/utils/locatePlaying';
 import { playerController } from '@/player';
 import { useLocalLibraryStore } from '@/store/useLocalLibraryStore';
 import { clearOfflineCache, formatBytes, offlineStats, type OfflineStats } from '@/library/offlineCache';
+import { warmupAnalysis } from '@/audio/analysis';
 import { notify } from '@/utils/notify';
 import './pages.css';
+
+/** Below this the bar is more clutter than shortcut. */
+const INDEX_BAR_MIN_TRACKS = 20;
 
 /**
  * 本地音乐：用户自选的音频文件（IndexedDB 持久化），与在线歌曲共用
@@ -20,8 +29,36 @@ export function LocalMusicPage() {
   const importFiles = useLocalLibraryStore((s) => s.importFiles);
   const remove = useLocalLibraryStore((s) => s.remove);
   const fileRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [importing, setImporting] = useState(false);
   const [stats, setStats] = useState<OfflineStats | null>(null);
+
+  const titles = useMemo(() => tracks.map((track) => track.name), [tracks]);
+  const indexLetters = useMemo(() => indexBarLetters(titles), [titles]);
+  const presentLetters = useMemo(() => new Set(collectIndexLetters(titles)), [titles]);
+
+  // A jump has to widen ProgressiveList's slice before the row exists, so the
+  // index lives in state and the scroll runs in the effect that follows the
+  // commit. The token makes a repeated tap on the same letter scroll again.
+  const [jump, setJump] = useState<{ index: number; token: number } | null>(null);
+  const jumpToken = useRef(0);
+  const playingIndex = usePlayingIndex(tracks);
+
+  useEffect(() => {
+    if (!jump) return;
+    listRef.current?.querySelector(rowSelector(jump.index))?.scrollIntoView({ block: 'start' });
+  }, [jump]);
+
+  const revealRow = (index: number) => {
+    jumpToken.current += 1;
+    setJump({ index, token: jumpToken.current });
+  };
+
+  const jumpToLetter = (letter: string) => {
+    const index = tracks.findIndex((track) => indexKeyOf(track.name) === letter);
+    if (index < 0) return;
+    revealRow(index);
+  };
 
   const refreshStats = () => {
     void offlineStats().then(setStats);
@@ -36,6 +73,11 @@ export function LocalMusicPage() {
       const { imported, skipped } = await importFiles(Array.from(files));
       notify('已导入 ' + imported + ' 首' + (skipped ? '，跳过 ' + skipped + ' 个非音频文件' : ''));
       refreshStats();
+      // The scan is over and the user is not waiting on anything, which is the
+      // one cheap moment to build the feature index the similarity search and
+      // taste profile read. It is opportunistic: silent, budgeted, and gated on
+      // the user's settings and connection inside `warmupAnalysis`.
+      void warmupAnalysis(useLocalLibraryStore.getState().tracks);
     } catch (e) {
       notify(e instanceof Error ? e.message : '导入失败');
     } finally {
@@ -98,6 +140,13 @@ export function LocalMusicPage() {
       </div>
 
       <SectionHeader title={'歌曲 · ' + tracks.length} />
+      {/* Only appears when there is something to clean up. */}
+      <DuplicateSongsPanel
+        tracks={tracks}
+        onRemove={(track) => {
+          void remove(track).then(() => notify('已移除《' + track.name + '》的重复副本'));
+        }}
+      />
       {loading ? (
         <EmptyState icon="music" title="读取中…" description="正在加载本地曲库" />
       ) : tracks.length === 0 ? (
@@ -107,22 +156,37 @@ export function LocalMusicPage() {
           description="点击上方「选择文件」，把电脑或手机里的音频加进来，本地与在线歌曲可以混排播放"
         />
       ) : (
-        <div className="song-list">
-          <ProgressiveList
-            items={tracks}
-            renderItem={(track, i) => (
-              <TrackListItem
-                key={'local:' + track.id}
-                track={track}
-                context={tracks}
-                index={i}
-                onRemove={() => {
-                  void remove(track).then(() => notify('已从本地曲库移除'));
-                }}
-              />
-            )}
+        <>
+          <div className="song-list" ref={listRef}>
+            <ProgressiveList
+              items={tracks}
+              revealTo={jump?.index}
+              renderItem={(track, i) => (
+                <TrackListItem
+                  key={'local:' + track.id}
+                  track={track}
+                  context={tracks}
+                  index={i}
+                  onRemove={() => {
+                    void remove(track).then(() => notify('已从本地曲库移除'));
+                  }}
+                />
+              )}
+            />
+          </div>
+          {tracks.length >= INDEX_BAR_MIN_TRACKS ? (
+            <FastIndexBar
+              letters={indexLetters}
+              available={presentLetters}
+              onLetterChange={jumpToLetter}
+            />
+          ) : null}
+          <LocatePlayingButton
+            containerRef={listRef}
+            index={playingIndex}
+            onReveal={revealRow}
           />
-        </div>
+        </>
       )}
 
       {tracks.length ? (

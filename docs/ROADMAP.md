@@ -1,4 +1,4 @@
-# Aurora Music Roadmap
+# Flyme Music Roadmap
 
 ## Phase 1 — Foundation (done)
 

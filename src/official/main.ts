@@ -1,5 +1,5 @@
 /**
- * AuroraMusic official landing page entry.
+ * FlymeMusic official landing page entry.
  * Plain TypeScript — no framework. Imports the app's design tokens
  * (global.css) plus landing-specific styles, then wires up the
  * scroll-reveal animation driven by IntersectionObserver.

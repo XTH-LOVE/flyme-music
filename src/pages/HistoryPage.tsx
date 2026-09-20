@@ -7,6 +7,8 @@ import { playerController } from '@/player';
 import { useLibraryStore, type PlayLogEntry } from '@/store/useLibraryStore';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { notify } from '@/utils/notify';
+import { saveBlobInBrowser } from '@/utils/saveBlob';
+import { playLogFileName, toPlayLogCsv, toPlayLogJson } from '@/utils/playLogExport';
 import './history.css';
 
 const KNOWN_SOURCES = new Set<MusicSource>([
@@ -63,6 +65,7 @@ export function HistoryPage() {
   const playLog = useLibraryStore((s) => s.playLog);
   const clearPlayLog = useLibraryStore((s) => s.clearPlayLog);
   const [confirming, setConfirming] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Stored newest-first, but sort defensively so a merged/synced log can't
   // render out of order.
@@ -103,6 +106,28 @@ export function HistoryPage() {
     notify('播放历史已清空');
   };
 
+  /**
+   * The log is the only record of what was actually listened to and it lives on
+   * one device, so it is offered in both a spreadsheet format and one a script
+   * can rebuild a playlist from.
+   */
+  const handleExport = async (format: 'csv' | 'json') => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const text = format === 'csv' ? toPlayLogCsv(ordered) : toPlayLogJson(ordered);
+      const type = format === 'csv' ? 'text/csv' : 'application/json';
+      await saveBlobInBrowser(
+        new Blob([text], { type: type + ';charset=utf-8' }),
+        playLogFileName(format),
+      );
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '导出失败');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="history-page">
       <div className="history-head">
@@ -120,6 +145,26 @@ export function HistoryPage() {
             >
               <Icon name="play" size={14} />
               播放全部
+            </button>
+          ) : null}
+          {ordered.length ? (
+            <button
+              className="am-btn am-btn--secondary am-btn--sm"
+              disabled={exporting}
+              onClick={() => void handleExport('csv')}
+            >
+              <Icon name="download" size={14} />
+              导出 CSV
+            </button>
+          ) : null}
+          {ordered.length ? (
+            <button
+              className="am-btn am-btn--secondary am-btn--sm"
+              disabled={exporting}
+              onClick={() => void handleExport('json')}
+            >
+              <Icon name="download" size={14} />
+              导出 JSON
             </button>
           ) : null}
           {ordered.length ? (

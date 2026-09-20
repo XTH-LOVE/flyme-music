@@ -1,4 +1,4 @@
-/* ---------- Aurora listen-together page ---------- */
+/* ---------- Flyme listen-together page ---------- */
 .ai-page {
   display: grid !important;
   grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
@@ -694,7 +694,7 @@
   }
 }
 
-/* ---- Aurora memory chip + panel ---- */
+/* ---- Flyme memory chip + panel ---- */
 .ai-memory-chip {
   margin-left: auto;
   border: 1px solid var(--am-border, rgba(128, 128, 128, 0.3));

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { TrackListItem } from '@/components/TrackListItem';
-import { ProgressiveList } from '@/components/ProgressiveList';
+import { LocatableTrackList } from '@/components/LocatableTrackList';
 import { ProxyImg } from '@/components/ProxyImg';
 import { ExpandableText } from '@/components/ExpandableText';
 import { coverTransitionName } from '@/lib/coverTransition';
@@ -131,15 +130,7 @@ export function NeteasePlaylistDetailPage() {
           </div>
         </div>
       </div>
-      <div className="song-list">
-        <ProgressiveList
-          items={tracks}
-          resetKey={id}
-          renderItem={(track, i) => (
-            <TrackListItem key={track.id + ':' + i} track={track} context={tracks} index={i} />
-          )}
-        />
-      </div>
+      <LocatableTrackList tracks={tracks} resetKey={id} />
     </div>
   );
 }

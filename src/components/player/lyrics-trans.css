@@ -28,3 +28,57 @@
  * outrunning the voice, then as stuttering, and on the light player it painted
  * the active line in the wrong colour. The plain highlighted line is what we
  * went back to. */
+
+/* ---------- Backing vocals ----------
+ * Parenthesised asides are sung behind the lead, so they are set behind it too:
+ * smaller, dimmer, and never bold even when their line is the active one. The
+ * horizontal margin is what replaces the brackets that were stripped out, and
+ * is the reason the parser preserves the sheet's own spacing.
+ */
+.lyrics__bg {
+  display: inline-block;
+  margin: 0 0.34em;
+  font-size: 0.82em;
+  font-weight: 400;
+  opacity: 0.62;
+  letter-spacing: 0.01em;
+}
+.lyrics__line--active .lyrics__bg {
+  opacity: 0.72;
+}
+
+/* ---------- Duet ----------
+ * Voices get a column each, which is the whole point of reading the tags: the
+ * shape of the page then shows who is singing. Unison and untagged lines stay
+ * centred, so a chorus still reads as one voice.
+ */
+.lyrics__line--left,
+.lyrics__line--right {
+  transition:
+    color var(--am-motion-normal) var(--am-ease-standard),
+    opacity var(--am-motion-page) var(--am-ease-standard),
+    font-size var(--am-motion-page) var(--am-ease-standard),
+    transform var(--am-motion-page) var(--am-ease-spring);
+}
+.lyrics__line--left .lyrics__text,
+.lyrics__line--left .lyrics__trans {
+  text-align: left;
+}
+.lyrics__line--right .lyrics__text,
+.lyrics__line--right .lyrics__trans {
+  text-align: right;
+}
+/* The inactive side of a duet recedes, so the eye follows the exchange. */
+.lyrics__line--left:not(.lyrics__line--active),
+.lyrics__line--right:not(.lyrics__line--active) {
+  opacity: 0.72;
+}
+
+/* A line that is nothing but an aside is never the line being sung. */
+.lyrics__line--aside {
+  font-size: 0.86em;
+  opacity: 0.44;
+}
+.lyrics__line--aside .lyrics__text {
+  font-style: italic;
+}

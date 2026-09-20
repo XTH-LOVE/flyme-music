@@ -53,7 +53,7 @@ interface AiState extends AiConfigState {
   activity: string;
   analysisRetry: number;
   messages: AiMessage[];
-  /** Negative-feedback artists/keywords the user told Aurora to avoid. */
+  /** Negative-feedback artists/keywords the user told Flyme to avoid. */
   dislikes: string[];
   setConfig: (patch: Partial<AiConfigState>) => void;
   setBusy: (v: boolean) => void;

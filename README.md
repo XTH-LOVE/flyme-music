@@ -1,10 +1,23 @@
-# Aurora Music
+# Flyme Music
 
 一款具有 **Xiaomi HyperOS 设计语言**、融合现代音乐播放器体验的高级音乐应用。
 
 > HyperOS + 现代音乐播放器 + 高级简约 + 轻量 Liquid Glass
 
-> **关于命名**：项目曾用名 Flyme Music。代码、包名（`aurora-music`）、桌面应用与 Android 包名（`com.auroramusic.app`）均已统一为 Aurora Music；仅**线上部署标识**保留历史名称以避免中断已发布链接——Cloudflare Pages 项目名 `flyme-music`（访问域名 `flyme-music.pages.dev`）。若要一并改名，需在 Cloudflare 新建项目并更新本文档中的链接。
+> **关于命名**：产品名是 **Flyme Music**。项目历史上曾改名为 Aurora Music，现已改回；**显示文案已全部改回 Flyme Music**，但下列**标识符故意保持 `aurora-*` 不变**，因为它们承载用户数据或应用身份，改了会丢数据或变成另一个应用：
+>
+> | 标识 | 位置 | 不改的原因 |
+> | --- | --- | --- |
+> | `aurora.*` localStorage 键（25 个） | 主题、收藏、播放历史、歌词偏移、AI 配置等 | 改键名 = 用户设置与收藏全部清空 |
+> | `aurora-local` / `aurora-analysis` 等 IndexedDB 库名 | 本地导入的音乐、音频特征索引 | 改库名 = 本地曲库丢失 |
+> | `com.auroramusic.app` | Tauri / Android 包名 | 改包名 = 系统视为新应用，无法升级覆盖 |
+> | `aurora-music` | `package.json` name | 构建产物与包管理标识 |
+> | `aurora-music` / `aurora-backup-*` | 备份文件标记（`src/utils/backup.ts`） | 改标记 = 旧备份无法导入；两种标记目前都能导入 |
+> | `--am-*` / `.am-*` | 设计系统令牌与类名 | 全站内部命名，改了无用户可见收益 |
+>
+> 若将来确实要一并改这些，需要**同时写数据迁移**（读旧键→写新键→删旧键），不能只改字符串。
+>
+> **部署**：Cloudflare Pages 项目名 `flyme-music`（访问域名 `flyme-music.pages.dev`）—— 与产品名一致，无需改动。
 
 ## 快速开始
 
@@ -62,7 +75,7 @@ Windows SDK 的 `kernel32.lib` / `OleAut32.lib` 找不到（缺 `LIB`，且必�
 
 ### 已知限制
 
-- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.auroramusic.app/files/Download/AuroraMusic（品牌统一前安装的旧版本为 com.flyme.music/…/FlymeMusic，升级后新下载进入新目录）；写入公共 Download 需要 MediaStore，属后续增强
+- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.auroramusic.app/files/Download/FlymeMusic（包名沿用历史标识 `com.auroramusic.app`，原因见上方「关于命名」）；写入公共 Download 需要 MediaStore，属后续增强
 - 打包应用内取消 AI 请求只会停止前端渲染，Rust 侧的上游请求会自然结束
 - 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
 - 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除；线上 /api 端点已把这两个 Origin 加入白名单
@@ -144,7 +157,7 @@ npx vercel --prod      # 生产部署
 2. 运行 `npx tauri icon src-tauri/icons/app-icon.png`
 3. 重新打包。桌面图标写入 `src-tauri/icons/`，Android 图标写入 `src-tauri/gen/android/app/src/main/res/mipmap-*`
 
-> **PWA 图标**：网页版走的是 `public/favicon.svg`（`sizes: any`）与 `public/aurora-mark.jpg`（1254×1254），
+> **PWA 图标**：网页版走的是 `public/favicon.svg`（`sizes: any`）与 `public/flyme-mark.jpg`（1254×1254），
 > manifest 里如实声明了这两个文件，没有伪造 192/512 PNG。Chrome / Edge / Android 能正常安装；
 > iOS 加到主屏的图标质量一般——放两个真正的 `192x192` 与 `512x512` PNG 到 `public/`，
 > 再加进 `vite.config.ts` 的 `manifest.icons` 即可改善。

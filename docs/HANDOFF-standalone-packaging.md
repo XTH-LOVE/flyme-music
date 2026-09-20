@@ -1,4 +1,4 @@
-# AuroraMusic 独立打包改造 — 工作交接文件
+# FlymeMusic 独立打包改造 — 工作交接文件
 
 - 生成时间：本次会话（内容与交给接力 AI 的提示词逐字一致）
 - 用法：把下方代码块内文本整体复制给任意新会话/新 AI 即可接续，无需其他上下文。
@@ -8,7 +8,7 @@
 你要接手一个进行中的代码改造，请严格按下面的上下文与约束执行。
 
 【项目】
-路径 d:\AuroraMusic（Windows + PowerShell 7）。Tauri 2 + React 18 + TypeScript + Vite 6 的音乐应用「Flyme Music」，另含 supabase edge function 与迁移。目标：把它改造成不依赖 vite dev server、也不依赖任何线上后端的独立 Windows + Android 应用，并修复移动端播放器布局、Joox 繁体转简体、移动端无法下载歌曲三个问题。
+路径 d:\FlymeMusic（Windows + PowerShell 7）。Tauri 2 + React 18 + TypeScript + Vite 6 的音乐应用「Flyme Music」，另含 supabase edge function 与迁移。目标：把它改造成不依赖 vite dev server、也不依赖任何线上后端的独立 Windows + Android 应用，并修复移动端播放器布局、Joox 繁体转简体、移动端无法下载歌曲三个问题。
 
 【权威文档：先读这两个，里面有每个任务的完整代码与验证命令】
 1. docs/superpowers/plans/2026-09-02-standalone-packaging.md  ← 15 个任务的实施计划（逐步、含可直接落地的代码）
@@ -25,7 +25,7 @@
 2. 多行字符串替换会因 CRLF 差异静默失败。用单行唯一锚点做 $c.Replace(old,new)，或按行号切片重组；替换前先断言锚点命中数 == 1，替换后 Get-Content 回读。
 3. PowerShell here-string 曾发生静默丢字符（https://u.y.qq.com 被写成 https://u.yqq.com，肉眼几乎看不出）。写完必须机器校验关键字符串（长 URL、十六进制、base64）是否逐字存在，并最终以测试/构建跑绿为准。
 4. 部分工具链的安全校验会对文本中单独出现的标识符 cmd 误判并拒绝执行。变量/参数一律命名为 command，不要用 cmd。
-5. 不要修改全局 git config（仓库级已配好 user.name=AuroraMusic / user.email=dev@auroramusic.local）。不要用 git commit --amend。
+5. 不要修改全局 git config（仓库级已配好 user.name=FlymeMusic / user.email=dev@auroramusic.local）。不要用 git commit --amend。
 6. cargo check 首次或改依赖后可能要数分钟，用后台执行 + 轮询，不要误判为卡死。
 7. .env.local 里有真实 AI key：绝不提交、绝不打印到报告里；已被 .gitignore 的 *.local 覆盖。
 8. src-tauri/target 有约 3.8 GB 构建产物，已被忽略，不要试图提交或全量扫描它。

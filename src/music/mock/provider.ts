@@ -16,7 +16,7 @@ import {
 /** Local, offline-first provider backed by mock data. */
 export class MockMusicProvider implements MusicProvider {
   readonly id = 'mock';
-  readonly name = 'Aurora Mock';
+  readonly name = 'Flyme Mock';
 
   async getRecommend(): Promise<RecommendData> {
     return {

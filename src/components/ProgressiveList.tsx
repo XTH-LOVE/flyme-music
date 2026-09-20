@@ -36,6 +36,18 @@ export function needsSentinel(rendered: number, total: number): boolean {
 }
 
 /**
+ * Rows to render: the revealed slice, widened so `revealTo` is included.
+ *
+ * Widening happens here rather than in an effect so the target row lands in the
+ * DOM in the same commit as the jump — an effect would let the caller's scroll
+ * run one commit too early, against a row that does not exist yet.
+ */
+export function renderedRowCount(count: number, total: number, revealTo?: number): number {
+  const floor = revealTo === undefined ? 0 : revealTo + 1;
+  return Math.min(Math.max(count, floor, 0), total);
+}
+
+/**
  * Reveal ahead of the scroll so the user never reaches a visible end of list
  * while more rows exist. 800px is roughly a dozen rows of lead time.
  */
@@ -66,6 +78,13 @@ interface ProgressiveListProps<T> {
   step?: number;
   /** Change this (e.g. the playlist id) to collapse the list back to one slice. */
   resetKey?: string | number;
+  /**
+   * Force this index to be rendered, e.g. after an index-bar jump. The target
+   * row has to exist before it can be scrolled into view, and widening during
+   * render (rather than in an effect) puts it in the DOM in the same commit as
+   * the jump — otherwise the scroll would target a row that is not there yet.
+   */
+  revealTo?: number;
 }
 
 export function ProgressiveList<T>({
@@ -74,6 +93,7 @@ export function ProgressiveList<T>({
   initial = INITIAL_ROWS,
   step = REVEAL_STEP,
   resetKey,
+  revealTo,
 }: ProgressiveListProps<T>) {
   const [count, setCount] = useState(() => initialRowCount(items.length, initial));
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -84,8 +104,10 @@ export function ProgressiveList<T>({
     setCount(initialRowCount(items.length, initial));
   }, [resetKey, initial, items.length]);
 
+  const rendered = renderedRowCount(count, items.length, revealTo);
+
   useEffect(() => {
-    if (!needsSentinel(count, items.length)) return undefined;
+    if (!needsSentinel(rendered, items.length)) return undefined;
     const el = sentinel.current;
     // Without an observer there is no way to reveal more, so show everything
     // rather than trapping the user above an invisible wall.
@@ -96,9 +118,7 @@ export function ProgressiveList<T>({
     return observeSentinel(el, () => {
       setCount((current) => nextRowCount(current, items.length, step));
     });
-  }, [count, items.length, step]);
-
-  const rendered = Math.min(count, items.length);
+  }, [rendered, items.length, step]);
 
   return (
     <>

@@ -277,7 +277,7 @@ export function SettingsPage() {
         </div>
         <div className="settings-row">
           <div className="settings-row__body">
-            <div className="settings-row__title">Aurora 性格</div>
+            <div className="settings-row__title">Flyme 性格</div>
             <div className="settings-row__desc">决定她陪你听歌时的语气</div>
           </div>
           <div className="quality-options">
@@ -496,8 +496,8 @@ export function SettingsPage() {
       <div className="settings-card">
         <div className="settings-row">
           <div className="settings-row__body">
-            <div className="settings-row__title">Aurora Music</div>
-            <div className="settings-row__desc">版本 0.3.0 · HyperOS 风格现代音乐播放器 · Aurora AI 伴侣</div>
+            <div className="settings-row__title">Flyme Music</div>
+            <div className="settings-row__desc">版本 0.3.0 · HyperOS 风格现代音乐播放器 · Flyme AI 伴侣</div>
           </div>
         </div>
         {installAffordance !== 'unavailable' ? (

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.3.0",
   "type": "module",
-  "description": "Aurora Music - a HyperOS-inspired modern music player",
+  "description": "Flyme Music - a HyperOS-inspired modern music player",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

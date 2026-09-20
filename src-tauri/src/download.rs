@@ -75,7 +75,7 @@ fn mobile_base_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
   use tauri::Manager;
   // 1) Public Downloads, only if actually writable on this device.
   if let Ok(dir) = app.path().download_dir() {
-    let probe = dir.join(".aurora_probe");
+    let probe = dir.join(".flyme_probe");
     if std::fs::create_dir_all(&probe).is_ok() {
       let _ = std::fs::remove_dir(&probe);
       return Ok(dir);
@@ -93,7 +93,7 @@ fn mobile_base_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 #[cfg(mobile)]
 fn pick_save_path(app: &tauri::AppHandle, file_name: &str) -> Result<PathBuf, String> {
   let base = mobile_base_dir(app)?;
-  let dir = base.join("AuroraMusic");
+  let dir = base.join("FlymeMusic");
   std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
   Ok(dir.join(file_name))
 }

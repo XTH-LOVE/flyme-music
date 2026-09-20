@@ -43,7 +43,7 @@ export async function openPiPLyrics(): Promise<boolean> {
     return false;
   }
   const doc = pipWin.document;
-  doc.title = 'Aurora 桌面歌词';
+  doc.title = 'Flyme 桌面歌词';
   const body = doc.body;
   body.style.margin = '0';
   body.style.background = '#0c0c12';

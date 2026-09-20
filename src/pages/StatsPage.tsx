@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
+import { ListeningCalendar } from '@/components/ListeningCalendar';
 import { OS3Wallpaper } from '@/components/OS3Wallpaper';
 import { TrackCover } from '@/components/TrackCover';
 import { useLibraryStore } from '@/store/useLibraryStore';
@@ -11,12 +12,6 @@ import { buildListeningReport, rangeLabel, type ReportRange } from '@/utils/list
 import { shareListeningReport } from '@/utils/reportShare';
 import { notify } from '@/utils/notify';
 import './stats.css';
-
-interface DayCell {
-  key: string;
-  count: number;
-  label: string;
-}
 
 const dayKey = (d: Date) =>
   d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -74,12 +69,9 @@ export function StatsPage() {
     const recentByKey = new Map(recentTracks.map((track) => [track.source + ':' + track.id, track]));
     const songCount = new Map<string, { count: number; name: string; artist: string; track?: MusicTrack }>();
     const artistCount = new Map<string, number>();
-    const dayCount = new Map<string, number>();
 
     for (const e of playLog) {
-      const dk = dayKey(new Date(e.ts));
-      if (dk === today) todayCount += 1;
-      dayCount.set(dk, (dayCount.get(dk) ?? 0) + 1);
+      if (dayKey(new Date(e.ts)) === today) todayCount += 1;
       const s = songCount.get(e.key) ?? {
         count: 0,
         name: e.name,
@@ -100,22 +92,8 @@ export function StatsPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
 
-    const days: DayCell[] = [];
-    for (let i = 83; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = dayKey(d);
-      days.push({
-        key,
-        count: dayCount.get(key) ?? 0,
-        label: (d.getMonth() + 1) + '月' + d.getDate() + '日',
-      });
-    }
-    return { total: playLog.length, todayCount, songs: songCount.size, topSongs, topArtists, days };
+    return { total: playLog.length, todayCount, songs: songCount.size, topSongs, topArtists };
   }, [playLog, recentTracks]);
-
-  const maxDay = Math.max(1, ...stats.days.map((d) => d.count));
-  const level = (c: number) => (c === 0 ? 0 : c / maxDay > 0.66 ? 4 : c / maxDay > 0.4 ? 3 : c / maxDay > 0.15 ? 2 : 1);
 
   return (
     <div className="stats-page">
@@ -251,25 +229,8 @@ export function StatsPage() {
       </div>
 
       <section className="stats-panel stats-calendar-panel">
-        <div className="stats-panel__title">听歌日历 · 最近 12 周</div>
-        <div className="stats-calendar">
-          {stats.days.map((d) => (
-            <div
-              key={d.key}
-              className={'stats-cal stats-cal--l' + level(d.count)}
-              title={d.label + ' · ' + d.count + ' 次播放'}
-            />
-          ))}
-        </div>
-        <div className="stats-calendar__legend">
-          <span>少</span>
-          <div className="stats-cal stats-cal--l0" />
-          <div className="stats-cal stats-cal--l1" />
-          <div className="stats-cal stats-cal--l2" />
-          <div className="stats-cal stats-cal--l3" />
-          <div className="stats-cal stats-cal--l4" />
-          <span>多</span>
-        </div>
+        <div className="stats-panel__title">听歌日历</div>
+        <ListeningCalendar entries={playLog} />
       </section>
     </div>
   );

@@ -69,7 +69,7 @@ pub async fn ai_chat_completions(body: String, on_chunk: Channel<AiChunk>) -> Re
     .post(format!("{}/chat/completions", AI_ENDPOINT))
     .header("Authorization", format!("Bearer {}", AI_API_KEY))
     .header("Content-Type", "application/json")
-    .header("User-Agent", "AuroraMusic/0.3")
+    .header("User-Agent", "FlymeMusic/0.3")
     .body(body)
     .send()
     .await

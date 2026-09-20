@@ -7,6 +7,7 @@ import {
   initialRowCount,
   needsSentinel,
   nextRowCount,
+  renderedRowCount,
 } from './ProgressiveList';
 
 /**
@@ -26,6 +27,30 @@ describe('initialRowCount', () => {
 
   it('tolerates a nonsense total', () => {
     expect(initialRowCount(-5)).toBe(0);
+  });
+});
+
+describe('renderedRowCount', () => {
+  it('renders the revealed slice when there is no jump', () => {
+    expect(renderedRowCount(60, 1000)).toBe(60);
+  });
+
+  it('widens the slice to include the jump target', () => {
+    // The index-bar jump target has to exist in the DOM before it can be
+    // scrolled to, even though it is far past the revealed slice.
+    expect(renderedRowCount(60, 1000, 480)).toBe(481);
+  });
+
+  it('never narrows a slice that is already wider', () => {
+    expect(renderedRowCount(300, 1000, 12)).toBe(300);
+  });
+
+  it('clamps a jump past the end to the list length', () => {
+    expect(renderedRowCount(60, 100, 999)).toBe(100);
+  });
+
+  it('tolerates a negative target', () => {
+    expect(renderedRowCount(60, 100, -3)).toBe(60);
   });
 });
 

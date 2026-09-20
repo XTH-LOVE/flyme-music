@@ -1,10 +1,10 @@
-# AuroraMusic 官网落地页设计
+# FlymeMusic 官网落地页设计
 
 日期：2026-08-31
 
 ## 背景与目标
 
-为 AuroraMusic（Flyme Music）制作一个官方产品落地页，复用项目内现有的设计令牌、
+为 FlymeMusic（Flyme Music）制作一个官方产品落地页，复用项目内现有的设计令牌、
 品牌资产与 HyperOS 风格设计语言，与主应用完全隔离、可单独部署。
 
 ## 决策

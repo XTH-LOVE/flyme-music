@@ -1,4 +1,4 @@
-/* Aurora Music global theme — v2 (HyperOS × Noctis inspired).
+/* Flyme Music global theme — v2 (HyperOS × Noctis inspired).
    CSS custom properties are the runtime source of truth. */
 
 :root {
@@ -24,6 +24,9 @@
   --am-glass-saturate: 1.5;
   --am-glass-highlight: rgba(255, 255, 255, 0.36);
   --am-glass-shadow: 0 12px 40px rgba(16, 16, 20, 0.14);
+  /* Tint for the finger-following press glow. Light surfaces need a dark wash
+     to register at all; dark surfaces need a light one. */
+  --am-press-glow: rgba(16, 16, 20, 0.06);
 
   --am-radius-sm: 8px;
   --am-radius-md: 14px;
@@ -37,6 +40,11 @@
   --am-shadow-card-hover: 0 6px 28px rgba(16, 16, 20, 0.11);
   --am-shadow-floating: 0 12px 40px rgba(16, 16, 20, 0.14);
   --am-shadow-glass: 0 6px 28px rgba(16, 16, 20, 0.09);
+  /* Inner shadow pair for liquid glass: a bright top lip reads as thickness,
+     a soft inner drop reads as the glass sitting proud of the surface. */
+  --am-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  --am-inner-shadow: inset 0 2px 12px rgba(16, 16, 20, 0.1);
+  --am-inner-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 
   --am-motion-micro: 120ms;
   --am-motion-normal: 200ms;
@@ -76,11 +84,15 @@
   --am-glass-saturate: 1.45;
   --am-glass-highlight: rgba(255, 255, 255, 0.16);
   --am-glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --am-press-glow: rgba(255, 255, 255, 0.1);
 
   --am-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.32);
   --am-shadow-card-hover: 0 6px 28px rgba(0, 0, 0, 0.45);
   --am-shadow-floating: 0 12px 40px rgba(0, 0, 0, 0.55);
   --am-shadow-glass: 0 6px 28px rgba(0, 0, 0, 0.4);
+  --am-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --am-inner-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.36);
+  --am-inner-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 
   color-scheme: dark;
 }
@@ -88,6 +100,47 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- Press glow ----------
+   Finger-following radial highlight for tappable surfaces. usePressGlow writes
+   --press-x / --press-y on pointerdown; everything else here is declarative.
+
+   `isolation: isolate` is load-bearing: it makes the element its own stacking
+   context so the z-index:-1 pseudo-element lands above the element's own
+   background but below its content. Without it the glow drops behind the
+   background and is never seen. */
+.press-glow {
+  position: relative;
+  isolation: isolate;
+}
+.press-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    140px circle at var(--press-x, 50%) var(--press-y, 50%),
+    var(--am-press-glow) 0%,
+    transparent 68%
+  );
+  transition: opacity var(--am-motion-normal) var(--am-ease-standard);
+}
+.press-glow:active::after {
+  opacity: 1;
+}
+/* For surfaces that are opaque artwork rather than a bare row: the glow has to
+   sit *over* the image to be seen at all, so it is raised above the content. */
+.press-glow--over::after {
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .press-glow::after {
+    transition-duration: 1ms;
+  }
 }
 
 html,

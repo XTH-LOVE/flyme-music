@@ -175,10 +175,10 @@ pub fn run() {
         // System tray: left click toggles the window, menu has show/exit.
         use tauri::menu::{Menu, MenuItem};
         use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-        let show_item = MenuItem::with_id(app, "show", "显示 Aurora Music", true, None::<&str>)?;
+        let show_item = MenuItem::with_id(app, "show", "显示 Flyme Music", true, None::<&str>)?;
         let exit_item = MenuItem::with_id(app, "exit", "退出", true, None::<&str>)?;
         let menu = Menu::with_items(app, &[&show_item, &exit_item])?;
-        let mut tray = TrayIconBuilder::with_id("aurora-tray")
+        let mut tray = TrayIconBuilder::with_id("flyme-tray")
           .menu(&menu)
           .show_menu_on_left_click(false)
           .on_menu_event(|app, event| match event.id.as_ref() {

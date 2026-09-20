@@ -1,5 +1,5 @@
 /**
- * Aurora Music color system.
+ * Flyme Music color system.
  * Values mirror the CSS custom properties defined in styles/global.css.
  */
 export const lightColors = {

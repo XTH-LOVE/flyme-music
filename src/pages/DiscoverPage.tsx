@@ -73,7 +73,7 @@ export function DiscoverPage() {
             ))}
           </div>
         ) : (
-          <EmptyState icon="compass" title="还没有为你推荐" description="多听几首歌，Aurora 就会根据你的口味生成每日推荐" />
+          <EmptyState icon="compass" title="还没有为你推荐" description="多听几首歌，Flyme 就会根据你的口味生成每日推荐" />
         )}
       </section>
 

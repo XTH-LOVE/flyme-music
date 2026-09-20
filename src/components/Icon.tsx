@@ -34,6 +34,8 @@ export type IconName =
   | 'album'
   | 'mic'
   | 'trash'
+  | 'grip'
+  | 'locate'
   | 'volume';
 
 const paths: Record<IconName, JSX.Element> = {
@@ -168,6 +170,23 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <path d="M4 9.5v5h3.2L12 18.6V5.4L7.2 9.5H4Z" />
       <path d="M15.2 9a4.3 4.3 0 0 1 0 6M17.8 6.6a7.6 7.6 0 0 1 0 10.8" />
+    </>
+  ),
+  grip: (
+    <>
+      <circle cx="9.2" cy="6" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="14.8" cy="6" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="9.2" cy="12" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="14.8" cy="12" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="9.2" cy="18" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="14.8" cy="18" r="1.15" fill="currentColor" stroke="none" />
+    </>
+  ),
+  locate: (
+    <>
+      <circle cx="12" cy="12" r="8.4" />
+      <circle cx="12" cy="12" r="3.4" />
+      <path d="M12 2.6V6M12 18v3.4M2.6 12H6M18 12h3.4" />
     </>
   ),
 };

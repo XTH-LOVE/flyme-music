@@ -159,6 +159,143 @@ describe('duplicates', () => {
   });
 });
 
+describe('duplicates by duration', () => {
+  it('keeps a live take out of the studio take\u2019s group', () => {
+    // Same title and artist, but four minutes apart: two recordings, and
+    // calling them duplicates invites the user to delete one.
+    const list = [
+      track({ id: '1', name: '晴天', duration: 269 }),
+      track({ id: '2', name: '晴天', duration: 269 }),
+      track({ id: '3', name: '晴天', duration: 512 }),
+    ];
+    const groups = findDuplicates(list);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].indices).toEqual([0, 1]);
+    expect(groups[0].kind).toBe('exact');
+    expect(groups[0].duration).toBe(269);
+  });
+
+  it('does not report a lone recording as a duplicate at all', () => {
+    const list = [
+      track({ id: '1', name: '晴天', duration: 269 }),
+      track({ id: '2', name: '晴天', duration: 512 }),
+    ];
+    expect(findDuplicates(list)).toEqual([]);
+    expect(dedupeTracks(list).map((t) => t.id)).toEqual(['1', '2']);
+  });
+
+  it('tolerates a second or two of drift between copies', () => {
+    const list = [
+      track({ id: '1', name: '晴天', duration: 269 }),
+      track({ id: '2', name: '晴天', duration: 271 }),
+    ];
+    expect(findDuplicates(list)).toHaveLength(1);
+    expect(findDuplicates(list)[0].kind).toBe('exact');
+  });
+
+  it('splits further apart than the tolerance', () => {
+    const list = [
+      track({ id: '1', name: '晴天', duration: 269 }),
+      track({ id: '2', name: '晴天', duration: 274 }),
+    ];
+    expect(findDuplicates(list)).toEqual([]);
+  });
+
+  it('anchors a cluster on its first duration, so near-misses cannot chain', () => {
+    // 269, 271, 273, 275: every adjacent pair is within tolerance, so anchoring
+    // on the previous entry would chain all four into one 6-second "recording".
+    // Anchoring on the cluster's first duration breaks it in two.
+    const list = [269, 271, 273, 275].map((duration, i) =>
+      track({ id: String(i), name: '晴天', duration }),
+    );
+    const groups = findDuplicates(list);
+    expect(groups.map((g) => g.indices)).toEqual([
+      [0, 1],
+      [2, 3],
+    ]);
+  });
+
+  it('joins an unknown duration to the only recording in the group', () => {
+    // The common case: one copy was imported without a duration. Leaving it out
+    // would strand a duplicate in the list.
+    const list = [
+      track({ id: '1', name: '晴天', duration: 269 }),
+      track({ id: '2', name: '晴天', duration: undefined }),
+    ];
+    const groups = findDuplicates(list);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].indices).toEqual([0, 1]);
+    expect(groups[0].kind).toBe('assumed');
+  });
+
+  it('does not guess which recording an unknown duration belongs to', () => {
+    const list = [
+      track({ id: '1', name: '晴天', duration: 269 }),
+      track({ id: '2', name: '晴天', duration: 269 }),
+      track({ id: '3', name: '晴天', duration: 512 }),
+      track({ id: '4', name: '晴天', duration: undefined }),
+    ];
+    const groups = findDuplicates(list);
+    // The studio pair, and nothing else: one unknown cannot be both.
+    expect(groups).toHaveLength(1);
+    expect(groups[0].indices).toEqual([0, 1]);
+  });
+
+  it('groups copies that all lack a duration, flagged as assumed', () => {
+    const list = [
+      track({ id: '1', name: '晴天', duration: undefined }),
+      track({ id: '2', name: '晴天', duration: undefined }),
+    ];
+    const groups = findDuplicates(list);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].kind).toBe('assumed');
+    expect(groups[0].duration).toBeUndefined();
+  });
+
+  it('ignores a zero duration, which means "unknown" rather than "instant"', () => {
+    const list = [
+      track({ id: '1', name: '晴天', duration: 0 }),
+      track({ id: '2', name: '晴天', duration: 0 }),
+    ];
+    expect(findDuplicates(list)[0].kind).toBe('assumed');
+  });
+
+  it('returns groups in list order, with indices ascending', () => {
+    const list = [
+      track({ id: '1', name: 'B', duration: 100 }),
+      track({ id: '2', name: 'A', duration: 100 }),
+      track({ id: '3', name: 'B', duration: 100 }),
+      track({ id: '4', name: 'A', duration: 100 }),
+    ];
+    const groups = findDuplicates(list);
+    expect(groups.map((g) => g.label)).toEqual(['B - Artist', 'A - Artist']);
+    expect(groups.map((g) => g.indices)).toEqual([
+      [0, 2],
+      [1, 3],
+    ]);
+  });
+
+  it('gives every group a distinct key', () => {
+    const list = [
+      track({ id: '1', name: '晴天', duration: 269 }),
+      track({ id: '2', name: '晴天', duration: 269 }),
+      track({ id: '3', name: '晴天', duration: undefined }),
+      track({ id: '4', name: '晴天', duration: undefined }),
+    ];
+    const keys = findDuplicates(list).map((g) => g.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('removes exactly what findDuplicates reports, and nothing else', () => {
+    const list = [
+      track({ id: 'keep1', name: '晴天', duration: 269 }),
+      track({ id: 'dupe', name: '晴天', duration: 269 }),
+      track({ id: 'live', name: '晴天', duration: 512 }),
+    ];
+    expect(dedupeTracks(list).map((t) => t.id)).toEqual(['keep1', 'live']);
+  });
+});
+
 describe('export', () => {
   const list = [
     track({ id: '1', name: '晴天', artist: ['周杰伦'], duration: 269 }),

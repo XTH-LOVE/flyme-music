@@ -15,7 +15,7 @@ interface AuthState {
 }
 function mapUser(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): LocalUser {
   const meta = user.user_metadata ?? {};
-  return { id: user.id, username: String(meta.username || user.email || ''), nickname: String(meta.nickname || meta.display_name || user.email?.split('@')[0] || 'Aurora 听友'), avatarUrl: typeof meta.avatarUrl === 'string' ? meta.avatarUrl : undefined };
+  return { id: user.id, username: String(meta.username || user.email || ''), nickname: String(meta.nickname || meta.display_name || user.email?.split('@')[0] || 'Flyme 听友'), avatarUrl: typeof meta.avatarUrl === 'string' ? meta.avatarUrl : undefined };
 }
 const normalizeUsername = (username: string) => username.trim().toLowerCase();
 /**
@@ -95,7 +95,7 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
     if (!/^[\p{L}\p{N}_]{2,20}$/u.test(normalized)) return { ok: false, message: '账号名需要 2-20 位中文、字母、数字或下划线' };
     if (!STRONG_PASSWORD.test(password)) return { ok: false, message: PASSWORD_MESSAGE };
     try {
-      const { data, error } = await supabase.functions.invoke('account-auth', { body: { action: 'register', displayName: displayName.trim() || 'Aurora 听友', username: normalized, password } });
+      const { data, error } = await supabase.functions.invoke('account-auth', { body: { action: 'register', displayName: displayName.trim() || 'Flyme 听友', username: normalized, password } });
       if (error || data?.error) return { ok: false, message: data?.error || mapAuthError(error?.message || '注册失败') };
     } catch (e) {
       // supabase-js wraps non-2xx function responses in FunctionsHttpError and
@@ -132,7 +132,7 @@ export const useAuthStore = create<AuthState>()(persist((set, get) => ({
   },
   uploadAvatar: async (image) => {
     const user = get().user;
-    if (!supabase || !user) return { ok: false, message: '请先登录 Aurora 账号' };
+    if (!supabase || !user) return { ok: false, message: '请先登录 Flyme 账号' };
     const contentType = image instanceof File && image.type.startsWith('image/') ? image.type : 'image/jpeg';
     if (image.size > 5 * 1024 * 1024) return { ok: false, message: '图片不能超过 5MB' };
     const ext = contentType === 'image/png' ? 'png' : 'jpg';

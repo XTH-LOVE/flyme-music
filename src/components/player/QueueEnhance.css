@@ -75,9 +75,78 @@
 }
 
 /* drag reorder hints */
-.queue-item--dragging {
-  opacity: 0.45;
+/* Positioning context for the drop indicator, and the element whose origin the
+   drag geometry is measured against. */
+.queue-rows {
+  position: relative;
 }
-.queue-item--drop {
-  box-shadow: inset 0 2px 0 var(--am-accent, #3d7bff);
+
+.queue-item--dragging {
+  /* Lifted clear of the rows making room beneath it. */
+  position: relative;
+  z-index: 2;
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.12));
+  box-shadow: var(--am-shadow-floating);
+  opacity: 0.94;
+  cursor: grabbing;
+}
+/* Rows only animate their make-room shift; the dragged row must track the
+   pointer exactly, so it opts out or it would lag a frame behind the finger. */
+.queue-rows--dragging .queue-item:not(.queue-item--dragging) {
+  transition: transform var(--am-motion-micro) var(--am-ease-standard);
+}
+.queue-rows--dragging .queue-item {
+  cursor: default;
+}
+.queue-rows--dragging .queue-item:hover {
+  transform: none;
+}
+
+/* The insertion point. A gap is between rows, so it cannot be shown by
+   highlighting one - hence a line of its own, drawn over the list. */
+.queue-drop {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 2px;
+  background: var(--am-accent, #3d7bff);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--am-accent, #3d7bff) 60%, transparent);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Drag handle. `touch-action: none` is what lets the gesture belong to the row
+   instead of scrolling the sheet out from under it. */
+.queue-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 40px;
+  margin-right: -6px;
+  flex: 0 0 auto;
+  color: var(--am-text-3);
+  touch-action: none;
+  cursor: grab;
+  border-radius: var(--am-radius-sm);
+  transition: color var(--am-motion-micro) var(--am-ease-standard);
+}
+.queue-handle:hover {
+  color: var(--am-text-1);
+}
+.queue-handle:active {
+  cursor: grabbing;
+}
+/* Touch has no hover, so the handle would be invisible until touched. */
+@media (hover: none) {
+  .queue-handle {
+    color: var(--am-text-2);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .queue-rows--dragging .queue-item:not(.queue-item--dragging) {
+    transition: none;
+  }
 }

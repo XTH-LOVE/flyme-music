@@ -1,0 +1,145 @@
+/**
+ * Listening calendar (contribution graph).
+ *
+ * The grid scrolls sideways and opens on the right, so the weekday column has
+ * to sit outside the scroller - a label inside it would scroll away from the
+ * rows it names. Month labels live inside, on the same column tracks as the
+ * grid, which is what keeps them aligned.
+ */
+.cal {
+  --cal-cell: 12px;
+  --cal-gap: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cal__weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, var(--cal-cell));
+  gap: var(--cal-gap);
+  /* Clears the month label strip so row 1 lines up with the first grid row. */
+  padding-top: 16px;
+  flex: 0 0 auto;
+}
+.cal__weekday {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 14px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--am-text-3);
+}
+
+.cal__scroller {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* The grid is a scroll region, not a control: keep the scrollbar out of the
+     way and let touch pan it. */
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+.cal__inner {
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cal-gap);
+}
+
+.cal__months {
+  display: grid;
+  /* Same track size as the grid below, so a label sits over its own column.
+     Columns are implicit: only labelled months place an item, and the ones in
+     between are created by the placement. */
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cal-cell);
+  column-gap: var(--cal-gap);
+  height: 13px;
+}
+.cal__month {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--am-text-3);
+  /* The label sits on its month's first column; letting it overflow keeps it
+     from being clipped by a 12px track. */
+  white-space: nowrap;
+  overflow: visible;
+  justify-self: start;
+}
+
+.cal__grid {
+  display: grid;
+  grid-template-rows: repeat(7, var(--cal-cell));
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cal-cell);
+  column-gap: var(--cal-gap);
+  row-gap: var(--cal-gap);
+}
+
+.cal__cell {
+  width: var(--cal-cell);
+  height: var(--cal-cell);
+  border-radius: 3px;
+  background: var(--am-surface-3, rgba(120, 120, 140, 0.14));
+}
+.cal__cell--l1 {
+  background: color-mix(in srgb, var(--am-accent, #3d7bff) 26%, transparent);
+}
+.cal__cell--l2 {
+  background: color-mix(in srgb, var(--am-accent, #3d7bff) 48%, transparent);
+}
+.cal__cell--l3 {
+  background: color-mix(in srgb, var(--am-accent, #3d7bff) 72%, transparent);
+}
+.cal__cell--l4 {
+  background: var(--am-accent, #3d7bff);
+}
+/* Days that have not happened yet are drawn, not shaded. */
+.cal__cell--future {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--am-surface-3, rgba(120, 120, 140, 0.14));
+}
+
+.cal__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cal__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--am-text-3);
+}
+.cal__stats b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--am-text-1);
+  margin-right: 2px;
+}
+.cal__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--cal-gap);
+  font-size: 11px;
+  color: var(--am-text-3);
+  margin-left: auto;
+}
+.cal__legend .cal__cell {
+  display: block;
+  width: 11px;
+  height: 11px;
+}

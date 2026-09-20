@@ -2,12 +2,17 @@ import { useEffect } from 'react';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCoverPalette } from '@/utils/coverPalette';
-import { fallbackPalette } from '@/utils/palette';
+import { accentFromCover, fallbackPalette } from '@/utils/palette';
 
 /**
- * Artwork-derived colors. Scoped to the player by default so one orange
- * cover cannot recolor the whole app; with the "跟随封面取色" opt-in the
- * global accent follows the extracted cover color instead.
+ * Artwork-derived colors.
+ *
+ * Two scopes: `--am-track-accent` always follows the best palette available for
+ * the current artwork, and `--am-accent` — which repaints the whole app — only
+ * follows it with the "跟随封面取色" opt-in.
+ *
+ * The global accent deliberately does not move until the cover's own colours
+ * have been extracted; see `accentFromCover` for why.
  */
 export function MonetAccent() {
   const current = usePlayerStore((s) => s.current);
@@ -16,26 +21,27 @@ export function MonetAccent() {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (!current) return undefined;
-    const p = extracted ?? current.palette ?? fallbackPalette(current.id);
-    root.style.setProperty('--am-track-accent', p[0]);
-    root.style.setProperty('--am-track-accent-soft', p[1] ?? p[0]);
-    if (dynamicAccent) {
-      root.style.setProperty('--am-accent', p[0]);
-    } else {
+    const accent = accentFromCover(extracted, dynamicAccent);
+    if (accent !== null) {
+      root.style.setProperty('--am-accent', accent);
+    } else if (!dynamicAccent) {
+      // The inline override has to go so the theme's own accent shows through;
+      // leaving it would keep the last cover's colour forever.
       root.style.removeProperty('--am-accent');
     }
-    return undefined;
-    // Narrowed to the track identity on purpose: `current` is a new object on
-    // every player-store update, so depending on it would re-run this on each
-    // position tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-  }, [current?.id, current?.source, extracted, dynamicAccent]);
+  }, [extracted, dynamicAccent]);
 
+  // Track-scoped accent: the player is already showing this artwork, so the
+  // first palette available is good enough, placeholder included. `current` is
+  // a stable reference out of the queue, so this does not re-run per position
+  // tick.
   useEffect(() => {
-    // Switching the setting off must restore the theme accent immediately.
-    if (!dynamicAccent) document.documentElement.style.removeProperty('--am-accent');
-  }, [dynamicAccent]);
+    if (!current) return;
+    const palette = extracted ?? current.palette ?? fallbackPalette(current.id);
+    const root = document.documentElement;
+    root.style.setProperty('--am-track-accent', palette[0]);
+    root.style.setProperty('--am-track-accent-soft', palette[1] ?? palette[0]);
+  }, [current, extracted]);
 
   return null;
 }

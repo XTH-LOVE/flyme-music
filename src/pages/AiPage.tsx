@@ -22,6 +22,7 @@ import {
   type ToolCtx,
 } from '@/ai/aiTools';
 import { fetchLyricLines, lyricLineAt } from '@/utils/currentLyric';
+import { contextUsage, maybeCompactHistory, resolveContextWindow } from '@/agent';
 import { loadMemories, memoryBlock, scheduleMemoryExtraction } from '@/ai/memory';
 import { MemoryPanel } from '@/ai/memoryUi';
 import type { MusicTrack } from '@/music/source/types';
@@ -85,7 +86,7 @@ function PlaylistCard({ id, name, tracks }: { id: string; name: string; tracks: 
       </div>
       <div className="ai-pl__body">
         <div className="ai-pl__name">{name}</div>
-        <div className="ai-pl__meta">{tracks.length} 首 · Aurora 创建</div>
+        <div className="ai-pl__meta">{tracks.length} 首 · Flyme 创建</div>
       </div>
       <button className="ai-pl__open" onClick={() => navigate('/my-playlist/' + id)}>
         打开
@@ -155,7 +156,7 @@ function MessageView({ m, onRetry }: { m: AiMessage; onRetry?: () => void }) {
         {m.text || m.thought || m.streaming ? (
           <div className="ai-song-event__analysis">
             <span className="ai-song-event__label">
-              Aurora 歌曲解读
+              Flyme 歌曲解读
               {m.analysisStatus === 'pending' ? ' · 分析中' : null}
               {m.analysisStatus === 'ready' ? ' · 已完成' : null}
               {m.analysisStatus === 'error' ? ' · 稍后重试' : null}
@@ -253,7 +254,7 @@ function AiContextPanel({
           <div className="ai-context__empty">暂时没有正在播放的歌曲</div>
         )}
         <div className="ai-context__section">
-          <div className="ai-side-card__title">Aurora 人设</div>
+          <div className="ai-side-card__title">Flyme 人设</div>
           <div className="ai-persona-row">
             {(Object.keys(personaLabels) as AiPersona[]).map((p) => (
               <button key={p} className={'ai-persona' + (persona === p ? ' ai-persona--on' : '')} onClick={() => onPersona(p)}>
@@ -271,7 +272,7 @@ function AiContextPanel({
   );
 }
 
-/** Aurora listen-together page: chat timeline + playing context + AI actions. */
+/** Flyme listen-together page: chat timeline + playing context + AI actions. */
 export function AiPage() {
   const location = useLocation();
   const messages = useAiStore((s) => s.messages);
@@ -415,12 +416,32 @@ export function AiPage() {
       let lastPlaylist: AiMessage['playlist'];
       let lastReply = '';
       let finalText = '';
+      let working = history;
+      const contextWindow = resolveContextWindow();
       for (let round = 0; round < 6; round++) {
-        setActivity(`正在思考并规划下一步（${round + 1}/6）…`);
+        // Keep the transcript inside the model's window. Checked before the
+        // request rather than after it, because the number that matters is the
+        // size of the prompt about to go out - checking afterwards means the
+        // request that overflowed has already been sent, and a provider that
+        // truncates from the front does it silently.
+        const compaction = await maybeCompactHistory(cfg, working, {
+          contextWindow,
+          step: round,
+          signal: ctrl.signal,
+        });
+        if (compaction.compacted) {
+          working = compaction.history;
+          if (compaction.note) setActivity(compaction.note);
+        }
+        const usage = contextUsage(working, contextWindow);
+        setActivity(
+          `正在思考并规划下一步（${round + 1}/6）` +
+            (usage.percent === null ? '' : ` · 上下文 ${usage.percent}%`),
+        );
         let acc = '';
         let full = '';
         try {
-          const result = await chatStreamWithFallback(cfg, history, (d) => {
+          const result = await chatStreamWithFallback(cfg, working, (d) => {
             acc += d;
             const vis = stripToolCall(acc).trim();
             if (vis) updateMessage(aiId, { text: vis });
@@ -456,14 +477,14 @@ export function AiPage() {
         if (!calls.length && !finalText) {
           // model burned its tokens on reasoning and said nothing: nudge once
           if (round >= 4) break;
-          history.push({ role: 'assistant', content: full || '（空回复）' });
-          history.push({
+          working.push({ role: 'assistant', content: full || '（空回复）' });
+          working.push({
             role: 'user',
             content: '（你上一条回复没有任何内容。要么调用 ::tool 工具，要么直接给用户最终回复。）',
           });
           continue;
         }
-        history.push({ role: 'assistant', content: full });
+        working.push({ role: 'assistant', content: full });
         const facts: Record<string, unknown>[] = [];
         // Execute one action at a time so the next model turn can observe the
         // updated route/player state before deciding what to do next.
@@ -476,7 +497,7 @@ export function AiPage() {
             const count = Array.isArray(call.indices) && call.indices.length
               ? call.indices.length
               : Number(call.count ?? 12) || 12;
-            const approved = window.confirm('Aurora 准备创建歌单「' + title + '」，预计加入 ' + count + ' 首歌曲。是否继续？');
+            const approved = window.confirm('Flyme 准备创建歌单「' + title + '」，预计加入 ' + count + ' 首歌曲。是否继续？');
             if (!approved) {
               facts.push({ action: 'approval_denied', tool: String(call.tool), reason: 'user_denied' });
               continue;
@@ -511,7 +532,7 @@ export function AiPage() {
             },
           });
         }
-        history.push({
+        working.push({
           role: 'user',
           content:
             '[工具结果] ' +
@@ -529,7 +550,7 @@ export function AiPage() {
       });
       // Channel A: quiet background extraction from this turn's dialogue.
       void scheduleMemoryExtraction(
-        history.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-6),
+        working.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-6),
         useAiStore.getState().model,
       )
         .then(() => loadMemories())
@@ -546,10 +567,10 @@ export function AiPage() {
       <div className="ai-page__main">
         <div className="ai-page__head">
           <div className="ai-avatar">
-            <img src="/aurora-mark.jpg" width="38" height="38" alt="Aurora" />
+            <img src="/flyme-mark.jpg" width="38" height="38" alt="Flyme" />
           </div>
           <div className="ai-page__head-text">
-            <div className="ai-page__title">Aurora · 一起听</div>
+            <div className="ai-page__title">Flyme · 一起听</div>
             <div className="ai-page__sub">
               {configured ? '在线 · ' + model : '本地模式 · 去设置选择模型'}
             </div>
@@ -569,9 +590,9 @@ export function AiPage() {
           {messages.length === 0 ? (
             <div className="ai-welcome">
               <div className="ai-welcome__mark">
-                <img src="/aurora-mark.jpg" width="88" height="88" alt="Aurora 音乐标识" />
+                <img src="/flyme-mark.jpg" width="88" height="88" alt="Flyme 音乐标识" />
               </div>
-              <div className="ai-welcome__title">嗨，我是 Aurora</div>
+              <div className="ai-welcome__title">嗨，我是 Flyme</div>
               <div className="ai-welcome__sub">
                 「播放周杰伦 晴天」双音源找原版直接放；「建个雨天歌单」真的帮你建好保存；
                 切歌时我会在这里陪你聊。
@@ -644,7 +665,7 @@ export function AiPage() {
         ) : null}
 
         <div className="ai-side-card">
-          <div className="ai-side-card__title">Aurora 人设</div>
+          <div className="ai-side-card__title">Flyme 人设</div>
           <div className="ai-persona-row">
             {(Object.keys(personaLabels) as AiPersona[]).map((p) => (
               <button

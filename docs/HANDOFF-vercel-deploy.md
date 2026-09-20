@@ -9,7 +9,7 @@
 
 ## 1. 项目与环境
 
-- 项目路径：`D:\AuroraMusic`（Windows）。应用名 "Flyme Music"（内部目录 AuroraMusic）。
+- 项目路径：`D:\FlymeMusic`（Windows）。应用名 "Flyme Music"（内部目录 FlymeMusic）。
 - 技术栈：Tauri 2 + React 18 + TypeScript + Vite 6 + Zustand + React Router 6。
 - 分支：`feat/standalone-packaging`。当前 HEAD：`2466cd4`。
 - 无 git remote、无任何托管配置文件（无 wrangler/netlify/vercel.json/`.github`）。`services/` 是空目录。
@@ -132,7 +132,7 @@
 
 - 全程用**中文**回复用户。
 - 绝不提交/打印 `.env.local` 与任何 key。
-- **绝不 `git commit --amend`**；不碰 global git config。若需提交身份：repo 级 `user.name=AuroraMusic` / `user.email=dev@auroramusic.local`。
+- **绝不 `git commit --amend`**；不碰 global git config。若需提交身份：repo 级 `user.name=FlymeMusic` / `user.email=dev@auroramusic.local`。
 - 只写 plain JS/TS，不引多余依赖（不要装 `@vercel/node` 之类，用结构化的 Node `IncomingMessage/ServerResponse` 类型即可）。
 - 不要动 `src/` 下前端逻辑和 `vite.config.ts` 的 dev 中间件（那是桌面 dev 用，移植是**新增** api/server，不改 vite）。
 - 遇到需要架构取舍或计划外的大改，停下来问用户，别擅自扩范围。

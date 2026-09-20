@@ -7,9 +7,9 @@
 
 ## 1. 目标与现状
 
-现状：Aurora 已有成熟的**切歌自动解读**（`src/components/ai/AiCompanion.tsx`，headless 挂载于 AppLayout：切歌 → 时间线卡片 → 歌词读取 → 流式点评 → 缓存/超时降级/设置开关）。
+现状：Flyme 已有成熟的**切歌自动解读**（`src/components/ai/AiCompanion.tsx`，headless 挂载于 AppLayout：切歌 → 时间线卡片 → 歌词读取 → 流式点评 → 缓存/超时降级/设置开关）。
 
-本期让 Aurora 会**主动开口**：时段问候、连听里程碑关心、AI 听歌周报。所有触发条件由本地数据可判定，禁止模型猜测情绪；所有生成失败静默降级，绝不打扰。
+本期让 Flyme 会**主动开口**：时段问候、连听里程碑关心、AI 听歌周报。所有触发条件由本地数据可判定，禁止模型猜测情绪；所有生成失败静默降级，绝不打扰。
 
 ## 2. 已确认的决策
 
@@ -46,7 +46,7 @@ interface Trigger { kind: ProactiveKind; payload: Record<string, unknown>; }
 - 触发：挂载时检查 `localStorage('aurora.proactive.weekly')` 距今 ≥7 天
 - 数据：近 7 天 playLog 聚合（总次数、活跃天数、Top 3 歌曲、Top 3 歌手、新出现的歌手、时段分布粗分）
 - 生成：AI 写 4-6 句有温度的周报（点名最爱、发现新口味、一句基于记忆的鼓励/建议）；失败用现有 `buildLocalReport` 模板
-- 呈现：时间线消息 + `notify('Aurora 为你生成了上周听歌报告')`
+- 呈现：时间线消息 + `notify('Flyme 为你生成了上周听歌报告')`
 
 ## 4. 引擎架构
 

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
+import { LocatePlayingButton, usePlayingIndex } from '@/components/LocatePlayingButton';
 import { TrackListItem } from '@/components/TrackListItem';
 import { TrackCover } from '@/components/TrackCover';
 import { PlaylistArt } from '@/components/PlaylistArt';
@@ -50,6 +51,11 @@ export function UserPlaylistDetailPage() {
     [tracks, query, sortField, sortDir],
   );
   const duplicates = useMemo(() => findDuplicates(tracks), [tracks]);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  // Sorted and filtered: the button has to look for the row the user can see,
+  // not the one at the playlist's stored position.
+  const playingIndex = usePlayingIndex(visible);
 
   if (!playlist) return <EmptyState title="歌单不存在" description="它可能已经被删除" />;
 
@@ -168,17 +174,20 @@ export function UserPlaylistDetailPage() {
           ) : null}
 
           {visible.length ? (
-            <div className="song-list">
-              {visible.map((track, i) => (
-                <TrackListItem
-                  key={track.source + ':' + track.id + ':' + i}
-                  track={track}
-                  context={visible}
-                  index={i}
-                  onRemove={() => removeTrack(playlist.id, track)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="song-list" ref={listRef}>
+                {visible.map((track, i) => (
+                  <TrackListItem
+                    key={track.source + ':' + track.id + ':' + i}
+                    track={track}
+                    context={visible}
+                    index={i}
+                    onRemove={() => removeTrack(playlist.id, track)}
+                  />
+                ))}
+              </div>
+              <LocatePlayingButton containerRef={listRef} index={playingIndex} />
+            </>
           ) : (
             <EmptyState icon="search" title="没有匹配的歌曲" description="换个关键词试试" />
           )}

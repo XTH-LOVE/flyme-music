@@ -1,4 +1,4 @@
-# Aurora Music Architecture
+# Flyme Music Architecture
 
 ## Layers
 

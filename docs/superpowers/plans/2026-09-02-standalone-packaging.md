@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 18 + TypeScript + Vite 6 + Zustand；Tauri 2（Rust）+ tauri-plugin-http + tauri-plugin-dialog + reqwest/futures-util；vitest（新增，仅测纯函数）；opencc-js（懒加载，仅 Joox 用）。
 
-**约定：** 所有命令在项目根 d:\AuroraMusic 执行（Rust 相关命令注明 src-tauri）。每个任务结束都提交一次。
+**约定：** 所有命令在项目根 d:\FlymeMusic 执行（Rust 相关命令注明 src-tauri）。每个任务结束都提交一次。
 
 ---
 
@@ -2263,7 +2263,7 @@ Expected: 无输出；文件已被 .gitignore 覆盖，删除后不再产生。
 Run: `npx tsc -b --force`
 Expected: 无输出。
 
-Run: `npm run dev`，用 Aurora 账号（用户名 + 6 位数字密码）登录一次、改一次昵称、退出登录。
+Run: `npm run dev`，用 Flyme 账号（用户名 + 6 位数字密码）登录一次、改一次昵称、退出登录。
 Expected: 三步都正常，Network 中不再出现 `/api/auth/*` 请求，全部走 supabase.co。
 
 - [ ] **Step 5: 提交**
@@ -2694,7 +2694,7 @@ Run: `npx tauri dev`
 3. 歌词显示与滚动（网易与 QQ 各一首）
 4. 榜单页：网易榜单 + QQ 榜单（含卡片封面）
 5. AI 页发送一句话：流式逐字输出，模型列表可见
-6. Aurora 账号登录 / 改昵称 / 上传头像 / 退出
+6. Flyme 账号登录 / 改昵称 / 上传头像 / 退出
 7. 更多操作 → 下载歌曲：弹另存为，保存后 toast 提示路径，文件可播放
 8. 分享歌词卡片：弹另存为，PNG 内容含封面与歌词
 9. F11 全屏切换与右上角注入的全屏按钮仍可用
@@ -2728,7 +2728,7 @@ Expected: 产物位于 `src-tauri/gen/android/app/build/outputs/apk/universal/re
 4. Joox 源结果为简体
 5. 下载歌曲：文件落在应用 Download/FlymeMusic 目录，toast 显示完整路径
 6. AI 页流式输出正常
-7. Aurora 账号登录正常
+7. Flyme 账号登录正常
 
 - [ ] **Step 5: 记录已知限制并提交**
 

@@ -6,6 +6,7 @@ import { SourceBadge } from '@/components/SourceBadge';
 import { TrackActionsSheet } from '@/components/TrackActionsSheet';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { usePlayerStore } from '@/store/usePlayerStore';
+import { usePressGlow } from '@/hooks/usePressGlow';
 import { playerController } from '@/player';
 import type { MusicTrack } from '@/music/source/types';
 import { formatTime } from '@/utils/format';
@@ -30,6 +31,7 @@ export const TrackListItem = memo(function TrackListItem({ track, context, index
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const pressGlow = usePressGlow();
 
   const active = current?.id === track.id && current?.source === track.source;
   const fav = favorites.includes(track.id);
@@ -42,6 +44,7 @@ export const TrackListItem = memo(function TrackListItem({ track, context, index
     longPress.current.timer = null;
   };
   const onRowPointerDown = (e: React.PointerEvent) => {
+    pressGlow(e);
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     clearLongPress();
     longPress.current.fired = false;
@@ -62,9 +65,12 @@ export const TrackListItem = memo(function TrackListItem({ track, context, index
   return (
     <>
       <div
-        className={'song-item' + (active ? ' song-item--active' : '')}
+        className={'song-item press-glow' + (active ? ' song-item--active' : '')}
         role="button"
         tabIndex={0}
+        // Lets a page scroll to a specific row (index-bar jumps, "locate the
+        // playing song") without depending on class-based DOM ordering.
+        data-row-index={typeof index === 'number' ? index : undefined}
         aria-label={'播放 ' + track.name + ' - ' + track.artist.join(' / ')}
         onClick={onRowClick}
         onPointerDown={onRowPointerDown}

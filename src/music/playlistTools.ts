@@ -105,6 +105,11 @@ export function filterTracks(tracks: MusicTrack[], query: string): MusicTrack[] 
  *
  * Name plus artist, not id: the same song added from two sources has different
  * ids and is still the same song to the user.
+ *
+ * This is only the *first* pass. Two recordings of one title - a studio take
+ * and a live one - share a name and an artist too, and treating them as
+ * duplicates invites the user to delete one of them. Duration is what separates
+ * those, so see `durationClusters`.
  */
 export function duplicateKey(track: MusicTrack): string {
   return (track.name + '|' + track.artist.join('/'))
@@ -113,44 +118,131 @@ export function duplicateKey(track: MusicTrack): string {
     .replace(/\s+/g, ' ');
 }
 
+/** Copies whose durations differ by more than this are different recordings. */
+export const DURATION_TOLERANCE = 3;
+
+export type DuplicateKind =
+  /** Every copy reports a duration and they agree: the same recording. */
+  | 'exact'
+  /** A duration is missing, so the match rests on title and artist alone. */
+  | 'assumed';
+
 export interface DuplicateGroup {
   key: string;
   label: string;
+  kind: DuplicateKind;
   /** Indices in the original array, in order. */
   indices: number[];
+  /** Duration of the recording, when the copies agree on one. */
+  duration?: number;
 }
 
-/** Groups of tracks that appear more than once. */
-export function findDuplicates(tracks: MusicTrack[]): DuplicateGroup[] {
-  const groups = new Map<string, number[]>();
-  tracks.forEach((track, index) => {
-    const key = duplicateKey(track);
-    const list = groups.get(key);
-    if (list) list.push(index);
-    else groups.set(key, [index]);
-  });
-  return [...groups.entries()]
-    .filter(([, indices]) => indices.length > 1)
-    .map(([key, indices]) => ({
-      key,
-      label: tracks[indices[0]].name + ' - ' + tracks[indices[0]].artist.join(' / '),
-      indices,
-    }));
+interface DurationCluster {
+  indices: number[];
+  duration?: number;
+  kind: DuplicateKind;
 }
 
 /**
- * Remove duplicates, keeping the first occurrence.
+ * Splits copies of one title into recordings, then keeps only the real
+ * duplicates.
  *
- * Keeps the earliest copy so the playlist order the user built is preserved.
+ * A cluster of one is a different recording rather than a duplicate, so it is
+ * dropped here - that is the whole point of looking at duration, and it is what
+ * keeps `dedupeTracks` from silently deleting a live version.
+ */
+function durationClusters(
+  entries: readonly { index: number; duration?: number }[],
+): DurationCluster[] {
+  const known: { index: number; duration: number }[] = [];
+  const unknown: number[] = [];
+  for (const entry of entries) {
+    if (typeof entry.duration === 'number' && entry.duration > 0) {
+      known.push({ index: entry.index, duration: entry.duration });
+    } else {
+      unknown.push(entry.index);
+    }
+  }
+  const knownDurations = new Map(known.map((entry) => [entry.index, entry.duration]));
+
+  const clusters: DurationCluster[] = [];
+
+  // Sorted, then compared against the cluster's *first* duration rather than
+  // the previous entry's: anchoring on the previous one would let a chain of
+  // near-misses walk arbitrarily far from where it started.
+  for (const entry of [...known].sort((a, b) => a.duration - b.duration)) {
+    const last = clusters[clusters.length - 1];
+    if (last && entry.duration - (last.duration as number) <= DURATION_TOLERANCE) {
+      last.indices.push(entry.index);
+      continue;
+    }
+    clusters.push({ indices: [entry.index], duration: entry.duration, kind: 'exact' });
+  }
+
+  if (unknown.length) {
+    const only = clusters.length <= 1 ? clusters[0] : undefined;
+    if (only) {
+      // One recording in the group, so a missing duration has nothing to
+      // disagree with. Joining it is right; leaving it out would strand a
+      // duplicate in the list.
+      only.indices.push(...unknown);
+    } else {
+      // Several recordings and no way to tell which one the unknowns are.
+      // Guessing would mean deleting the wrong copy.
+      clusters.push({ indices: [...unknown], kind: 'assumed' });
+    }
+  }
+
+  for (const cluster of clusters) {
+    cluster.indices.sort((a, b) => a - b);
+    cluster.kind = cluster.indices.every((index) => knownDurations.has(index))
+      ? 'exact'
+      : 'assumed';
+  }
+  return clusters.filter((cluster) => cluster.indices.length > 1);
+}
+
+/** Groups of tracks that are the same recording more than once. */
+export function findDuplicates(tracks: MusicTrack[]): DuplicateGroup[] {
+  const byTitle = new Map<string, { index: number; duration?: number }[]>();
+  tracks.forEach((track, index) => {
+    const key = duplicateKey(track);
+    const list = byTitle.get(key);
+    if (list) list.push({ index, duration: track.duration });
+    else byTitle.set(key, [{ index, duration: track.duration }]);
+  });
+
+  const groups: DuplicateGroup[] = [];
+  for (const [title, entries] of byTitle) {
+    if (entries.length < 2) continue;
+    for (const cluster of durationClusters(entries)) {
+      const first = tracks[cluster.indices[0]];
+      groups.push({
+        key: title + '|' + (cluster.duration ?? '?'),
+        label: first.name + ' - ' + first.artist.join(' / '),
+        kind: cluster.kind,
+        indices: cluster.indices,
+        duration: cluster.duration,
+      });
+    }
+  }
+  return groups;
+}
+
+/**
+ * Remove duplicates, keeping the first occurrence of each recording.
+ *
+ * Built on `findDuplicates` rather than on its own key, so what the review
+ * panel shows and what this deletes can never drift apart. Keeps the earliest
+ * copy so the order the user built is preserved, and keeps different recordings
+ * of the same title.
  */
 export function dedupeTracks(tracks: MusicTrack[]): MusicTrack[] {
-  const seen = new Set<string>();
-  return tracks.filter((track) => {
-    const key = duplicateKey(track);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const drop = new Set<number>();
+  for (const group of findDuplicates(tracks)) {
+    for (const index of group.indices.slice(1)) drop.add(index);
+  }
+  return tracks.filter((_, index) => !drop.has(index));
 }
 
 export type ExportFormat = 'm3u' | 'txt' | 'json';
@@ -165,7 +257,7 @@ export const EXPORT_FORMATS: { format: ExportFormat; label: string; extension: s
  * M3U keeps only what a player needs to look the track up again: the duration,
  * the display name and, when known, the original stream location.
  */
-export function toM3U(tracks: MusicTrack[], playlistName = 'Aurora Music'): string {
+export function toM3U(tracks: MusicTrack[], playlistName = 'Flyme Music'): string {
   const lines = ['#EXTM3U', `#PLAYLIST:${playlistName}`];
   for (const track of tracks) {
     const seconds = Math.max(0, Math.round(track.duration ?? 0));
@@ -187,7 +279,7 @@ export function toText(tracks: MusicTrack[]): string {
     .join('\n');
 }
 
-export function toJson(tracks: MusicTrack[], playlistName = 'Aurora Music'): string {
+export function toJson(tracks: MusicTrack[], playlistName = 'Flyme Music'): string {
   return JSON.stringify(
     {
       name: playlistName,
@@ -211,7 +303,7 @@ export function toJson(tracks: MusicTrack[], playlistName = 'Aurora Music'): str
 export function exportPlaylist(
   tracks: MusicTrack[],
   format: ExportFormat,
-  playlistName = 'Aurora Music',
+  playlistName = 'Flyme Music',
 ): string {
   if (format === 'm3u') return toM3U(tracks, playlistName);
   if (format === 'json') return toJson(tracks, playlistName);

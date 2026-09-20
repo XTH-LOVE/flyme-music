@@ -1,0 +1,60 @@
+/**
+ * "Locate the playing song" floating shortcut.
+ *
+ * Sits above the mini player and out of the bottom nav's way, and below both in
+ * the stacking order (nav 120, full player 300) so it can never cover them.
+ * It stays mounted while hidden so the fade can play; `aria-hidden` and
+ * `tabIndex={-1}` in the component keep it out of reach meanwhile.
+ */
+.locate-playing {
+  position: fixed;
+  right: 18px;
+  bottom: calc(144px + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--am-accent);
+  box-shadow: var(--am-shadow-floating);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(10px) scale(0.86);
+  pointer-events: none;
+  transition:
+    opacity var(--am-motion-normal) var(--am-ease-standard),
+    transform var(--am-motion-normal) var(--am-ease-spring);
+}
+.locate-playing--on {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.locate-playing:hover {
+  filter: brightness(1.08);
+}
+.locate-playing:active {
+  transform: scale(0.92);
+}
+.locate-playing:focus-visible {
+  outline: 2px solid var(--am-accent);
+  outline-offset: 3px;
+}
+
+@media (min-width: 960px) {
+  .locate-playing {
+    right: 28px;
+    /* The nav is hidden from 960px up and the mini player moves to bottom: 20. */
+    bottom: 96px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locate-playing {
+    transition-duration: 1ms;
+  }
+}

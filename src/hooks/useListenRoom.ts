@@ -124,7 +124,7 @@ export async function hostListenRoom(): Promise<void> {
   const listen = useListenStore.getState();
   const user = useAuthStore.getState().user;
   if (!user) {
-    listen.fail('请先在「我的」页面登录 Aurora 账号');
+    listen.fail('请先在「我的」页面登录 Flyme 账号');
     return;
   }
   listen.begin('host');
@@ -142,7 +142,7 @@ export async function joinListenRoom(code: string): Promise<void> {
   const listen = useListenStore.getState();
   const user = useAuthStore.getState().user;
   if (!user) {
-    listen.fail('请先在「我的」页面登录 Aurora 账号');
+    listen.fail('请先在「我的」页面登录 Flyme 账号');
     return;
   }
   listen.begin('guest');

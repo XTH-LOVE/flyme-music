@@ -49,3 +49,7 @@ release-cf/
 
 # 本地调试截图
 .dsh/
+
+# 临时链接器探针产物（scripts/build-android.sh 的 sanity check 用）
+probe-*
+*.rcgu.o

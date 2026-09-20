@@ -101,6 +101,10 @@ jobs:
             exit 1
           fi
           echo "$SIGNING_KEY" | base64 -d > src-tauri/gen/android/release.jks
+          # An absolute path: build.gradle.kts resolves `file(...)` relative
+          # to the *app module* directory, not the android project root
+          # where the keystore is actually written.
+          echo "KEYSTORE_PATH=$PWD/src-tauri/gen/android/release.jks" >> "$GITHUB_ENV"
 
       # One place to bump the version: package.json. This copies it to the
       # Android project and to tauri.conf.json, which is the file Tauri actually
@@ -116,7 +120,6 @@ jobs:
 
       - name: Build signed APK
         env:
-          KEYSTORE_PATH: release.jks
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           ALIAS: ${{ secrets.ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}

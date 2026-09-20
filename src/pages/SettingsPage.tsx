@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Icon, type IconName } from '@/components/Icon';
 import { SectionHeader } from '@/design-system/components/SectionHeader';
+import { UpdateSection } from '@/components/UpdateSection';
 import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { useSettingsStore, type AudioQuality } from '@/store/useSettingsStore';
 import { useAiStore, type AiPersona } from '@/store/useAiStore';
@@ -494,12 +495,7 @@ export function SettingsPage() {
 
       <SectionHeader title="关于" />
       <div className="settings-card">
-        <div className="settings-row">
-          <div className="settings-row__body">
-            <div className="settings-row__title">Flyme Music</div>
-            <div className="settings-row__desc">版本 0.3.0 · HyperOS 风格现代音乐播放器 · Flyme AI 伴侣</div>
-          </div>
-        </div>
+        <UpdateSection />
         {installAffordance !== 'unavailable' ? (
           <div className="settings-row">
             <div className="settings-row__body">

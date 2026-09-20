@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { AI_DEFAULT_ENDPOINT, AI_DEFAULT_MODEL } from './src/lib/apiGuard';
 import { ALLOWED_PATHS, bilibiliUpstream, isUpstreamFailure } from './src/lib/bilibiliServer';
 
@@ -518,7 +519,17 @@ function aiProxy(env: Record<string, string>): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'AURORA_');
+  // The app's own version, read from package.json so there is one place to bump
+  // it. The About screen compares this against the latest release, and the
+  // packaged build overrides it with the version the OS reports - see
+  // `currentVersion()` in src/utils/update.ts for why both are needed.
+  const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as {
+    version: string;
+  };
   return {
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react(),
     pwaPlugin(),

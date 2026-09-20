@@ -1,0 +1,160 @@
+name: Release Android
+
+# Publishing is driven by tags, so `git push --tags` is the whole release
+# action. A manual run builds without publishing, which is how the build chain
+# gets tested without adding an entry to the release list.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# A tag pushed twice, or a tag plus a manual run, must not produce two releases
+# racing for the same assets.
+concurrency:
+  group: release-android-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  JAVA_VERSION: "21"
+  # Pin the NDK rather than taking whatever the runner has: Tauri links against
+  # it, and a silent NDK bump changes the ABI of the shipped .so files.
+  NDK_VERSION: "26.1.10909125"
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      # The runner ships an Android SDK; the NDK is the part that has to be
+      # asked for by name.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: sdkmanager --install "ndk;${{ env.NDK_VERSION }}"
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # The keystore never lives in the repository. It arrives as base64 in a
+      # secret and is written to a path the build config points at, then the
+      # whole workspace is thrown away when the job ends.
+      - name: Restore signing keystore
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::SIGNING_KEY secret is not set. See Release_Guide.md."
+            exit 1
+          fi
+          echo "$SIGNING_KEY" | base64 -d > src-tauri/gen/android/release.jks
+
+      # One place to bump the version: package.json. This copies it to the
+      # Android project and to tauri.conf.json, which is the file Tauri actually
+      # reads for the app version.
+      - name: Sync version numbers
+        run: node scripts/sync-version.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Build signed APK
+        env:
+          KEYSTORE_PATH: release.jks
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          ALIAS: ${{ secrets.ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: npx tauri android build --apk
+
+      - name: Collect the APK
+        id: apk
+        run: |
+          # Tauri names the output by ABI and by target, and which of those
+          # exist depends on the NDK and the Rust targets. Find it rather than
+          # hardcoding a path that will drift.
+          found=$(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -type f | head -1)
+          if [ -z "$found" ]; then
+            echo "::error::No APK was produced."
+            find src-tauri/gen/android/app/build/outputs -maxdepth 4 -type d || true
+            exit 1
+          fi
+          echo "apk=$found" >> "$GITHUB_OUTPUT"
+          echo "Built $found ($(du -h "$found" | cut -f1))"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ steps.apk.outputs.apk }}
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-android
+    # A manual run stops after the build. Publishing from it would put a
+    # throwaway build in front of every user's update check.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: dist/android
+
+      # The release note is a file in the repository so it can be reviewed and
+      # translated like anything else. A missing one is not a reason to fail a
+      # release - a template goes out instead, and the changelog is fixed by
+      # editing the release afterwards.
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          tag="${{ github.ref_name }}"
+          if [ -f "public/release/${tag}.md" ]; then
+            cp "public/release/${tag}.md" release_body.md
+          else
+            echo "::warning::public/release/${tag}.md not found; publishing a placeholder."
+            {
+              echo "# Flyme Music ${tag}"
+              echo ""
+              echo "Android 自动构建发布。"
+              echo ""
+              echo "### 更新内容"
+              echo "- 构建版本：${tag}"
+              echo "- 发布日期：$(date +'%Y-%m-%d')"
+            } > release_body.md
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          body_path: release_body.md
+          files: dist/android/*.apk
+          fail_on_unmatched_files: true
+          # A tag that names itself a test build is published as one, so the
+          # in-app check can label it instead of offering it to everyone.
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-preview') }}

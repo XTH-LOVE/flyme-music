@@ -10,7 +10,7 @@
 > | --- | --- | --- |
 > | `aurora.*` localStorage 键（25 个） | 主题、收藏、播放历史、歌词偏移、AI 配置等 | 改键名 = 用户设置与收藏全部清空 |
 > | `aurora-local` / `aurora-analysis` 等 IndexedDB 库名 | 本地导入的音乐、音频特征索引 | 改库名 = 本地曲库丢失 |
-> | `com.auroramusic.app` | Tauri / Android 包名 | 改包名 = 系统视为新应用，无法升级覆盖 |
+> | `com.flyme.music` | Tauri / Android 包名 | 与品牌一致，无需改动 |
 > | `aurora-music` | `package.json` name | 构建产物与包管理标识 |
 > | `aurora-music` / `aurora-backup-*` | 备份文件标记（`src/utils/backup.ts`） | 改标记 = 旧备份无法导入；两种标记目前都能导入 |
 > | `--am-*` / `.am-*` | 设计系统令牌与类名 | 全站内部命名，改了无用户可见收益 |
@@ -75,7 +75,7 @@ Windows SDK 的 `kernel32.lib` / `OleAut32.lib` 找不到（缺 `LIB`，且必�
 
 ### 已知限制
 
-- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.auroramusic.app/files/Download/FlymeMusic（包名沿用历史标识 `com.auroramusic.app`，原因见上方「关于命名」）；写入公共 Download 需要 MediaStore，属后续增强
+- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.flyme.music/files/Download/FlymeMusic；写入公共 Download 需要 MediaStore，属后续增强
 - 打包应用内取消 AI 请求只会停止前端渲染，Rust 侧的上游请求会自然结束
 - 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
 - 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除；线上 /api 端点已把这两个 Origin 加入白名单

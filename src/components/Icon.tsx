@@ -30,6 +30,7 @@ export type IconName =
   | 'monitor'
   | 'check'
   | 'download'
+  | 'refresh'
   | 'arrowRight'
   | 'album'
   | 'mic'
@@ -152,6 +153,7 @@ const paths: Record<IconName, JSX.Element> = {
   ),
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   download: <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 19.5h14" />,
+  refresh: <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />,
   arrowRight: <path d="M4 12h15m0 0-5.5-5.5M19 12l-5.5 5.5" />,
   album: (
     <>

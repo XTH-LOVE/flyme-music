@@ -29,6 +29,8 @@ tokio = { version = "1", features = ["sync"] }
 tauri-plugin-http = { version = "2", features = ["unsafe-headers"] } # 不开 unsafe-headers 时 Rust 会丢弃 Referer/Origin/Cookie，QQ 接口与图片防盗链会静默 403
 tauri-plugin-dialog = "2"
 base64 = "0.22"
+lofty = "0.22.2"
+aes = "0.8.4"
 
 # Desktop-only: F11 fullscreen toggle (mobile has no need for it).
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]

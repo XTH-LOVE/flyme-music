@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Flyme Music",
   "version": "0.3.0",
-  "identifier": "com.auroramusic.app",
+  "identifier": "com.flyme.music",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

@@ -1,6 +1,7 @@
 mod netease;
 mod ai;
 mod download;
+mod tags;
 
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::{Listener, Manager};
@@ -128,7 +129,9 @@ pub fn run() {
       ai::ai_models,
       ai::ai_chat_completions,
       download::download_and_save,
-      download::save_image_base64
+      download::save_image_base64,
+      tags::read_audio_tags,
+      tags::read_audio_tags_batch
     ])
     .on_window_event(|window, event| {
       // Close hides to the tray so music keeps playing; real exit lives in

@@ -7,10 +7,25 @@
  * question.
  */
 
+import { httpFetch, isTauri } from '@/lib/apiTransport';
 import { compareVersions, isNewerVersion, shouldCheckNow } from './versionCompare';
 
 /** Injected by Vite from package.json. See `define` in vite.config.ts. */
 declare const __APP_VERSION__: string;
+
+/**
+ * The deployed backend, used only by the packaged app.
+ *
+ * The web build can ask for a relative `/api/update/check` because it is served
+ * from the same origin as the functions. The packaged app is not: its webview
+ * origin is `tauri.localhost`, so the relative path resolves to a local address
+ * that has no such route and the check silently fails. `httpFetch` documents
+ * the same constraint, which is why it rejects relative input outright.
+ *
+ * The request is allowed through the backend's origin guard because
+ * `apiGuard` whitelists the Tauri webview origins by name.
+ */
+const BACKEND_ORIGIN = 'https://flyme-music.pages.dev';
 
 export interface UpdateInfo {
   latestVersion: string;
@@ -63,9 +78,11 @@ export async function currentVersion(): Promise<string> {
 export async function fetchLatest(signal?: AbortSignal): Promise<UpdateResult> {
   const version = await currentVersion();
 
+  // Absolute in the packaged app, relative in the browser - see BACKEND_ORIGIN.
+  const path = '/api/update/check';
   let response: Response;
   try {
-    response = await fetch('/api/update/check', {
+    response = await httpFetch(isTauri() ? BACKEND_ORIGIN + path : path, {
       signal,
       headers: { Accept: 'application/json' },
     });

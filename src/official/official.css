@@ -679,3 +679,505 @@ body {
   color: var(--am-text-3);
   text-align: center;
 }
+
+/* ---------- Hero stats strip ---------- */
+
+.of-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 40px 0 0;
+  padding: 0;
+  border-radius: var(--am-radius-xl, 18px);
+  overflow: hidden;
+  background: var(--am-glass-border, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--am-glass-border, rgba(255, 255, 255, 0.12));
+  backdrop-filter: blur(var(--am-glass-blur, 20px));
+  -webkit-backdrop-filter: blur(var(--am-glass-blur, 20px));
+}
+
+.of-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 10px;
+  background: var(--am-glass, rgba(255, 255, 255, 0.04));
+}
+
+.of-stat__label {
+  margin: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+  color: var(--am-text-3);
+}
+
+.of-stat__value {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--am-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .of-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Tech stack ---------- */
+
+.of-stack {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.of-stack__item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 18px 20px;
+  border-radius: var(--am-radius-lg, 16px);
+  background: var(--am-glass, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--am-glass-border, rgba(255, 255, 255, 0.12));
+  transition: transform var(--am-motion-normal) var(--am-ease-out),
+    border-color var(--am-motion-normal) var(--am-ease-out);
+}
+
+.of-stack__item:hover {
+  transform: translateY(-2px);
+  border-color: var(--am-accent, #3d7bff);
+}
+
+.of-stack__name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--am-text-1);
+}
+
+.of-stack__role {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--am-text-3);
+}
+
+.of-stack__note {
+  margin: 22px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--am-text-2);
+  letter-spacing: 0.2px;
+}
+
+.of-footer__copy a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- Scroll progress ---------- */
+
+.of-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 100;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--am-accent, #3d7bff), var(--am-accent-2, #8a5cff));
+  pointer-events: none;
+}
+
+/* ---------- Social counters ---------- */
+
+.of-social {
+  display: flex;
+  justify-content: center;
+  gap: 64px;
+  flex-wrap: wrap;
+}
+
+.of-social__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.of-social__value {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--am-text-1);
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, var(--am-accent, #3d7bff), var(--am-accent-2, #8a5cff));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.of-social__label {
+  font-size: 13px;
+  color: var(--am-text-3);
+  letter-spacing: 0.3px;
+}
+
+/* ---------- Device gallery ---------- */
+
+.of-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 28px;
+  margin-top: 34px;
+  align-items: start;
+}
+
+.of-device {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+/* A phone outline, not a screenshot: it renders with no image assets and can be
+   swapped for a real capture by replacing the inner markup. */
+.of-device__screen {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 9 / 17;
+  padding: 8px;
+  border-radius: 28px;
+  background: var(--am-glass, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--am-glass-border, rgba(255, 255, 255, 0.14));
+  box-shadow: var(--am-glass-shadow, 0 18px 50px rgba(0, 0, 0, 0.35));
+  overflow: hidden;
+  transition: transform var(--am-motion-slow, 320ms) var(--am-ease-out);
+}
+
+.of-device:hover .of-device__screen {
+  transform: translateY(-6px);
+}
+
+.of-device__caption {
+  font-size: 13px;
+  color: var(--am-text-3);
+  text-align: center;
+}
+
+.of-mock {
+  height: 100%;
+  border-radius: 22px;
+  padding: 14px 12px;
+  background: var(--am-bg, #0e0e12);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.of-mock__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--am-text-3);
+}
+
+.of-mock__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--am-accent, #3d7bff);
+}
+
+.of-mock__art {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--am-accent, #3d7bff), var(--am-accent-2, #8a5cff));
+}
+
+.of-mock__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--am-text-1);
+}
+
+.of-mock__artist {
+  font-size: 11.5px;
+  color: var(--am-text-3);
+  margin-top: -6px;
+}
+
+.of-mock__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--am-text-3);
+}
+
+.of-mock__line--on {
+  color: var(--am-text-1);
+  font-weight: 600;
+}
+
+.of-mock__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.of-mock__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--am-text-2);
+}
+
+.of-mock__row--on {
+  color: var(--am-text-1) !important;
+  font-weight: 600;
+}
+
+.of-mock__idx {
+  width: 12px;
+  font-size: 10.5px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.of-mock__cover {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--am-accent-soft, #6ea8ff), var(--am-accent-2, #8a5cff));
+}
+
+.of-mock__row {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.of-mock__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.of-mock__stat b {
+  font-size: 26px;
+  color: var(--am-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.of-mock__stat span {
+  font-size: 11px;
+  color: var(--am-text-3);
+}
+
+.of-mock__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 90px;
+  margin-top: 6px;
+}
+
+.of-mock__bars i {
+  flex: 1;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--am-accent, #3d7bff), var(--am-accent-2, #8a5cff));
+  opacity: 0.85;
+}
+
+.of-gallery__note {
+  margin: 26px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--am-text-3);
+}
+
+.of-gallery__note code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--am-surface-2, rgba(255, 255, 255, 0.06));
+  font-size: 11.5px;
+}
+
+/* ---------- Release timeline ---------- */
+
+.of-timeline {
+  list-style: none;
+  margin: 34px 0 0;
+  padding: 0 0 0 22px;
+  position: relative;
+}
+
+/* The rail is a pseudo-element rather than a border so the last item's marker
+   can sit exactly on the end of it. */
+.of-timeline::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--am-glass-border, rgba(255, 255, 255, 0.14));
+}
+
+.of-timeline__item {
+  position: relative;
+  padding: 0 0 26px 0;
+}
+.of-timeline__item:last-child {
+  padding-bottom: 0;
+}
+
+.of-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: -21px;
+  top: 5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--am-accent, #3d7bff);
+  box-shadow: 0 0 0 3px var(--am-bg, #0e0e12);
+}
+
+.of-timeline__item--pre::before {
+  background: var(--am-text-3);
+}
+
+.of-timeline__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.of-timeline__version {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--am-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.of-timeline__badge {
+  margin-left: 7px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--am-bg, #0e0e12);
+  background: var(--am-text-3);
+  vertical-align: middle;
+}
+
+.of-timeline__date,
+.of-timeline__downloads {
+  font-size: 12px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.of-timeline__notes {
+  margin: 5px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--am-text-2);
+}
+
+.of-timeline__empty {
+  margin: 24px 0 0;
+  font-size: 13px;
+  color: var(--am-text-3);
+}
+
+@media (max-width: 640px) {
+  .of-social {
+    gap: 36px;
+  }
+  .of-social__value {
+    font-size: 32px;
+  }
+}
+
+/* ---------- Aurora backdrop ---------- */
+
+/*
+ * Three blurred radial gradients drifting behind the hero.
+ *
+ * Named for the project's original name and built entirely in CSS: no canvas,
+ * no image, no JavaScript, so it costs one composited layer and nothing else.
+ * It sits on the hero's own stacking context rather than the page so it scrolls
+ * away with the content instead of following the viewport around.
+ */
+.of-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.of-hero::before {
+  content: '';
+  position: absolute;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 42% at 22% 28%, var(--am-accent, #3d7bff) 0%, transparent 62%),
+    radial-gradient(34% 38% at 78% 18%, var(--am-accent-2, #8a5cff) 0%, transparent 62%),
+    radial-gradient(44% 46% at 58% 82%, var(--am-accent-soft, #6ea8ff) 0%, transparent 64%);
+  filter: blur(70px);
+  opacity: 0.32;
+  animation: of-aurora-drift 22s var(--am-ease-standard, ease-in-out) infinite alternate;
+  will-change: transform;
+}
+
+@keyframes of-aurora-drift {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, 3%, 0) scale(1.14);
+  }
+}
+
+/* A second, slower layer in the opposite direction. One drifting gradient reads
+   as a slideshow; two crossing read as depth. */
+.of-hero::after {
+  content: '';
+  position: absolute;
+  inset: -15%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(30% 30% at 70% 60%, var(--am-accent-2, #8a5cff) 0%, transparent 66%);
+  filter: blur(90px);
+  opacity: 0.22;
+  animation: of-aurora-drift 31s var(--am-ease-standard, ease-in-out) infinite alternate-reverse;
+  will-change: transform;
+}
+
+/* Decorative motion is the first thing to drop: the gradients stay, they just
+   stop moving. */
+@media (prefers-reduced-motion: reduce) {
+  .of-hero::before,
+  .of-hero::after {
+    animation: none;
+  }
+}

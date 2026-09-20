@@ -2,7 +2,7 @@
 name = "app"
 version = "0.3.0"
 description = "A Tauri App"
-authors = ["you"]
+authors = ["缐廷华 <https://github.com/XTH-LOVE>"]
 license = ""
 repository = ""
 edition = "2021"

@@ -1,0 +1,139 @@
+/* The legal rows reuse `.settings-row`, so only the two things it does not
+   already provide are defined here: the button reset and the chevron. */
+
+.settings-row--button {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.legal-row__chevron {
+  flex: 0 0 auto;
+  color: var(--am-text-3);
+}
+
+.legal-doc {
+  padding: 0 2px 8px;
+}
+
+.legal-doc__updated {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--am-text-3);
+}
+
+.legal-doc__section + .legal-doc__section {
+  margin-top: 20px;
+}
+
+.legal-doc__heading {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+
+/* Long-form text: line-height matters more than anything else here, and the
+   paragraphs are deliberately not justified - Chinese justification stretches
+   the spacing between characters unevenly. */
+.legal-doc__paragraph {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--am-text-2);
+  word-break: break-word;
+}
+.legal-doc__paragraph:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- About hero ---------- */
+
+.about-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 22px 16px 18px;
+  text-align: center;
+}
+
+.about-hero__mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--am-shadow-card, 0 4px 16px rgba(0, 0, 0, 0.12));
+}
+
+.about-hero__name {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--am-text-1);
+}
+
+.about-hero__version {
+  font-size: 12px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.about-hero__tagline {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--am-text-2);
+}
+
+.about-hero__author {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--am-text-3);
+}
+
+.about-hero__author-name {
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+
+/* ---------- Stats strip ---------- */
+
+.about-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin: 0 0 4px;
+  background: var(--am-divider, rgba(120, 120, 140, 0.18));
+  border-top: 1px solid var(--am-divider, rgba(120, 120, 140, 0.18));
+  border-bottom: 1px solid var(--am-divider, rgba(120, 120, 140, 0.18));
+}
+
+.about-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 6px;
+  background: var(--am-surface-1, rgba(120, 120, 140, 0.04));
+}
+
+.about-stat__value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--am-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.about-stat__label {
+  font-size: 11.5px;
+  color: var(--am-text-3);
+}
+
+.about-icp {
+  text-align: center;
+  font-size: 11.5px;
+}

@@ -81,6 +81,18 @@ export function initDownload(): void {
       if (!info?.latestVersion) throw new Error('empty');
 
       if (status) status.textContent = info.latestVersion;
+
+      // The hero strip stays hidden until there is something true to put in
+      // it, rather than showing a row of dashes.
+      const put = (key: string, value: string | null) => {
+        const el = document.querySelector<HTMLElement>('[data-dl="' + key + '"]');
+        if (el && value) el.textContent = value;
+      };
+      put('stat-version', info.latestVersion);
+      put('stat-size', formatBytes(info.size));
+      put('stat-date', formatDate(info.publishDate));
+      const stats = document.querySelector<HTMLElement>('[data-dl="stats"]');
+      if (stats) stats.hidden = false;
       if (meta) {
         const parts = [formatDate(info.publishDate), formatBytes(info.size)].filter(Boolean);
         meta.textContent = parts.join(' · ');

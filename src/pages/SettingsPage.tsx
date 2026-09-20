@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Icon, type IconName } from '@/components/Icon';
 import { SectionHeader } from '@/design-system/components/SectionHeader';
-import { UpdateSection } from '@/components/UpdateSection';
+import { AboutSection } from '@/legal/AboutSection';
 import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { useSettingsStore, type AudioQuality } from '@/store/useSettingsStore';
 import { useAiStore, type AiPersona } from '@/store/useAiStore';
@@ -495,7 +495,7 @@ export function SettingsPage() {
 
       <SectionHeader title="关于" />
       <div className="settings-card">
-        <UpdateSection />
+        <AboutSection />
         {installAffordance !== 'unavailable' ? (
           <div className="settings-row">
             <div className="settings-row__body">

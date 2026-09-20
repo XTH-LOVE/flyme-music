@@ -33,16 +33,50 @@ function shouldCallDirectly(): boolean {
   return isTauri();
 }
 
+/**
+ * The relay could not reach bilibili at all; `reason` is its diagnosis
+ * ("blocked" = risk control refused the datacenter IP, etc).
+ */
+export class BilibiliUnavailableError extends Error {
+  constructor(readonly reason: string) {
+    super('bilibili unavailable: ' + reason);
+    this.name = 'BilibiliUnavailableError';
+  }
+}
+
+/**
+ * Read the relay's {"error":"bilibili unavailable","reason":...} body and
+ * surface the reason as a typed throw. Non-JSON error bodies (a 404 page,
+ * a dev server without the route) stay silent - there is nothing to say.
+ */
+async function maybeThrowRelayReason(response: Response): Promise<void> {
+  try {
+    const body = (await response.json()) as { reason?: string };
+    if (typeof body?.reason === 'string') throw new BilibiliUnavailableError(body.reason);
+  } catch (e) {
+    if (e instanceof BilibiliUnavailableError) throw e;
+    /* not JSON: nothing to surface */
+  }
+}
+
 async function relay<T>(path: string, params: Record<string, string>): Promise<T | null> {
+  const direct = shouldCallDirectly();
   const query = new URLSearchParams(params);
-  const url = shouldCallDirectly()
+  const url = direct
     ? `${BILIBILI_API}${path}?${query.toString()}`
     : `${RELAY}?${new URLSearchParams({ path, ...params }).toString()}`;
   try {
-    const response = await httpFetch(url, shouldCallDirectly() ? { headers: { Referer: BILIBILI_HOME } } : undefined);
-    if (!response.ok) return null;
+    const response = await httpFetch(url, direct ? { headers: { Referer: BILIBILI_HOME } } : undefined);
+    if (!response.ok) {
+      // The reason used to be swallowed here, so a risk-controlled web build
+      // showed "no results found" for a source it cannot reach at all.
+      // Propagate it and let the UI tell the truth instead.
+      if (!direct) await maybeThrowRelayReason(response);
+      return null;
+    }
     return (await response.json()) as T;
-  } catch {
+  } catch (e) {
+    if (e instanceof BilibiliUnavailableError) throw e;
     return null;
   }
 }

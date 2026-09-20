@@ -13,6 +13,7 @@ import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { aggregateSearch, dedupeKey } from '@/ai/musicSearch';
 import { useProviderData } from '@/music/musicStore';
 import { getNeteaseSearchMeta, type NetSearchMeta } from '@/music/netease/netease-api';
+import { BilibiliUnavailableError } from '@/music/bilibili/bilibili-api';
 import { useNavigate } from 'react-router-dom';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import './pages.css';
@@ -43,6 +44,9 @@ export function SearchPage() {
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  /** Set when the chosen source itself failed (not "no results"): the relay's
+   *  diagnosis, shown instead of the misleading empty state. */
+  const [sourceError, setSourceError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [meta, setMeta] = useState<NetSearchMeta | null>(null);
   const metaAbortRef = useRef<AbortController | null>(null);
@@ -58,6 +62,7 @@ export function SearchPage() {
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
+    setSourceError(null);
     try {
       const res =
         src === 'all'
@@ -73,8 +78,11 @@ export function SearchPage() {
       });
       setHasMore(res.hasMore);
       setPage(pageNo);
-      setSubmitted(kw);
-    } catch {
+    } catch (err) {
+      // A source that cannot be reached at all is not the same as "no results
+      // found": keep the relay's reason so the empty state can say what
+      // actually happened instead of blaming the keyword.
+      if (err instanceof BilibiliUnavailableError) setSourceError(err.reason);
       if (!append) setItems([]);
       setHasMore(false);
     } finally {
@@ -86,7 +94,11 @@ export function SearchPage() {
     const value = kw.trim();
     if (!value) return;
     setKeyword(value);
-    if (value) addKeyword(value);
+    addKeyword(value);
+    // Recorded before the request resolves: a failed search must still mount
+    // the results section, otherwise the error state has nowhere to render and
+    // the page silently stays on the hot-keywords screen.
+    setSubmitted(value);
     void runSearch(value, src, 1, false);
     // Multi-type discovery runs for EVERY source: artist/album cards come
     // from the netease library even when songs are searched on Joox.
@@ -203,7 +215,19 @@ export function SearchPage() {
               ))}
             </div>
           ) : !items.length ? (
-            <EmptyState icon="search" title={'没有在「' + sourceLabel(source) + '」找到「' + submitted + '」'} description="换个音源或关键词试试" />
+            sourceError ? (
+              <EmptyState
+                icon="monitor"
+                title="B站源在网页版暂不可用"
+                description={
+                  sourceError === 'blocked'
+                    ? 'B 站风控拦截了云端请求，桌面版直连不受影响；也可以先换个音源搜索'
+                    : 'B 站接口暂时不可达，稍后再试，或先换个音源搜索'
+                }
+              />
+            ) : (
+              <EmptyState icon="search" title={'没有在「' + sourceLabel(source) + '」找到「' + submitted + '」'} description="换个音源或关键词试试" />
+            )
           ) : (
             <section>
               <SectionHeader title={'歌曲 · ' + sourceLabel(source)} />

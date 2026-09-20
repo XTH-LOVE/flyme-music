@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 import { AI_DEFAULT_ENDPOINT, AI_DEFAULT_MODEL } from './src/lib/apiGuard';
+import { ALLOWED_PATHS, bilibiliUpstream, isUpstreamFailure } from './src/lib/bilibiliServer';
 
 /* ------------------------------------------------------------------
  * Dev-server proxies: bypass CORS / hotlink blocks for Netease weapi,
@@ -212,6 +213,47 @@ function genericProxy(): Plugin {
           res.statusCode = 502;
           res.end(JSON.stringify({ error: String(e) }));
         }
+      });
+    },
+  };
+}
+
+/**
+ * Dev-only Bilibili relay, mirroring functions/api/bilibili/[[path]].ts.
+ *
+ * Unlike the deployed relay it actually works: the dev server egresses from
+ * the user's own connection, which bilibili's risk control does not block
+ * (the Cloudflare datacenter IP is refused outright). Same whitelist and same
+ * failure reasons, so a `blocked` seen locally means bilibili changed
+ * something rather than that the local route is different.
+ */
+function bilibiliProxy(): Plugin {
+  return {
+    name: 'aurora-bilibili-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/bilibili', (req, res) => {
+        void (async () => {
+          const parsed = new URL(req.url ?? '', 'http://localhost');
+          const apiPath = parsed.searchParams.get('path') ?? '';
+          if (!ALLOWED_PATHS.has(apiPath)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ error: 'path not allowed' }));
+            return;
+          }
+          const params = new URLSearchParams(parsed.searchParams);
+          params.delete('path');
+          const upstream = await bilibiliUpstream(apiPath, params);
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-store');
+          if (isUpstreamFailure(upstream)) {
+            res.statusCode = 503;
+            res.end(JSON.stringify({ error: 'bilibili unavailable', reason: upstream.failure }));
+            return;
+          }
+          res.statusCode = upstream.status;
+          res.end(upstream.body);
+        })();
       });
     },
   };
@@ -453,6 +495,7 @@ export default defineConfig(({ mode }) => {
     genericProxy(),
     neteaseWeapiProxy(),
     neteasePublicProxy(),
+    bilibiliProxy(),
     imageProxy(),
     mediaDownloadProxy(),
     aiProxy(env),

@@ -3,12 +3,25 @@ import { usePlayerStore } from '@/store/usePlayerStore';
 import { useAiStore, aiConfigured, nextAiMsgId } from '@/store/useAiStore';
 import { chatStreamWithFallback } from '@/ai/aiClient';
 import { PERSONA_PROMPTS } from '@/ai/aiTools';
+import { buildCommentaryMessages, commentarySourceNote } from '@/ai/songCommentary';
+import { analyzeInBackground, readCachedCard, trackKeyOf } from '@/audio/analysis';
 import { fetchLyricLines } from '@/utils/currentLyric';
 
 const MAX_LYRIC_LINES = 80;
 const MAX_LYRIC_CHARS = 5200;
 const LYRIC_TIMEOUT_MS = 2800;
 const AI_TIMEOUT_MS = 18000;
+/**
+ * How long the commentary waits for the local audio analysis before falling
+ * back to lyrics-only.
+ *
+ * The card is what lets the model talk about sound with a basis, so it is worth
+ * a bounded wait - and only a bounded one: analysis downloads and decodes the
+ * whole track, and an ambient commentary must never hang on it. When the budget
+ * runs out the analysis is left running (it caches the card for the next
+ * listen) and the commentary proceeds honestly without it.
+ */
+const ANALYSIS_BUDGET_MS = 6000;
 const ANALYSIS_CACHE_KEY = 'aurora.ai.analysis.v1';
 const ANALYSIS_CACHE_LIMIT = 40;
 
@@ -16,17 +29,46 @@ function cacheKey(song: { source: string; id: string | number }, model: string, 
   return [song.source, song.id, model.trim(), persona].join(':');
 }
 
-function readAnalysisCache(): Record<string, string> {
+/**
+ * A cached commentary plus the basis it was written on.
+ *
+ * The basis is stored with the text rather than folded into the key, because a
+ * commentary written without measured audio should be upgraded once the track
+ * has been analysed - not frozen for as long as the cache lives. That matters
+ * in practice: analysis is skipped on metered connections and while the setting
+ * is off, so a first listen can easily leave a lyrics-only entry behind.
+ *
+ * Entries written before this field existed are plain strings; they read as
+ * ungrounded, which is exactly what they were.
+ */
+interface CachedCommentary {
+  text: string;
+  grounded: boolean;
+}
+
+function readAnalysisCache(): Record<string, CachedCommentary> {
   try {
     const raw = localStorage.getItem(ANALYSIS_CACHE_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out: Record<string, CachedCommentary> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === 'string') {
+        out[key] = { text: value, grounded: false };
+      } else if (value && typeof value === 'object') {
+        const entry = value as Partial<CachedCommentary>;
+        if (typeof entry.text === 'string') {
+          out[key] = { text: entry.text, grounded: Boolean(entry.grounded) };
+        }
+      }
+    }
+    return out;
   } catch {
     return {};
   }
 }
 
-function writeAnalysisCache(cache: Record<string, string>) {
+function writeAnalysisCache(cache: Record<string, CachedCommentary>) {
   try {
     const entries = Object.entries(cache).slice(-ANALYSIS_CACHE_LIMIT);
     localStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
@@ -69,17 +111,22 @@ export function AiCompanion() {
     const configured = companion && aiConfigured({ model: activeModel });
     const keyWithConfig = cacheKey(current, activeModel, activePersona);
     const cached = configured ? readAnalysisCache()[keyWithConfig] : undefined;
+    const cachedText = cached?.text;
     pushMessage({
       id: messageId,
       role: 'ai',
       kind: 'song',
-      text: cached ?? (configured ? '正在读取歌词并整理这首歌…' : '开启 AI 后自动解读这首歌。'),
-      streaming: configured && !cached,
-      analysisStatus: cached ? 'ready' : configured ? 'pending' : 'skipped',
+      text: cachedText ?? (configured ? '正在读取歌词并整理这首歌…' : '开启 AI 后自动解读这首歌。'),
+      streaming: configured && !cachedText,
+      analysisStatus: cachedText ? 'ready' : configured ? 'pending' : 'skipped',
       tracks: [current],
     });
 
-    if (!configured || cached) return undefined;
+    // A cached commentary is only worth keeping as-is when it already had
+    // measurements to work from. An ungrounded one is re-run, because the
+    // track may well have been analysed since it was written.
+    const upgrading = Boolean(cachedText && !cached?.grounded);
+    if (!configured || (cachedText && !upgrading)) return undefined;
     const song = current;
     const controller = new AbortController();
     requestRef.current = controller;
@@ -102,32 +149,44 @@ export function AiCompanion() {
             .slice(0, MAX_LYRIC_LINES)
             .join('\n')
             .slice(0, MAX_LYRIC_CHARS);
-          const metadata = [
-            '歌曲：《' + song.name + '》',
-            '歌手：' + song.artist.join(' / '),
-            song.album ? '专辑：' + song.album : '',
-            '音源：' + song.source,
-          ]
-            .filter(Boolean)
-            .join('\n');
-          useAiStore.getState().updateMessage(messageId, { thought: '歌词已读完，正在组织主题和情绪线索…' });
+
+          // Measured facts, if this track has them. A cache hit is free, so a
+          // song heard before gets a grounded commentary at no extra latency;
+          // otherwise the analysis gets a bounded budget and the commentary
+          // falls back to an honest lyrics-only scope rather than waiting on it.
+          let card = await readCachedCard(trackKeyOf(song));
+          if (!card && !controller.signal.aborted) {
+            useAiStore.getState().updateMessage(messageId, { thought: '正在本地实测这首歌的音频…' });
+            card = await Promise.race([
+              analyzeInBackground(song),
+              new Promise<null>((resolve) => window.setTimeout(() => resolve(null), ANALYSIS_BUDGET_MS)),
+            ]);
+          }
+          if (controller.signal.aborted) return;
+          // Upgrading an existing commentary is only worth it if there is
+          // something new to say; otherwise the text on screen already stands.
+          if (upgrading && !card) {
+            useAiStore.getState().updateMessage(messageId, {
+              text: cachedText,
+              streaming: false,
+              analysisStatus: 'ready',
+              thought: commentarySourceNote(null),
+            });
+            return;
+          }
+          if (upgrading) useAiStore.getState().updateMessage(messageId, { streaming: true });
+          useAiStore.getState().updateMessage(messageId, {
+            thought: card ? '实测数据已就绪，正在组织解读…' : '歌词已读完，正在组织主题和情绪线索…',
+          });
           let streamed = '';
           const aiRequest = chatStreamWithFallback(
             { model: activeModel },
-            [
-              {
-                role: 'system',
-                content:
-                  PERSONA_PROMPTS[activePersona] +
-                  ' 你现在是用户的自动听歌讲解员。每次用户切到新歌，都要根据给出的歌曲资料和歌词，写 2-4 句自然、具体的中文点评。请覆盖：歌词主题或意象、情绪变化，以及能从歌词推断的听感/编曲线索；最后可用一句话点出适合什么场景。不要使用列表、emoji或提问。严禁编造发行时间、创作背景、歌手经历等未提供的事实；没有歌词时要明确说“暂时没有拿到歌词”，只基于歌曲名、歌手和专辑做谨慎判断。',
-              },
-              {
-                role: 'user',
-                content:
-                  '刚切到一首新歌，请开始分析。\n' + metadata +
-                  (lyric ? '\n歌词（仅取前 ' + MAX_LYRIC_LINES + ' 行）：\n' + lyric : '\n歌词：暂无可用歌词'),
-              },
-            ],
+            buildCommentaryMessages({
+              persona: PERSONA_PROMPTS[activePersona],
+              song,
+              lyric: lyric || null,
+              card,
+            }),
             (delta) => {
               streamed += delta;
               useAiStore.getState().updateMessage(messageId, { text: streamed, streaming: true });
@@ -154,11 +213,15 @@ export function AiCompanion() {
             text: t || '暂时没整理好这首歌的点评，稍后可以在「一起听」里重试。',
             streaming: false,
             analysisStatus: t ? 'ready' : 'error',
-            thought: text.model !== activeModel ? `已自动切换到 ${text.model}` : '分析完成',
+            // Say which basis the commentary had: the two read very differently
+            // and the user cannot tell them apart from the prose alone.
+            thought: text.model !== activeModel
+              ? '已自动切换到 ' + text.model + '；' + commentarySourceNote(card)
+              : commentarySourceNote(card),
           });
           if (t) {
             const cache = readAnalysisCache();
-            cache[keyWithConfig] = t;
+            cache[keyWithConfig] = { text: t, grounded: Boolean(card) };
             writeAnalysisCache(cache);
             // Remember the model that actually worked so the next song skips
             // the futile first attempt against a stale model name.
@@ -168,13 +231,23 @@ export function AiCompanion() {
           }
         } catch {
           if (!controller.signal.aborted || timedOut) {
-            useAiStore.getState().updateMessage(messageId, {
-              text: timedOut
-                ? '自动解读超时了，稍后可以在「一起听」里重试。'
-                : '这首歌的歌词暂时没加载好，稍后可以在「一起听」里重试。',
-              streaming: false,
-              analysisStatus: 'error',
-            });
+            // A failed upgrade must not destroy the commentary already shown.
+            if (upgrading && cachedText) {
+              useAiStore.getState().updateMessage(messageId, {
+                text: cachedText,
+                streaming: false,
+                analysisStatus: 'ready',
+                thought: commentarySourceNote(null),
+              });
+            } else {
+              useAiStore.getState().updateMessage(messageId, {
+                text: timedOut
+                  ? '自动解读超时了，稍后可以在「一起听」里重试。'
+                  : '这首歌的歌词暂时没加载好，稍后可以在「一起听」里重试。',
+                streaming: false,
+                analysisStatus: 'error',
+              });
+            }
           }
         }
       })();
@@ -183,11 +256,14 @@ export function AiCompanion() {
       window.clearTimeout(timer);
       const pending = useAiStore.getState().messages.find((message) => message.id === messageId);
       if (pending?.streaming) {
-        useAiStore.getState().updateMessage(messageId, {
-          text: '已切换歌曲，这次解读已跳过。',
-          streaming: false,
-          analysisStatus: 'skipped',
-        });
+        // Switching tracks mid-upgrade should leave the commentary that was
+        // already on screen, not replace it with a "skipped" notice.
+        useAiStore.getState().updateMessage(
+          messageId,
+          upgrading && cachedText
+            ? { text: cachedText, streaming: false, analysisStatus: 'ready', thought: commentarySourceNote(null) }
+            : { text: '已切换歌曲，这次解读已跳过。', streaming: false, analysisStatus: 'skipped' },
+        );
       }
       controller.abort();
       if (requestRef.current === controller) requestRef.current = null;

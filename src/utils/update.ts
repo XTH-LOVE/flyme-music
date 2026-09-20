@@ -27,7 +27,7 @@ export interface UpdateResult {
   latest: UpdateInfo | null;
   hasUpdate: boolean;
   /** Why there is no answer, when there is none. */
-  reason?: 'no_release' | 'no_apk' | 'unreachable' | 'offline';
+  reason?: 'no_release' | 'no_apk' | 'unreachable' | 'offline' | 'not_configured';
 }
 
 /**
@@ -81,7 +81,12 @@ export async function fetchLatest(signal?: AbortSignal): Promise<UpdateResult> {
   }
 
   if (!response.ok) {
-    return { currentVersion: version, latest: null, hasUpdate: false, reason: 'unreachable' };
+    // A misconfigured server says so explicitly, and repeating it as "check
+    // failed, try again later" sends the user into a retry loop that cannot
+    // succeed. The distinction is worth the extra branch.
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    const reason = /GITHUB_REPO/i.test(body.error ?? '') ? 'not_configured' : 'unreachable';
+    return { currentVersion: version, latest: null, hasUpdate: false, reason };
   }
 
   const latest = (await response.json()) as UpdateInfo;
@@ -145,6 +150,10 @@ export function describeUpdate(result: UpdateResult): string {
       return '网络不可用';
     case 'unreachable':
       return '检查失败，稍后再试';
+    case 'not_configured':
+      // Named plainly rather than softened: this is an operator problem, not
+      // something the person tapping the button can fix by trying again.
+      return '更新服务未配置';
     case 'no_apk':
       return '当前平台暂无安装包';
     case 'no_release':

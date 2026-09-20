@@ -64,9 +64,11 @@ jobs:
           echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
 
-          # The cmdline-tools directory is versioned (16.0, latest, ...), so it
-          # is found rather than assumed.
-          manager=$(find "$sdk/cmdline-tools" -maxdepth 2 -name sdkmanager -type f 2>/dev/null | head -1)
+          # The cmdline-tools directory is versioned (16.0, latest, ...) and the
+          # binary sits at <version>/bin/sdkmanager, so the search has to reach
+          # three levels down. At maxdepth 2 it finds nothing and the job dies
+          # claiming sdkmanager is missing when it is right there.
+          manager=$(find "$sdk/cmdline-tools" -maxdepth 3 -name sdkmanager -type f 2>/dev/null | head -1)
           if [ -z "$manager" ]; then
             echo "::error::sdkmanager not found under $sdk/cmdline-tools"
             exit 1

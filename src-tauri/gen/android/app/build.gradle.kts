@@ -24,6 +24,25 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    // Signing is configured from the environment so the keystore never enters
+    // the repository. Without this block Gradle emits
+    // `app-universal-release-unsigned.apk`, and Android refuses to install an
+    // unsigned package - the release builds but nobody can use it.
+    //
+    // The file is checked before the config is populated: assigning a null
+    // storeFile makes Gradle fail the whole build, and a local build has no
+    // keystore at all.
+    signingConfigs {
+        create("release") {
+            val storePath = System.getenv("KEYSTORE_PATH")
+            if (storePath != null && file(storePath).exists()) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("KEY_STORE_PASSWORD")
+                keyAlias = System.getenv("ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             applicationIdSuffix = ".debug"
@@ -38,6 +57,12 @@ android {
             }
         }
         getByName("release") {
+            // Same guard as above: only attach the config when there is a real
+            // keystore, so a local release build still produces something.
+            val storePath = System.getenv("KEYSTORE_PATH")
+            if (storePath != null && file(storePath).exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }

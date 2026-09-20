@@ -44,13 +44,43 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
-      # The runner ships an Android SDK; the NDK is the part that has to be
-      # asked for by name.
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # The runner image already has the Android SDK at
+      # /usr/local/lib/android/sdk, so this only points the build at it and adds
+      # the NDK.
+      #
+      # `android-actions/setup-android` is deliberately NOT used: it runs
+      # `sdkmanager tools` on the way in, and the modern SDK no longer ships a
+      # `tools` package, so it fails with "Failed to find package 'tools'" before
+      # any of our steps run.
+      - name: Set up Android SDK and NDK
+        env:
+          NDK_VERSION: ${{ env.NDK_VERSION }}
+        run: |
+          sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [ ! -d "$sdk" ]; then
+            echo "::error::Android SDK not found at $sdk"
+            exit 1
+          fi
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
 
-      - name: Install NDK
-        run: sdkmanager --install "ndk;${{ env.NDK_VERSION }}"
+          # The cmdline-tools directory is versioned (16.0, latest, ...), so it
+          # is found rather than assumed.
+          manager=$(find "$sdk/cmdline-tools" -maxdepth 2 -name sdkmanager -type f 2>/dev/null | head -1)
+          if [ -z "$manager" ]; then
+            echo "::error::sdkmanager not found under $sdk/cmdline-tools"
+            exit 1
+          fi
+          echo "$(dirname "$manager")" >> "$GITHUB_PATH"
+
+          # Licences first: an unaccepted licence makes the NDK install prompt,
+          # and a prompt in CI is a hang until the job times out.
+          yes | "$manager" --sdk_root="$sdk" --licenses > /dev/null 2>&1 || true
+          "$manager" --sdk_root="$sdk" --install "ndk;$NDK_VERSION" "platform-tools"
+          echo "NDK_HOME=$sdk/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+          # Fail here rather than inside Gradle twenty minutes later.
+          [ -d "$sdk/ndk/$NDK_VERSION" ] || { echo "::error::NDK $NDK_VERSION did not install"; exit 1; }
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2

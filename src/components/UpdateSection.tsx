@@ -65,13 +65,33 @@ export function UpdateSection() {
   const status = busy ? '正在检查…' : result ? describeUpdate(result) : '版本 ' + version;
 
   /**
-   * Starts the download by navigating to it.
+   * Starts the download.
    *
-   * The route answers with `Content-Disposition: attachment`, so this downloads
-   * rather than navigating away - which matters in the packaged app, where a
-   * normal navigation would replace the app's own page with an APK.
+   * Two paths, because the two runtimes disagree about what a link means.
+   *
+   * In a browser an `<a download>` click is exactly right: the route answers
+   * with `Content-Disposition: attachment`, so the file saves without the page
+   * navigating away.
+   *
+   * In the packaged app that same click does *nothing*. A Tauri webview cannot
+   * render an APK and blocks navigation to an external origin, so the tap is
+   * silently dropped - which is what made this button inert on Android. The URL
+   * has to be handed to the OS instead, via the opener plugin.
    */
-  const download = (url: string) => {
+  const download = async (url: string) => {
+    try {
+      const { isTauri } = await import('@/lib/apiTransport');
+      if (isTauri()) {
+        const { openUrl } = await import('@tauri-apps/plugin-opener');
+        await openUrl(url);
+        return;
+      }
+    } catch (error) {
+      // Falling through to the browser path is better than doing nothing, and
+      // on a platform where the plugin is missing that is the only option.
+      console.warn('opener unavailable, falling back to a link', error);
+    }
+
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.rel = 'noopener noreferrer';
@@ -132,11 +152,11 @@ export function UpdateSection() {
               <div className="update-panel__actions">
                 {/* Two routes on purpose: the proxy is fast where GitHub is
                     slow, and the direct link is the fallback when it is not. */}
-                <button className="am-btn am-btn--primary am-btn--sm" onClick={() => download(latest.downloadUrl)}>
+                <button className="am-btn am-btn--primary am-btn--sm" onClick={() => void download(latest.downloadUrl)}>
                   <Icon name="download" size={14} />
                   国内加速下载
                 </button>
-                <button className="am-btn am-btn--secondary am-btn--sm" onClick={() => download(latest.directUrl)}>
+                <button className="am-btn am-btn--secondary am-btn--sm" onClick={() => void download(latest.directUrl)}>
                   <Icon name="download" size={14} />
                   从 GitHub 下载
                 </button>

@@ -122,6 +122,13 @@ pub fn run() {
     builder = builder.plugin(tauri_plugin_dialog::init());
   }
 
+  // Opens external URLs through the OS. Without it a Tauri webview swallows
+  // them - clicking an `<a download>` does nothing at all - so the APK
+  // download button was inert on Android. Capacitor has this built in as
+  // `window.open(url, "_system")`, which is why porting the update UI from
+  // an Otter-style codebase looked like it should just work.
+  builder = builder.plugin(tauri_plugin_opener::init());
+
   builder
     .invoke_handler(tauri::generate_handler![
       netease::netease_post,

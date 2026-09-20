@@ -24,7 +24,8 @@
       session-cookie relay through the deployed proxy
 - [x] QQ module (`music/qq/`) with Referer-aware proxying (Joox-backed streams)
 - [x] CORS proxies moved server-side (dev middlewares + deployed endpoints)
-- [ ] Local file provider (scan/import user audio, IndexedDB metadata)
+- [x] Local file provider (scan/import user audio, IndexedDB metadata) —
+      see the Phase 4 local-music entry below
 
 ## Phase 3 — Experience depth (done)
 
@@ -73,7 +74,10 @@
 
 - Platform-level rate limiting rules (Cloudflare/Vercel) alongside the
   in-isolate limiter
-- Long-list virtualization beyond `content-visibility` for 300+ track pages
+- [x] Long-list virtualization beyond `content-visibility` for 300+ track pages
+      — `components/ProgressiveList.tsx` renders 60 rows, then 60 more as a
+      sentinel comes into view; `content-visibility` only skipped painting, so
+      a 1000-track playlist still mounted 1000 rows in one commit
 - CSS consolidation: retire the `ui-refresh` / `monet` / `cover-fix` patch
   layers, single source of truth for design tokens
 - Netease session cookie: encrypted storage or OS keychain via Tauri

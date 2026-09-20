@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { SongListItem } from '@/components/SongListItem';
+import { ProgressiveList } from '@/components/ProgressiveList';
 import { Cover } from '@/design-system/components/Cover';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
@@ -42,9 +43,13 @@ export function PlaylistDetailPage() {
         </div>
       </div>
       <div className="song-list">
-        {songs.map((song, i) => (
-          <SongListItem key={song.id} song={song} context={songs} index={i} />
-        ))}
+        <ProgressiveList
+          items={songs}
+          resetKey={id}
+          renderItem={(song, i) => (
+            <SongListItem key={song.id} song={song} context={songs} index={i} />
+          )}
+        />
       </div>
     </div>
   );

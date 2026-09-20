@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { TrackListItem } from '@/components/TrackListItem';
+import { ProgressiveList } from '@/components/ProgressiveList';
 import { ExpandableText } from '@/components/ExpandableText';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
@@ -79,9 +80,13 @@ export function NeteaseAlbumDetailPage() {
         </div>
       </div>
       <div className="song-list">
-        {tracks.map((track, i) => (
-          <TrackListItem key={track.id + ':' + i} track={track} context={tracks} index={i} />
-        ))}
+        <ProgressiveList
+          items={tracks}
+          resetKey={id}
+          renderItem={(track, i) => (
+            <TrackListItem key={track.id + ':' + i} track={track} context={tracks} index={i} />
+          )}
+        />
       </div>
     </div>
   );

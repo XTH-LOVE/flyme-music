@@ -75,6 +75,13 @@
   contain-intrinsic-size: auto 64px;
   transition: background-color var(--am-motion-micro) var(--am-ease-standard);
 }
+/* Invisible trigger that reveals the next slice of rows (ProgressiveList).
+   One pixel of layout so the observer has something to watch, negative margin
+   so it does not add a gap between rows. */
+.progressive-list__sentinel {
+  height: 1px;
+  margin-top: -1px;
+}
 .song-item:hover {
   background: color-mix(in srgb, var(--am-text-1) 5%, transparent);
 }

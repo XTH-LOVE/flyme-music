@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { IconButton } from '@/design-system/components/IconButton';
 import { TrackCover } from '@/components/TrackCover';
@@ -18,8 +18,13 @@ interface TrackListItemProps {
   onRemove?: () => void;
 }
 
-/** Song row for online / user-playlist tracks (source-aware). */
-export function TrackListItem({ track, context, index, onRemove }: TrackListItemProps) {
+/**
+ * Memoized because the pages that render it in bulk re-render on every state
+ * change - including each progressive reveal, which would otherwise re-run
+ * hundreds of already-correct rows. Props are a track from a stable array, that
+ * same array, and an index, so the comparison is genuinely cheap.
+ */
+export const TrackListItem = memo(function TrackListItem({ track, context, index, onRemove }: TrackListItemProps) {
   const current = usePlayerStore((s) => s.current);
   const isPlaying = usePlayerStore((s) => s.status === 'playing');
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
@@ -118,4 +123,4 @@ export function TrackListItem({ track, context, index, onRemove }: TrackListItem
       <TrackActionsSheet open={actionsOpen} track={track} onClose={() => setActionsOpen(false)} />
     </>
   );
-}
+});

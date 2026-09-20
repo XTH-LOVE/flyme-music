@@ -333,7 +333,11 @@ body {
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .song-list > .song-item {
+  /* Only the first screenful staggers in. Rows revealed later by the
+     progressive list mount as the user scrolls into them, and there the same
+     fade-in reads as a flicker - the fill mode starts them at opacity 0, so
+     they would blink in up to 190ms after arriving on screen. */
+  .song-list > .song-item:nth-child(-n + 12) {
     animation: am-row-in 280ms var(--am-ease-standard) both;
   }
   .song-list > .song-item:nth-child(1) { animation-delay: 0ms; }

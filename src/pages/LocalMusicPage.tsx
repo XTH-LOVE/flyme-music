@@ -3,6 +3,7 @@ import { Icon } from '@/components/Icon';
 import { SectionHeader } from '@/design-system/components/SectionHeader';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { TrackListItem } from '@/components/TrackListItem';
+import { ProgressiveList } from '@/components/ProgressiveList';
 import { playerController } from '@/player';
 import { useLocalLibraryStore } from '@/store/useLocalLibraryStore';
 import { clearOfflineCache, formatBytes, offlineStats, type OfflineStats } from '@/library/offlineCache';
@@ -107,17 +108,20 @@ export function LocalMusicPage() {
         />
       ) : (
         <div className="song-list">
-          {tracks.map((track, i) => (
-            <TrackListItem
-              key={'local:' + track.id}
-              track={track}
-              context={tracks}
-              index={i}
-              onRemove={() => {
-                void remove(track).then(() => notify('已从本地曲库移除'));
-              }}
-            />
-          ))}
+          <ProgressiveList
+            items={tracks}
+            renderItem={(track, i) => (
+              <TrackListItem
+                key={'local:' + track.id}
+                track={track}
+                context={tracks}
+                index={i}
+                onRemove={() => {
+                  void remove(track).then(() => notify('已从本地曲库移除'));
+                }}
+              />
+            )}
+          />
         </div>
       )}
 

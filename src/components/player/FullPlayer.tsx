@@ -164,13 +164,7 @@ function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: 
   return <div className="hc-imm__lyric">{line?.text ?? ''}</div>;
 }
 
-/**
- * Mobile cover page: the current lyric line with the next one under it.
- *
- * Two lines rather than one, because a single line is not enough to sing along
- * with - you see the words after you needed them. The second line is dimmed so
- * the pair reads as "here" and "next" rather than as two equally current lines.
- */
+/** Mobile cover page: single active lyric line right below the cover. */
 function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
   const lines = useSungLines(track);
   // Same global timing correction the lyrics view applies, so the strip and the
@@ -183,45 +177,11 @@ function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime
     else break;
   }
   if (!lines.length || active < 0) return null;
-
-  /*
-   * A window of lines, absolutely placed, inside a track that slides.
-   *
-   * The first working version put every line of the song in the track. It
-   * scrolled correctly and made playback stutter: a hundred-odd nodes
-   * reconciled several times a second, inside a compositing layer thousands of
-   * pixels tall, is enough to starve the main thread.
-   *
-   * So only the lines near the current one are rendered. They are placed by
-   * their absolute index rather than by their order in the array, which is what
-   * lets the window move without the rows moving with it - the transform stays
-   * a multiple of the current line, so it still animates, and the nodes that
-   * come and go do so off-screen where nobody sees them mount.
-   */
-  const WINDOW = 2;
-  const from = Math.max(0, active - WINDOW);
-  const to = Math.min(lines.length - 1, active + WINDOW);
-  const visible: number[] = [];
-  for (let i = from; i <= to; i += 1) visible.push(i);
-
+  // key on the line index so React remounts the node and replays the swap animation
   return (
     <div className="hc-p-minilyric">
-      <div
-        className="hc-p-minilyric__track"
-        style={{ transform: 'translateY(calc(' + -active + ' * var(--hc-lyric-row)))' }}
-      >
-        {visible.map((index) => (
-          <div
-            key={lines[index].time + '-' + index}
-            className={
-              'hc-p-minilyric__line' +
-              (index === active ? '' : ' hc-p-minilyric__line--next')
-            }
-            style={{ top: 'calc(var(--hc-lyric-row) * ' + index + ')' }}
-          >
-            {lines[index].text || '· · ·'}
-          </div>
-        ))}
+      <div key={track.id + '-' + active} className="hc-p-minilyric__line">
+        {lines[active].text || '· · ·'}
       </div>
     </div>
   );

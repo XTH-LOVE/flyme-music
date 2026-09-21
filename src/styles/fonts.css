@@ -1,0 +1,53 @@
+/*
+ * Inter, self-hosted, for Latin text.
+ *
+ * The stack below used to name MiSans, HarmonyOS Sans and PingFang SC without
+ * shipping any of them, so on every device that was not a Xiaomi phone the
+ * whole thing fell through to system-ui - Roboto on Android - and the app
+ * looked like a default web page.
+ *
+ * Inter is the closest open-source relative of the font people mean when they
+ * say "the Apple font": it was drawn for the same job, and the numerals and
+ * letterforms in a track title are where that shows. It is MIT licensed, so it
+ * can actually be bundled.
+ *
+ * Latin only, and that is the point. A full CJK family is around a hundred
+ * subset files and tens of megabytes; Inter costs 104KB for four weights and
+ * leaves Chinese to the device, which already has Source Han Sans built in and
+ * is better than anything that would fit in the download anyway.
+ *
+ * `font-display: swap` so a slow font never holds up the first paint - the
+ * system font shows immediately and is replaced when Inter arrives.
+ */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/inter-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/inter-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/inter-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/inter-700.woff2') format('woff2');
+}

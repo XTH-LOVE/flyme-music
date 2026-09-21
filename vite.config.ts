@@ -139,6 +139,58 @@ function pwaPlugin() {
             },
           },
         },
+        /*
+         * Cover art, cached.
+         *
+         * Every visit to a playlist was re-fetching every cover from the
+         * source's CDN, which is why a list filled in visibly one image at a
+         * time. They never change - a cover URL names one image for good - so
+         * CacheFirst is the right policy and the second visit costs nothing.
+         *
+         * The limits are deliberately modest. A cross-origin image comes back
+         * as an opaque response, and browsers account for those far above their
+         * real size, so a generous maxEntries would quietly consume a large
+         * share of the origin's storage quota. Two hundred covers at a week is
+         * the useful part of the working set without the risk.
+         */
+        {
+          urlPattern: ({ request }: { request: Request }) => request.destination === 'image',
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'aurora-covers',
+            expiration: {
+              maxEntries: 200,
+              maxAgeSeconds: 60 * 60 * 24 * 7,
+            },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+        /*
+         * Audio streams, cached - the same thing Otter Music does, and the
+         * reason replaying a track there is instant.
+         *
+         * Sixty entries is roughly four hours of listening: enough that the
+         * songs someone actually returns to are already local, small enough
+         * that the cache cannot grow into a storage problem on a phone.
+         *
+         * `ignoreSearch` is deliberately NOT set. Music URLs carry the track id
+         * in the query string, so ignoring it would serve one song for another
+         * - a cache that returns the wrong audio is worse than no cache.
+         */
+        {
+          urlPattern: ({ request }: { request: Request }) =>
+            request.destination === 'audio' ||
+            /\.(?:mp3|m4a|flac|ogg|aac|opus)(?:\?|$)/i.test(request.url),
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'aurora-audio',
+            expiration: {
+              maxEntries: 60,
+              maxAgeSeconds: 60 * 60 * 24 * 14,
+            },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
       ],
     },
   });

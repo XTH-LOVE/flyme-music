@@ -184,22 +184,31 @@ function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime
   }
   if (!lines.length || active < 0) return null;
 
-  const current = lines[active];
-  const upcoming = lines[active + 1];
+  /*
+   * Two rows: the current line and the one after it.
+   *
+   * Keyed by the line's own index rather than by its position in the array, so
+   * when the song advances each row is recognised as a different line and
+   * remounts. That matters because the movement is a CSS animation rather than
+   * a transition: an animation plays when a node appears, whereas a transition
+   * needs a property to change, and here nothing does - the rows simply hold
+   * different text.
+   *
+   * The incoming line rises into place from below, which is the direction the
+   * eye is already travelling when reading a lyric.
+   */
+  const rows = [lines[active], lines[active + 1]];
 
-  // key on the line index so React remounts the node and replays the swap animation
   return (
     <div className="hc-p-minilyric">
-      <div key={track.id + '-' + active} className="hc-p-minilyric__line">
-        {current.text || '· · ·'}
-      </div>
-      {/*
-        Reserved even when there is no next line, so the block keeps its height
-        and the title underneath does not jump on the last line of a song.
-      */}
-      <div className="hc-p-minilyric__line hc-p-minilyric__line--next">
-        {upcoming?.text || ''}
-      </div>
+      {rows.map((row, index) => (
+        <div
+          key={(row ? row.time : 'end') + '-' + index}
+          className={'hc-p-minilyric__line' + (index === 0 ? '' : ' hc-p-minilyric__line--next')}
+        >
+          {row?.text || (index === 0 ? '· · ·' : '')}
+        </div>
+      ))}
     </div>
   );
 }

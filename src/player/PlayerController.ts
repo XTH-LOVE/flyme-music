@@ -7,7 +7,6 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { notify } from '@/utils/notify';
 import { setPlaybackFailure, clearPlaybackFailure } from './playbackFailure';
 import { isTauri } from '@/lib/apiTransport';
-import { needsSameOriginAudio } from './webAudio';
 import { PlayerEngine } from './PlayerEngine';
 import { PlayerQueue } from './PlayerQueue';
 import type { PlayerListener, PlayerSnapshot, RepeatMode } from './PlayerState';
@@ -322,9 +321,20 @@ class PlayerController {
    */
   private attachUrlFor(url: string): string {
     if (isTauri()) return url;
-    // Either the visualiser or the audio chain needs it. Checking only the
-    // visualiser left the EQ silently dead whenever it was off.
-    if (!useSettingsStore.getState().realSpectrum && !needsSameOriginAudio()) return url;
+    /*
+     * Only the visualiser justifies the proxy now.
+     *
+     * The EQ and level matching were added to this condition so they would work
+     * for online tracks, and that was a mistake: routing every stream through
+     * Cloudflare puts a Worker in the path of the audio, and playback came back
+     * audibly choppy. A filter is worth less than the music it filters.
+     *
+     * So the trade-off resolves the other way. The spectrum still asks for the
+     * proxy because it cannot work without it; the EQ and level matching apply
+     * to local and cached audio, which is same-origin already and costs
+     * nothing, and stay out of the way for everything else.
+     */
+    if (!useSettingsStore.getState().realSpectrum) return url;
     if (!/^https?:\/\//.test(url)) return url;
     return '/api/media-proxy?url=' + encodeURIComponent(url);
   }

@@ -598,12 +598,14 @@
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  /* Top-aligned, not centred. Centring split the leftover height into a void
-     above the cover and another below it, so the cover read as floating in the
-     middle of the screen with the controls stranded at the bottom. Collected
-     underneath instead, the same space reads as breathing room between the
-     cover and the track it belongs to. */
-  align-items: flex-start;
+  /*
+   * Bottom-aligned. Centring split the leftover height into a void above the
+   * cover and another below it, so the cover floated in the middle; top-aligning
+   * sent it up under the header and left the lyric stranded. Pushed to the
+   * bottom of its area, the slack collects in one place - above the cover -
+   * and the cover ends up sitting just above the lyric line it belongs to.
+   */
+  align-items: flex-end;
   justify-content: center;
   padding: 10px 0 0;
 }
@@ -730,30 +732,87 @@
 /* Single lyric line under the mobile cover: large, black, animated on change */
 .hc-p-minilyric {
   flex-shrink: 0;
-  margin-top: 22px;
-  min-height: 27px;
+  /*
+   * Room under the cover. It was 14px, which read as the lyric belonging to the
+   * title below rather than to the cover above; the pair wants a clear gap so
+   * the eye takes them as one block.
+   */
+  margin-top: 24px;
+  /* Two rows of 18px at 1.45, fixed so the slide has an exact distance to
+     travel and the title underneath never moves. */
+  --hc-lyric-row: 26px;
+  height: calc(var(--hc-lyric-row) * 2);
+  overflow: hidden;
   padding: 0 2px;
   text-align: left;
 }
+
+/*
+ * The movement: the whole track slides by one row when the song advances.
+ *
+ * A transition, and this time there is something for it to interpolate - the
+ * transform is a multiple of the current line index, so it changes on every
+ * line. The earlier attempt used a constant transform, which never changed and
+ * therefore never animated, and the one after that remounted each row instead,
+ * which made the outgoing line disappear rather than leave.
+ *
+ * Nothing mounts or unmounts here, so there is no frame in which the strip is
+ * empty or half-drawn. That absence is what smoothness actually is.
+ */
+.hc-p-minilyric__track {
+  /* Absolutely placed rows, so the window can move without moving the rows. */
+  position: relative;
+  height: 100%;
+  /* Long enough to read as movement, short enough that the next line has
+     arrived by the time you look at it. */
+  transition: transform 480ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1));
+  /*
+   * Deliberately no `will-change`. It was here, and it is the wrong tool: the
+   * hint promotes the element to its own compositing layer for the whole life
+   * of the page, and this one is re-laid-out constantly - the player re-renders
+   * on every playback tick. The cost of maintaining that layer lands on the
+   * compositor and shows up as jank everywhere, not just here, which is why the
+   * cover started stuttering too.
+   *
+   * The transform still runs on the compositor without it. The hint buys
+   * nothing that matters here and costs something that does.
+   */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-p-minilyric__track {
+    transition: none;
+  }
+}
+
 .hc-p-minilyric__line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--hc-lyric-row);
+  line-height: var(--hc-lyric-row);
   font-size: 18px;
-  font-weight: 600;
-  line-height: 1.5;
+  font-weight: 700;
+  letter-spacing: 0.2px;
   color: #17181d;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  animation: hc-lyric-swap 360ms var(--am-ease-standard);
+  /* Only the dimming changes as the track moves, so this is a transition too. */
+  transition: opacity 480ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
-@keyframes hc-lyric-swap {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-p-minilyric__line {
+    transition: none;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+}
+
+/* The row after the current one. Dimmed rather than smaller: they are the same
+   kind of thing, and a size difference reads as a hierarchy that is not there. */
+.hc-p-minilyric__line--next {
+  opacity: 0.42;
+  font-weight: 500;
 }
 
 @media (min-width: 1600px) {

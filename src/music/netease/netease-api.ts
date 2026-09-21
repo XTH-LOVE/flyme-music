@@ -304,7 +304,13 @@ async function fetchPlaylistDetailWeapi(playlistId: string, signal?: AbortSignal
       trackIds?: { id: number }[];
     };
   }>(
-    '/weapi/v3/playlist/detail',
+    /*
+     * v6, not v3. Netease retired the v3 path: it answers with business code
+     * 405 (method not allowed) rather than a playlist, which is what a
+     * discontinued endpoint looks like from here. The v6 path takes the same
+     * parameters and returns the same shape, so nothing else changes.
+     */
+    '/weapi/v6/playlist/detail',
     { id: playlistId, offset: 0, total: true, limit: 1000, n: 1000, csrf_token: '' },
     signal,
   );

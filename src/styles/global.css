@@ -55,7 +55,10 @@
   --am-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
   --am-ease-out: cubic-bezier(0, 0, 0.2, 1);
 
-  --am-font: 'MiSans', 'MiSans Semibold', 'HarmonyOS Sans', 'PingFang SC', 'Segoe UI', system-ui,
+  /* Inter first for Latin; the CJK names after it are what the device
+     actually has, and the browser falls back per glyph, so a title mixing
+     English and Chinese is set in both without any seam. */
+  --am-font: 'Inter', 'MiSans', 'HarmonyOS Sans', 'PingFang SC', 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', system-ui,
     -apple-system, sans-serif;
 
   color-scheme: light;

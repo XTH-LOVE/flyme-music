@@ -34,7 +34,19 @@ let tainted = false;
  */
 const LEVEL_TARGET_RMS = 0.14;
 const LEVEL_MIN_GAIN = 0.3;
-const LEVEL_MAX_GAIN = 3.5;
+/**
+ * How far the loop may amplify, and why it is not 3.5 any more.
+ *
+ * At 3.5 - about 11dB - a quiet passage was lifted enough that the loud one
+ * after it clipped, and the result was the crackle of an over-driven signal
+ * rather than a levelled one. Combined with the slow release below, the gain
+ * stayed up long after the quiet part ended, which is exactly when the damage
+ * happens.
+ *
+ * 1.8 is about 5dB: enough to even out the difference between two masters, not
+ * enough to drive a normal one into its ceiling.
+ */
+const LEVEL_MAX_GAIN = 1.8;
 const LEVEL_TICK_MS = 250;
 
 /**
@@ -73,6 +85,7 @@ const LEVEL_WINDOW_TICKS = 8;
 const LEVEL_STORAGE_KEY = 'aurora.levelMatching';
 
 let levelGain: GainNode | null = null;
+let limiter: DynamicsCompressorNode | null = null;
 let levelAnalyser: AnalyserNode | null = null;
 let levelTimer: number | null = null;
 let levelEnabled = false;
@@ -272,9 +285,31 @@ export function ensureWired(el: HTMLAudioElement): boolean {
     levelAnalyser.connect(lowNode);
     lowNode.connect(midNode);
     midNode.connect(highNode);
+
+    /*
+     * A ceiling, and the reason it is not optional.
+     *
+     * Level matching raises the gain on quiet material and the EQ raises whole
+     * bands on top of that. Neither knows what the peak is about to be, so
+     * without something here the sum can exceed full scale and the output
+     * crackles - which is the sound of a signal being cut off flat, and reads
+     * as a broken file rather than a loud one.
+     *
+     * A compressor used as a limiter: threshold just below zero, ratio at the
+     * maximum the API allows, and a knee of zero so it is a ceiling rather than
+     * a gradual squeeze. It does nothing at all until something would clip.
+     */
+    limiter = limiter ?? ctx.createDynamicsCompressor();
+    limiter.threshold.value = -1;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.25;
+    highNode.connect(limiter);
+
     // The visualiser sits last on purpose: it should show what is coming out,
     // not what went in.
-    highNode.connect(analyserNode);
+    limiter.connect(analyserNode);
     analyserNode.connect(audioCtx.destination);
     wiredElement = el;
     if (audioCtx.state === 'suspended') void audioCtx.resume();

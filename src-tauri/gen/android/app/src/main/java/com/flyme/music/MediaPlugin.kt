@@ -234,10 +234,23 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
         "上一首",
         mediaButton(PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS),
       )
+      // Two buttons, not one toggle.
+      //
+      // A bare ACTION_PLAY_PAUSE is resolved by the framework into onPlay or
+      // onPause according to the *current* PlaybackState, so a single toggle
+      // silently depends on that state being perfectly in sync with what is
+      // actually playing. The moment it drifts the button does the opposite of
+      // what was asked and reads as "pause does nothing". Explicit actions
+      // remove the dependency rather than trying to keep it in step.
       .addAction(
-        if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-        if (playing) "暂停" else "播放",
-        mediaButton(PlaybackStateCompat.ACTION_PLAY_PAUSE),
+        android.R.drawable.ic_media_play,
+        "播放",
+        mediaButton(PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_PLAY),
+      )
+      .addAction(
+        android.R.drawable.ic_media_pause,
+        "暂停",
+        mediaButton(PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_PAUSE),
       )
       .addAction(
         android.R.drawable.ic_media_next,
@@ -250,7 +263,10 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
       builder.setStyle(
         androidx.media.app.NotificationCompat.MediaStyle()
           .setMediaSession(it.sessionToken)
-          .setShowActionsInCompactView(0, 1, 2),
+          // Compact view shows previous / play / pause / next; the compact
+          // view takes at most three, so the two transport pairs are picked
+          // from the ends.
+          .setShowActionsInCompactView(0, 2, 3),
       )
     }
     return builder.build()

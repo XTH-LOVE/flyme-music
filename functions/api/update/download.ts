@@ -44,7 +44,11 @@ function safeFilename(raw: string | null): string {
 
 export async function onRequest(context: PagesContext): Promise<Response> {
   const request = context.request;
-  const blocked = guard(request, context.env as Env, 'update');
+  // Navigation allowed: this URL is opened by the browser, not fetched, and a
+  // navigation sends no Origin - which the check used to read as an attacker
+  // and reject with "origin not allowed". The target allowlist below is what
+  // actually keeps this from being an open relay.
+  const blocked = guard(request, context.env as Env, 'update', { allowNavigation: true });
   if (blocked) return blocked;
 
   const target = queryParam(request, 'url');
@@ -60,6 +64,16 @@ export async function onRequest(context: PagesContext): Promise<Response> {
     headers.Authorization = 'Bearer ' + context.env.GITHUB_TOKEN;
   }
 
+  // Range is forwarded, and the upstream status is passed through with it.
+  //
+  // Without this every request returned the whole file from byte zero. A
+  // browser that asks to resume an interrupted 75 MB download - which on a
+  // domestic connection is the normal case, not the exception - would have
+  // been handed the entire thing again instead of the remainder, and a player
+  // seeking inside a partially downloaded file could not be served at all.
+  const range = request.headers.get('Range');
+  if (range) headers.Range = range;
+
   try {
     const upstream = await fetch(target, { headers, redirect: 'follow' });
     if (!upstream.ok || !upstream.body) {
@@ -71,19 +85,33 @@ export async function onRequest(context: PagesContext): Promise<Response> {
     // Stream rather than buffer: an APK is tens of megabytes and the Workers
     // runtime has a 128 MB memory limit per request. Relaying the body is what
     // keeps this inside it regardless of how large the release grows.
+    const outHeaders = new Headers({
+      'Content-Type': 'application/vnd.android.package-archive',
+      // `filename*` with UTF-8 is the modern form; the ASCII `filename` is the
+      // fallback for older clients. `safeFilename` has already reduced the name
+      // to ASCII, so both say the same thing.
+      'Content-Disposition': 'attachment; filename="' + filename + '"',
+      'X-Content-Type-Options': 'nosniff',
+      // Long-lived: a release asset at a given URL never changes.
+      'Cache-Control': 'public, max-age=3600',
+      // So a client knows the range it asked for was understood.
+      'Accept-Ranges': 'bytes',
+    });
+
+    // Only set when upstream actually supplied it. An empty Content-Length is
+    // not "unknown", it is malformed, and clients disagree about what to do
+    // with it - some treat the response as zero-length.
+    const length = upstream.headers.get('content-length');
+    if (length) outHeaders.set('Content-Length', length);
+
+    // 206 must survive, or a client that asked for a range is told it got the
+    // whole file and reads the first chunk as if it were the start.
+    const contentRange = upstream.headers.get('content-range');
+    if (contentRange) outHeaders.set('Content-Range', contentRange);
+
     return new Response(upstream.body, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/vnd.android.package-archive',
-        // `filename*` with UTF-8 is the modern form; the ASCII `filename` is the
-        // fallback for older clients. `safeFilename` has already reduced the
-        // name to ASCII, so both say the same thing.
-        'Content-Disposition': 'attachment; filename="' + filename + '"',
-        'Content-Length': upstream.headers.get('content-length') ?? '',
-        'X-Content-Type-Options': 'nosniff',
-        // Long-lived: a release asset at a given URL never changes.
-        'Cache-Control': 'public, max-age=3600',
-      },
+      status: upstream.status === 206 ? 206 : 200,
+      headers: outHeaders,
     });
   } catch (error) {
     return new Response('download error: ' + String(error).slice(0, 200), { status: 502 });

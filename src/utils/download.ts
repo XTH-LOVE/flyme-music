@@ -5,12 +5,29 @@ import { bitrateForQuality } from '@/music/source/quality';
 import { isTauri } from '@/lib/apiTransport';
 import { notify } from '@/utils/notify';
 import { saveBlobInBrowser } from '@/utils/saveBlob';
+import {
+  SNIFF_BYTES,
+  detectAudioFormat,
+  formatFromMime,
+  formatFromUrl,
+  type AudioFormat,
+} from '@/utils/audioFormat';
 
-function extOf(url: string): string {
-  if (url.includes('.m4a')) return 'm4a';
-  if (url.includes('.flac')) return 'flac';
-  if (url.includes('.ogg')) return 'ogg';
-  return 'mp3';
+/**
+ * What the bytes say, or null when they cannot be reached.
+ *
+ * A small ranged request rather than the whole file: the point is to name the
+ * download before it starts, not to fetch it twice.
+ */
+async function sniffFormat(url: string): Promise<AudioFormat | null> {
+  try {
+    const res = await fetch(url, { headers: { Range: 'bytes=0-' + (SNIFF_BYTES - 1) } });
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return detectAudioFormat(bytes) ?? formatFromMime(res.headers.get('content-type') ?? '');
+  } catch {
+    return null;
+  }
 }
 
 function sanitize(name: string): string {
@@ -49,15 +66,27 @@ export async function downloadTrack(track: MusicTrack): Promise<void> {
   const url = await resolveTrackUrl(track, br);
   if (!url) throw new Error('无法获取下载地址（可能受版权限制）');
 
-  const fileName = sanitize(track.artist.join('&') + ' - ' + track.name) + '.' + extOf(url);
+  const base = sanitize(track.artist.join('&') + ' - ' + track.name);
 
   if (isTauri()) {
+    // Sniffed before saving because the name is decided here and the file is
+    // written on the other side of the bridge - there is no point at which the
+    // bytes could be inspected after the fact.
+    const format = (await sniffFormat(url)) ?? formatFromUrl(url);
     const { invoke } = await import('@tauri-apps/api/core');
-    const saved = await invoke<string>('download_and_save', { url, fileName });
+    const saved = await invoke<string>('download_and_save', {
+      url,
+      fileName: base + '.' + format,
+    });
     notify('已保存到 ' + saved);
     return;
   }
 
   const blob = await fetchMediaBlob(url);
-  await saveBlobInBrowser(blob, fileName);
+  // Read the format off the bytes that were actually downloaded, so the name
+  // cannot disagree with the contents.
+  const head = new Uint8Array(await blob.slice(0, SNIFF_BYTES).arrayBuffer());
+  const format =
+    detectAudioFormat(head) ?? formatFromMime(blob.type) ?? formatFromUrl(url);
+  await saveBlobInBrowser(blob, base + '.' + format);
 }

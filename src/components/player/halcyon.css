@@ -582,7 +582,12 @@
   flex-direction: column;
   max-width: 599px;
   margin: 0 auto;
-  padding: 24px 22px calc(14px + env(safe-area-inset-bottom));
+  /*
+   * The top needs the safe area *and* more room than the sides. At 24px flat
+   * the transport bar sat directly under the status bar, which reads as the
+   * buttons being crammed against the top of the screen.
+   */
+  padding: calc(12px + env(safe-area-inset-top)) 22px calc(14px + env(safe-area-inset-bottom));
 }
 .hc-p-top {
   display: flex;
@@ -593,12 +598,19 @@
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  align-items: center;
+  /* Top-aligned, not centred. Centring split the leftover height into a void
+     above the cover and another below it, so the cover read as floating in the
+     middle of the screen with the controls stranded at the bottom. Collected
+     underneath instead, the same space reads as breathing room between the
+     cover and the track it belongs to. */
+  align-items: flex-start;
   justify-content: center;
-  padding: 14px 0 12px;
+  padding: 10px 0 0;
 }
 .hc--p .hc-p-cover .hc-cover {
-  width: min(84vw, 58vh);
+  /* Fills what it can: capped by width on a narrow phone, by height on a tall
+     one, so the cover is never smaller than the space allows. */
+  width: min(84vw, 52vh);
   height: auto;
 }
 .hc--p .hc-meta-row {
@@ -606,10 +618,14 @@
   flex-shrink: 0;
 }
 .hc-p-spacer {
-  /* 固定小间距：多余高度由 .hc-p-cover 居中吸收，避免封面与控制区之间出现大空隙 */
-  flex: 0 0 clamp(10px, 3vh, 28px);
+  /*
+   * Now the one place the leftover height goes, rather than a fixed gap with
+   * the slack absorbed above the cover. Bounded at both ends: below 12px the
+   * cover and the title touch, above 48px it starts to look like a mistake.
+   */
+  flex: 1 1 auto;
   min-height: 12px;
-  max-height: 28px;
+  max-height: 48px;
 }
 .hc--p .hc-transport {
   height: 76px;

@@ -119,6 +119,7 @@ export async function fetchLatest(signal?: AbortSignal): Promise<UpdateResult> {
 }
 
 const LAST_CHECK_KEY = 'aurora.update.lastCheck';
+const LAST_RESULT_KEY = 'aurora.update.lastResult';
 
 function readLastCheck(): number {
   try {
@@ -138,6 +139,37 @@ function writeLastCheck(at: number): void {
 }
 
 /**
+ * The previous answer, kept so a throttled check can still say something.
+ *
+ * The throttle used to return null, which meant the update capsule - whose only
+ * check is the throttled one - showed nothing at all once anything else had
+ * checked that day. A release could sit unnoticed until the next day, and if
+ * the About screen had been opened first, until the day after that.
+ *
+ * The throttle exists to avoid hammering the network, not to hide the answer
+ * from the interface. Caching it keeps the request count identical and makes
+ * the result available to everything that asks.
+ */
+function readLastResult(): UpdateResult | null {
+  try {
+    const raw = localStorage.getItem(LAST_RESULT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UpdateResult;
+    return parsed && typeof parsed === 'object' && 'hasUpdate' in parsed ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastResult(result: UpdateResult): void {
+  try {
+    localStorage.setItem(LAST_RESULT_KEY, JSON.stringify(result));
+  } catch {
+    /* private mode - the capsule simply will not have a cached answer */
+  }
+}
+
+/**
  * The update check, with the once-a-day silent throttle.
  *
  * `silent` is what the app calls on launch; the About screen calls it with
@@ -148,12 +180,16 @@ export async function checkForUpdate(options: { silent?: boolean; signal?: Abort
   UpdateResult | null
 > {
   const silent = options.silent ?? false;
-  if (!shouldCheckNow(readLastCheck(), silent)) return null;
+  if (!shouldCheckNow(readLastCheck(), silent)) {
+    // Throttled, but not silent about what was already known.
+    return readLastResult();
+  }
 
   const result = await fetchLatest(options.signal);
   // Recorded even on failure: a retry loop against an unreachable server is
   // worse than waiting a day.
   writeLastCheck(Date.now());
+  writeLastResult(result);
   return result;
 }
 

@@ -215,6 +215,30 @@ export function MePage() {
         </button>
       </div>
 
+      {/*
+        Entries for the pages the phone layout has no other way to reach.
+        The bottom bar has four slots and the desktop sidebar has eleven; the
+        ones that lost out were reachable only by typing a URL, which on a phone
+        nobody does. They live here, under the profile, which is where a phone
+        user looks for them.
+      */}
+      <div className="me-links">
+        {(
+          [
+            ['/stats', 'flame', '听歌统计'],
+            ['/ai', 'music', '一起听'],
+            ['/playlists', 'queue', '歌单广场'],
+            ['/storage', 'download', '存储管理'],
+          ] as const
+        ).map(([to, icon, label]) => (
+          <button key={to} className="me-link" onClick={() => navigate(to)}>
+            <Icon name={icon} size={18} />
+            <span>{label}</span>
+            <Icon name="chevronRight" size={15} />
+          </button>
+        ))}
+      </div>
+
       <div className="chip-row">
         {neteaseAuth.user ? <Chip active={tab === 'netease'} onClick={() => setTab('netease')}>网易云</Chip> : null}
         {tabs.map((t) => (

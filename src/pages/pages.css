@@ -1126,3 +1126,37 @@
 .auth-dialog-list > .am-btn--primary { min-height: 52px; border-radius: 16px; font-size: 16px; font-weight: 600; margin-top: 6px; }
 .auth-dialog-list > .am-btn--ghost { min-height: 42px; border-radius: 14px; }
 .auth-dialog-list .auth-hint { margin-top: -4px; }
+
+/* Entries from the profile to pages the phone navigation cannot reach. */
+.me-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+
+.me-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 13px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  border-radius: var(--am-radius-lg, 16px);
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+  font: inherit;
+  font-size: 13px;
+  color: var(--am-text-1);
+  cursor: pointer;
+  text-align: left;
+}
+
+.me-link span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The chevron is a hint, not information - it should not compete with the label. */
+.me-link > svg:last-child {
+  color: var(--am-text-3);
+  opacity: 0.7;
+}

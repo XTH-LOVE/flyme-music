@@ -38,6 +38,7 @@ export type MediaAction = 'play' | 'pause' | 'next' | 'previous' | 'stop' | 'see
 /** `listen` hands back an unsubscribe function, not an object. */
 let unlisten: (() => void) | null = null;
 let reported = false;
+let announcedAction = false;
 
 /**
  * Reports a failure once per session, in the interface.
@@ -128,7 +129,18 @@ export async function onNativeMediaAction(
     const { listen } = await import('@tauri-apps/api/event');
     unlisten = await listen<{ action?: string; seekPosition?: number }>('media_action', (event) => {
       const action = event.payload?.action;
-      if (action) handler(action as MediaAction, event.payload?.seekPosition);
+      if (!action) return;
+      // Announced once so it is visible whether the button press reaches the
+      // page at all. That is the fork in the road: if this never appears the
+      // notification's buttons are not being delivered, and if it appears but
+      // playback does not change the fault is downstream of here. Without it
+      // both look identical from the outside.
+      if (!announcedAction) {
+        announcedAction = true;
+        notify('收到通知栏操作：' + action, 2500);
+      }
+      console.warn('[nativeMedia] action', action);
+      handler(action as MediaAction, event.payload?.seekPosition);
     });
   } catch (error) {
     reportOnce(error instanceof Error ? error.message : String(error));

@@ -19,12 +19,22 @@ interface LibraryState {
   /** Full track snapshots - works for online & local tracks alike. */
   recentTracks: MusicTrack[];
   favoriteSongIds: string[];
+  /**
+   * The favourites themselves, as full tracks.
+   *
+   * IDs alone cannot be resolved back into a song: `Song` has no source field,
+   * and `songToTrack` hardcodes `source: 'mock'`, so the only provider that
+   * could answer `getSongs(ids)` is the mock one. A song liked from netease or
+   * QQ would be stored, never found, and never appear. Storing the track is
+   * what `recentTracks` already does for the same reason.
+   */
+  favoriteTracks: MusicTrack[];
   searchHistory: string[];
   /** Timestamped play log feeding the stats / listening-calendar page. */
   playLog: PlayLogEntry[];
   playSong: (songId: string) => void;
   recordTrack: (track: MusicTrack) => void;
-  toggleFavorite: (songId: string) => void;
+  toggleFavorite: (track: MusicTrack) => void;
   addSearchKeyword: (keyword: string) => void;
   removeSearchKeyword: (keyword: string) => void;
   clearSearchHistory: () => void;
@@ -33,6 +43,7 @@ interface LibraryState {
   /** Bulk rehydrate (cloud sync / backup restore), persisting each slice. */
   hydrateLibrary: (patch: {
     recentTracks?: MusicTrack[];
+    favoriteTracks?: MusicTrack[];
     favoriteSongIds?: string[];
     playLog?: PlayLogEntry[];
   }) => void;
@@ -61,6 +72,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   recentSongIds: load('aurora.recent', [] as string[]),
   recentTracks: load('aurora.recentTracks.v1', [] as MusicTrack[]),
   favoriteSongIds: load('aurora.favorites', [] as string[]),
+  favoriteTracks: load('aurora.favoriteTracks.v1', [] as MusicTrack[]),
   searchHistory: load('aurora.searchHistory', [] as string[]),
   playLog: load('aurora.playLog.v1', [] as PlayLogEntry[]),
 
@@ -95,13 +107,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     set({ recentTracks: next, playLog: nextLog });
   },
 
-  toggleFavorite: (songId) => {
-    const current = get().favoriteSongIds;
-    const next = current.includes(songId)
-      ? current.filter((id) => id !== songId)
-      : [songId, ...current];
-    save('aurora.favorites', next);
-    set({ favoriteSongIds: next });
+  toggleFavorite: (track) => {
+    const current = get().favoriteTracks;
+    const liked = current.some((t) => t.id === track.id);
+    // The full track goes in, not just its id - see the field's comment.
+    const nextTracks = liked ? current.filter((t) => t.id !== track.id) : [track, ...current];
+    // Kept in sync because the heart state is read as a plain id lookup in
+    // several places; deriving it here means there is one source of truth.
+    const nextIds = nextTracks.map((t) => t.id);
+    save('aurora.favoriteTracks.v1', nextTracks);
+    save('aurora.favorites', nextIds);
+    set({ favoriteTracks: nextTracks, favoriteSongIds: nextIds });
   },
 
   addSearchKeyword: (keyword) => {
@@ -140,6 +156,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (patch.recentTracks) {
       save('aurora.recentTracks.v1', patch.recentTracks.slice(0, MAX_RECENT));
       next.recentTracks = patch.recentTracks.slice(0, MAX_RECENT);
+    }
+    if (patch.favoriteTracks) {
+      save('aurora.favoriteTracks.v1', patch.favoriteTracks);
     }
     if (patch.favoriteSongIds) {
       save('aurora.favorites', patch.favoriteSongIds);

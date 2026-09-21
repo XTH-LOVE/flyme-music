@@ -139,7 +139,7 @@ export function MiniPlayer() {
             size="sm"
             accent={fav}
             label={fav ? '取消喜欢' : '喜欢'}
-            onClick={() => toggleFavorite(current.id)}
+            onClick={() => toggleFavorite(current)}
           >
             <Icon name={fav ? 'heartFill' : 'heart'} size={18} />
           </IconButton>

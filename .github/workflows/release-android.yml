@@ -115,6 +115,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `build.rs` embeds the AI endpoint/key/model into the binary, read from
+      # `.env.local`. That file is gitignored and exists only on the developer's
+      # machine, so CI had no key at all: the web build worked (its `/api/ai`
+      # runs on Cloudflare, where the key lives in the project's variables) while
+      # every APK shipped with `configured: false` and an AI that could not be
+      # used. Writing the file here is what makes the two runtimes agree.
+      - name: Provide the AI config
+        env:
+          AI_ENDPOINT: ${{ secrets.AURORA_AI_ENDPOINT }}
+          AI_KEY: ${{ secrets.AURORA_AI_API_KEY }}
+          AI_MODEL: ${{ secrets.AURORA_AI_MODEL }}
+        run: |
+          if [ -z "$AI_KEY" ]; then
+            echo "::error::AURORA_AI_API_KEY secret is not set; the APK would ship without a working AI."
+            exit 1
+          fi
+          {
+            echo "AURORA_AI_ENDPOINT=$AI_ENDPOINT"
+            echo "AURORA_AI_API_KEY=$AI_KEY"
+            echo "AURORA_AI_MODEL=$AI_MODEL"
+          } > .env.local
+
       - name: Build web assets
         run: npm run build
 

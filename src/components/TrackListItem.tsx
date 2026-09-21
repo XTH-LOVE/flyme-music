@@ -112,7 +112,7 @@ export const TrackListItem = memo(function TrackListItem({ track, context, index
           size="sm"
           accent={fav}
           label={fav ? '取消喜欢' : '喜欢'}
-          onClick={() => toggleFavorite(track.id)}
+          onClick={() => toggleFavorite(track)}
         >
           <Icon name={fav ? 'heartFill' : 'heart'} size={17} />
         </IconButton>

@@ -19,6 +19,14 @@ import { isTauri } from '@/lib/apiTransport';
 export interface NowPlaying {
   title: string;
   artist?: string;
+  /**
+   * Cover URL, fetched natively.
+   *
+   * Only an http(s) URL is useful: the native side opens it with a plain
+   * HttpURLConnection, which cannot read a data: URL, and local tracks render
+   * their cover to exactly that.
+   */
+  cover?: string;
   /** Seconds. */
   duration?: number;
   /** Seconds. */
@@ -35,6 +43,7 @@ interface NativeBridge {
     playing: boolean,
     positionSec: number,
     durationSec: number,
+    artworkUrl: string,
   ): void;
   stop(): void;
 }
@@ -61,6 +70,10 @@ export function updateNativeNowPlaying(info: NowPlaying): void {
       info.playing,
       info.position ?? 0,
       info.duration ?? 0,
+      // Rejected rather than passed through: a data: URL is what local tracks
+      // produce, and sending it would have the native side fail a download it
+      // never needed to attempt.
+      info.cover && /^https?:/i.test(info.cover) ? info.cover : '',
     );
   } catch (error) {
     // A missing notification must never break playback, so this does not
@@ -76,9 +89,11 @@ export function setNativePlaying(playing: boolean, position = 0, duration = 0): 
   const native = bridge();
   if (!native) return;
   try {
-    // The bridge has no merge semantics of its own, so the title and artist
-    // are resent from the last known values by the caller.
-    native.update(lastTitle, lastArtist, playing, position, duration);
+    // The bridge has no merge semantics of its own, so the metadata is resent
+    // from the last known values by the caller. The cover is deliberately left
+    // out: the native side keeps the bitmap it already fetched, and resending
+    // the URL would not change it.
+    native.update(lastTitle, lastArtist, playing, position, duration, '');
   } catch (error) {
     console.warn('[nativeMedia] setPlaying failed', error);
   }

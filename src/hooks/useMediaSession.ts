@@ -201,8 +201,10 @@ export function useMediaSession(): void {
 
       if (track && key !== lastKey) {
         lastKey = key;
-        {
+        void artworkFor(track).then((artwork) => {
           if (!alive) return;
+          // Artwork resolution is async; a stale result must not overwrite a
+          // track the user has already moved past.
           const current = playerController.snapshot().current;
           if (!current || trackKeyOf(current) !== key) return;
           rememberTrack(track.name, track.artist.join(' / '));
@@ -213,9 +215,10 @@ export function useMediaSession(): void {
             // everywhere, so there is no conversion to get wrong.
             duration: Number.isFinite(snap.duration) ? snap.duration : 0,
             position: Number.isFinite(snap.currentTime) ? snap.currentTime : 0,
+            cover: artwork[0]?.src,
             playing: snap.status === 'playing',
           });
-        }
+        });
         return;
       }
 

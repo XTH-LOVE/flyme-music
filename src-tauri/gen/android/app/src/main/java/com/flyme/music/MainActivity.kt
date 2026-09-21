@@ -63,6 +63,7 @@ class MainActivity : TauriActivity() {
             playing: Boolean,
             positionSec: Double,
             durationSec: Double,
+            artworkUrl: String,
         ) {
             val intent = android.content.Intent(this@MainActivity, MediaPlaybackService::class.java).apply {
                 action = MediaPlaybackService.ACTION_UPDATE
@@ -71,6 +72,7 @@ class MainActivity : TauriActivity() {
                 putExtra(MediaPlaybackService.EXTRA_PLAYING, playing)
                 putExtra(MediaPlaybackService.EXTRA_POSITION, (positionSec * 1000).toLong())
                 putExtra(MediaPlaybackService.EXTRA_DURATION, (durationSec * 1000).toLong())
+                putExtra(MediaPlaybackService.EXTRA_ARTWORK, artworkUrl)
             }
             // startForegroundService on O+ : the service must be told it is
             // allowed to post, or it is killed for not calling startForeground

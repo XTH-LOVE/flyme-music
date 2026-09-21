@@ -378,15 +378,16 @@ async function fetchPlaylistDetailWeapi(playlistId: string, signal?: AbortSignal
    * order without any sorting afterwards.
    */
   /*
-   * Five hundred per request, not one hundred.
+   * One hundred per request.
    *
-   * This is the number Otter Music uses, and it is the reason a playlist there
-   * opens in about a second: three hundred tracks fit in a single request
-   * rather than three. The API accepts it, and the response is the same shape
-   * either way.
+   * This was raised to five hundred to match Otter Music, and it made things
+   * three times slower rather than faster - so the difference between the two
+   * implementations is somewhere else, and this number was not it. Reverted
+   * until the actual cause is known; a change that makes things worse is not a
+   * change worth keeping while guessing.
    */
   const chunks: number[][] = [];
-  for (let i = 0; i < ids.length; i += 500) chunks.push(ids.slice(i, i + 500));
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
 
   const pages = await Promise.all(
     chunks.map((chunk) =>

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Notification
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.app.PendingIntent
@@ -126,7 +127,14 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
     invoke.resolve()
   }
 
-  override fun onDestroy(activity: Activity) {
+  /**
+   * Releases the session and the cover thread.
+   *
+   * The parameter is `AppCompatActivity`, not `Activity` - the base class
+   * declares it that way, and matching `Activity` silently fails to override
+   * anything.
+   */
+  override fun onDestroy(activity: AppCompatActivity) {
     coverPool.shutdown()
     session?.release()
     session = null

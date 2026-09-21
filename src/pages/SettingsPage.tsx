@@ -10,6 +10,9 @@ import { useAiStore, type AiPersona } from '@/store/useAiStore';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { getAiStatus, listAiModels } from '@/ai/aiClient';
 import { isLevelMatching, setLevelMatching } from '@/player/webAudio';
+import { useDesktopLyrics } from '@/hooks/useDesktopLyrics';
+import { openOverlaySettings } from '@/lib/nativeMedia';
+import { notify } from '@/utils/notify';
 import {
   DEFAULT_MUSIC_API_URL,
   getMusicApiUrls,
@@ -52,6 +55,7 @@ export function SettingsPage() {
   const setThemePureBlack = useThemeStore((s) => s.setPureBlack);
   const settings = useSettingsStore();
   const [levelMatching, setLevelMatchingState] = useState(isLevelMatching());
+  const desktopLyric = useDesktopLyrics();
   const [apiUrl, setApiUrl] = useState(getMusicApiUrls()[0]);
   const [apiSaved, setApiSaved] = useState(false);
 
@@ -435,9 +439,7 @@ export function SettingsPage() {
           <div className="settings-row__body">
             <div className="settings-row__title">自动音量均衡</div>
             <div className="settings-row__desc">
-              {settings.realSpectrum
-                ? '在线歌曲经服务器转发、本地与离线音频直接接入，切歌时音量更平稳'
-                : '对在线歌曲暂不生效：需要开启上面的「节奏频谱」，音频经服务器转发后才能接入；本地与离线音频始终生效'}
+              不同音源母带响度不同，统一到同一电平，切歌时音量更平稳
             </div>
           </div>
           <Switch
@@ -445,6 +447,29 @@ export function SettingsPage() {
             onChange={(value) => {
               setLevelMatchingState(value);
               setLevelMatching(value);
+            }}
+          />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">桌面歌词</div>
+            <div className="settings-row__desc">
+              {desktopLyric.enabled
+                ? '当前歌词会浮在其他应用上层，可拖动位置'
+                : '在屏幕上浮动显示当前歌词行（需要「显示在其他应用上层」权限）'}
+            </div>
+          </div>
+          <Switch
+            checked={desktopLyric.enabled}
+            onChange={(value) => {
+              // A false return means the overlay permission is missing. Sending
+              // the user to the system page is the only useful response -
+              // leaving the switch off with no explanation is what makes this
+              // feature look broken on most phones.
+              if (!desktopLyric.setEnabled(value) && value) {
+                notify('需要先允许「显示在其他应用上层」');
+                openOverlaySettings();
+              }
             }}
           />
         </div>

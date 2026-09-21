@@ -34,9 +34,28 @@ export interface NowPlaying {
   playing: boolean;
 }
 
-export type MediaAction = 'play' | 'pause' | 'next' | 'previous' | 'stop' | 'seek';
+/**
+ * `duck` and `unduck` are not buttons - they come from the audio focus system,
+ * which asks the app to lower its volume for a short announcement and raise it
+ * again. The system does not do this itself, so it has to be forwarded.
+ */
+export type MediaAction =
+  | 'play'
+  | 'pause'
+  | 'next'
+  | 'previous'
+  | 'stop'
+  | 'seek'
+  | 'duck'
+  | 'unduck';
 
 interface NativeBridge {
+  /** Returns false when "display over other apps" has not been granted. */
+  showLyric(text: string, locked: boolean): boolean;
+  updateLyric(text: string, locked: boolean): void;
+  hideLyric(): void;
+  canShowLyric(): boolean;
+  openOverlaySettings(): void;
   update(
     title: string,
     artist: string,
@@ -128,6 +147,63 @@ export function onNativeMediaAction(handler: (action: MediaAction) => void): voi
     }
     handler(raw as MediaAction);
   };
+}
+
+/* ---------------- Desktop lyrics ---------------- */
+
+/**
+ * Starts the floating lyric window.
+ *
+ * Returns false when the permission is missing, so the caller can send the
+ * user to the system page instead of leaving a toggle that appears to do
+ * nothing - which is how this feature usually fails.
+ */
+export function showDesktopLyric(text: string, locked: boolean): boolean {
+  if (!isTauri()) return false;
+  try {
+    return bridge()?.showLyric(text, locked) ?? false;
+  } catch (error) {
+    console.warn('[nativeMedia] showLyric failed', error);
+    return false;
+  }
+}
+
+export function updateDesktopLyric(text: string, locked: boolean): void {
+  if (!isTauri()) return;
+  try {
+    bridge()?.updateLyric(text, locked);
+  } catch {
+    // One line per lyric change; a failure here will have been reported by
+    // showDesktopLyric when the overlay was turned on.
+  }
+}
+
+export function hideDesktopLyric(): void {
+  if (!isTauri()) return;
+  try {
+    bridge()?.hideLyric();
+  } catch (error) {
+    console.warn('[nativeMedia] hideLyric failed', error);
+  }
+}
+
+export function canShowDesktopLyric(): boolean {
+  if (!isTauri()) return false;
+  try {
+    return bridge()?.canShowLyric() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/** Opens the system page for the overlay permission. */
+export function openOverlaySettings(): void {
+  if (!isTauri()) return;
+  try {
+    bridge()?.openOverlaySettings();
+  } catch (error) {
+    console.warn('[nativeMedia] openOverlaySettings failed', error);
+  }
 }
 
 /** Remembered so `setNativePlaying` can resend the metadata the bridge requires. */

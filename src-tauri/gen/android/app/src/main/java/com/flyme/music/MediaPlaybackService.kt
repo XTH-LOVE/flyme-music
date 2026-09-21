@@ -2,6 +2,12 @@ package com.flyme.music
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -48,6 +54,11 @@ class MediaPlaybackService : Service() {
     private var artworkUrl = ""
     private var artwork: Bitmap? = null
     private val artworkLoader = Executors.newSingleThreadExecutor()
+    private lateinit var audio: AudioManager
+    private var focusRequest: AudioFocusRequest? = null
+    private var noisyReceiver: BroadcastReceiver? = null
+    /** Set while another app holds focus, so it is not asked for again on resume. */
+    private var ducked = false
     private val main = Handler(Looper.getMainLooper())
 
     companion object {
@@ -81,6 +92,24 @@ class MediaPlaybackService : Service() {
                 setSound(null, null)
             }
         )
+        audio = getSystemService(AUDIO_SERVICE) as AudioManager
+
+        // Headphones unplugged: pause rather than continue out of the phone's
+        // own speaker, which is the loudest possible way to be embarrassing in
+        // a quiet room. The system broadcasts this precisely so players can
+        // avoid it.
+        noisyReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                    forward("pause")
+                }
+            }
+        }
+        registerReceiver(
+            noisyReceiver,
+            IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        )
+
         session = MediaSession(this, "FlymeMusicSession").apply {
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() = forward("play")
@@ -117,6 +146,8 @@ class MediaPlaybackService : Service() {
                 return START_NOT_STICKY
             }
         }
+
+        if (playing) requestFocus() else if (!ducked) abandonFocus()
 
         syncSession()
         val notification = build()
@@ -173,6 +204,66 @@ class MediaPlaybackService : Service() {
 
     private fun rebuild() {
         notifications.notify(NOTIFICATION_ID, build())
+    }
+
+    /**
+     * Asks to become the thing the user is listening to.
+     *
+     * Without this the app plays over whatever else is playing: a video in
+     * another app, a phone call, a podcast. It is not a feature so much as the
+     * etiquette every player is expected to observe, and its absence is
+     * immediately audible.
+     *
+     * The three loss cases are handled differently on purpose:
+     *  - LOSS        - someone else wants the audio for good; stop.
+     *  - LOSS_TRANSIENT - a call or a navigation prompt; pause, and it may come
+     *                     back.
+     *  - CAN_DUCK    - a short announcement; lower the volume rather than
+     *                  stopping, so the listener does not have to restart.
+     */
+    private fun requestFocus() {
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(attributes)
+            .setOnAudioFocusChangeListener { change -> onFocusChange(change) }
+            .build()
+        focusRequest = request
+        audio.requestAudioFocus(request)
+    }
+
+    private fun abandonFocus() {
+        focusRequest?.let { audio.abandonAudioFocusRequest(it) }
+        focusRequest = null
+        ducked = false
+    }
+
+    private fun onFocusChange(change: Int) {
+        when (change) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                ducked = false
+                forward("pause")
+                abandonFocus()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                ducked = false
+                forward("pause")
+            }
+            // Ducking is a request to the app, not something the system does
+            // for it - hence telling the page rather than touching the session.
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                ducked = true
+                forward("duck")
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                if (ducked) {
+                    ducked = false
+                    forward("unduck")
+                }
+            }
+        }
     }
 
     private fun syncSession() {
@@ -259,6 +350,9 @@ class MediaPlaybackService : Service() {
     }
 
     override fun onDestroy() {
+        noisyReceiver?.let { runCatching { unregisterReceiver(it) } }
+        noisyReceiver = null
+        abandonFocus()
         artworkLoader.shutdownNow()
         artwork = null
         session.release()

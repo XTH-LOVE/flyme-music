@@ -84,6 +84,61 @@ class MainActivity : TauriActivity() {
             }
         }
 
+        /**
+         * Desktop lyrics.
+         *
+         * `show` is separate from `update` because showing is the moment the
+         * permission matters: if the user has not granted "display over other
+         * apps" the window is never added and nothing happens, so the answer is
+         * returned to the page instead of being discovered as a toggle that
+         * does nothing.
+         */
+        @JavascriptInterface
+        fun showLyric(text: String, locked: Boolean): Boolean {
+            if (!LyricOverlayService.canDraw(this@MainActivity)) return false
+            val intent = android.content.Intent(this@MainActivity, LyricOverlayService::class.java).apply {
+                action = LyricOverlayService.ACTION_SHOW
+                putExtra(LyricOverlayService.EXTRA_TEXT, text)
+                putExtra(LyricOverlayService.EXTRA_LOCKED, locked)
+            }
+            startService(intent)
+            return true
+        }
+
+        @JavascriptInterface
+        fun updateLyric(text: String, locked: Boolean) {
+            startService(
+                android.content.Intent(this@MainActivity, LyricOverlayService::class.java).apply {
+                    action = LyricOverlayService.ACTION_UPDATE
+                    putExtra(LyricOverlayService.EXTRA_TEXT, text)
+                    putExtra(LyricOverlayService.EXTRA_LOCKED, locked)
+                }
+            )
+        }
+
+        @JavascriptInterface
+        fun hideLyric() {
+            startService(
+                android.content.Intent(this@MainActivity, LyricOverlayService::class.java).apply {
+                    action = LyricOverlayService.ACTION_HIDE
+                }
+            )
+        }
+
+        /** Whether "display over other apps" has been granted. */
+        @JavascriptInterface
+        fun canShowLyric(): Boolean = LyricOverlayService.canDraw(this@MainActivity)
+
+        /** Opens the system page where that permission is granted. */
+        @JavascriptInterface
+        fun openOverlaySettings() {
+            val intent = android.content.Intent(
+                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:" + packageName)
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { startActivity(intent) }
+        }
+
         @JavascriptInterface
         fun stop() {
             startService(

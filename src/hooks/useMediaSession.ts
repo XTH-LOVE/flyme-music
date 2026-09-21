@@ -177,10 +177,17 @@ export function useMediaSession(): void {
     void onNativeMediaAction((action) => {
       // Routed to the same controller the web path uses, so there is still one
       // player making the decisions.
+      //
+      // play and pause are separate cases rather than one toggle: the
+      // notification sends them as distinct events, and collapsing them back
+      // into a toggle reintroduces the state-drift problem the split exists to
+      // remove.
       switch (action) {
         case 'play':
+          playerController.resume();
+          break;
         case 'pause':
-          playerController.toggle();
+          playerController.pause();
           break;
         case 'next':
           playerController.next();
@@ -190,6 +197,13 @@ export function useMediaSession(): void {
           break;
         case 'stop':
           playerController.pause();
+          break;
+        // From the audio focus system, not from a button.
+        case 'duck':
+          playerController.setDucked(true);
+          break;
+        case 'unduck':
+          playerController.setDucked(false);
           break;
       }
     });

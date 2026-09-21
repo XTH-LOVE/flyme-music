@@ -2,7 +2,6 @@
 // Encryption already happened in src/music/netease/weapi.ts; we only relay
 // the form and return the upstream body plus any Set-Cookie session values.
 import { PC_USER_AGENT, getResponseCookies, json, errorJson, guard, type PagesContext } from '../_shared';
-import { randomDomesticIp } from '../_shared';
 
 export async function onRequest(context: PagesContext): Promise<Response> {
   const request = context.request;
@@ -26,8 +25,6 @@ export async function onRequest(context: PagesContext): Promise<Response> {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': PC_USER_AGENT,
-          'X-Real-IP': randomDomesticIp(),
-          'X-Forwarded-For': randomDomesticIp(),
           Referer: 'https://music.163.com',
           Origin: 'https://music.163.com',
           Cookie: attempt === 0

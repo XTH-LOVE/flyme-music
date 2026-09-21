@@ -8,7 +8,6 @@ import {
   json,
   errorJson,
   guard,
-  randomDomesticIp,
   type PagesContext,
 } from '../_shared';
 
@@ -31,8 +30,6 @@ export async function onRequest(context: PagesContext): Promise<Response> {
           'User-Agent': PC_USER_AGENT,
           Referer: 'https://music.163.com',
           Cookie: 'os=pc; appver=2.9.7; mode=31',
-          'X-Real-IP': randomDomesticIp(),
-          'X-Forwarded-For': randomDomesticIp(),
         },
       });
       text = await upstream.text();

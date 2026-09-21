@@ -24,6 +24,24 @@ export {
   AI_DEFAULT_MODEL,
 } from '../../src/lib/apiGuard';
 
+/**
+ * A random domestic IP, for the X-Real-IP / X-Forwarded-For headers.
+ *
+ * Netease applies risk control by egress IP, and a Cloudflare datacenter
+ * address is exactly what it targets: a fraction of requests come back with
+ * -462, the relay below retries three times, and the user waits six seconds for
+ * a playlist. Otter Music sends these headers and does not have the problem,
+ * which is the whole reason this exists.
+ *
+ * Worth being plain about what it is: the request itself is unchanged and
+ * Netease returns the same data it would have, but the header misrepresents
+ * where the request came from, and it is there to avoid a rate limit rather
+ * than to comply with one. It is copied from a working reference, not invented.
+ */
+export function randomDomesticIp(): string {
+  return `113.108.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+}
+
 export const PC_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 

@@ -3,7 +3,14 @@
 // weapi channel is risk-controlled (-462). Whitelist-only to prevent abuse.
 // Netease risk control on datacenter IPs is PROBABILISTIC (a fraction of
 // requests get code -462), so relay with a small retry budget.
-import { PC_USER_AGENT, json, errorJson, guard, type PagesContext } from '../_shared';
+import {
+  PC_USER_AGENT,
+  json,
+  errorJson,
+  guard,
+  randomDomesticIp,
+  type PagesContext,
+} from '../_shared';
 
 const ALLOWED = new Set(['/api/playlist/detail']);
 const RISK_CODES = new Set([-462, -460, 512]);
@@ -24,6 +31,8 @@ export async function onRequest(context: PagesContext): Promise<Response> {
           'User-Agent': PC_USER_AGENT,
           Referer: 'https://music.163.com',
           Cookie: 'os=pc; appver=2.9.7; mode=31',
+          'X-Real-IP': randomDomesticIp(),
+          'X-Forwarded-For': randomDomesticIp(),
         },
       });
       text = await upstream.text();

@@ -6,6 +6,7 @@ import { isTauri } from '@/lib/apiTransport';
 import {
   clearNativeNowPlaying,
   onNativeMediaAction,
+  rememberTrack,
   setNativePlaying,
   updateNativeNowPlaying,
 } from '@/lib/nativeMedia';
@@ -112,8 +113,7 @@ export function useMediaSession(): void {
             media.metadata = new MediaMetadata({
               title: track.name,
               artist: track.artist.join(' / '),
-              album: track.album || undefined,
-              artwork,
+                artwork,
             });
           } catch {
             /* engines without MediaMetadata constructor */
@@ -201,27 +201,21 @@ export function useMediaSession(): void {
 
       if (track && key !== lastKey) {
         lastKey = key;
-        void artworkFor(track).then((artwork) => {
+        {
           if (!alive) return;
-          // Artwork resolution is async; a stale result must not overwrite a
-          // track the user has already moved past.
           const current = playerController.snapshot().current;
           if (!current || trackKeyOf(current) !== key) return;
-          const cover = artwork[0]?.src;
+          rememberTrack(track.name, track.artist.join(' / '));
           void updateNativeNowPlaying({
             title: track.name,
             artist: track.artist.join(' / '),
-            album: track.album || undefined,
-            // Only a real URL: the plugin downloads the image, and local tracks
-            // produce a data: URL that HttpURLConnection cannot open.
-            cover: cover && /^https?:/i.test(cover) ? cover : undefined,
-            // Seconds here too - the plugin's own unit, and the same one the
-            // web API uses above, so there is no conversion to get wrong.
+            // Seconds, matching the bridge and the web API above - one unit
+            // everywhere, so there is no conversion to get wrong.
             duration: Number.isFinite(snap.duration) ? snap.duration : 0,
             position: Number.isFinite(snap.currentTime) ? snap.currentTime : 0,
             playing: snap.status === 'playing',
           });
-        });
+        }
         return;
       }
 
@@ -235,7 +229,7 @@ export function useMediaSession(): void {
 
       // Same track: only the play state can have changed, so the metadata and
       // the cover fetch are skipped.
-      void setNativePlaying(snap.status === 'playing');
+      void setNativePlaying(snap.status === 'playing', snap.currentTime, snap.duration);
     });
 
     return () => {

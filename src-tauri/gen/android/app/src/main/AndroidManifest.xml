@@ -83,5 +83,14 @@
             android:name="android.support.FILE_PROVIDER_PATHS"
             android:resource="@xml/file_paths" />
         </provider>
+        <!--
+          Hosts the notification-shade player. foregroundServiceType is required
+          from Android 14: without it the system refuses to start a foreground
+          service and the notification silently never appears.
+        -->
+        <service
+            android:name=".MediaPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 </manifest>

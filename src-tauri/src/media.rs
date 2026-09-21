@@ -25,13 +25,36 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_media_session::{MediaSessionExt, MediaState, TimelineUpdate};
 
 /// Publish the current track. Omitted fields keep their previous values.
+///
+/// Built field by field rather than deserialised: the plugin's `MediaState`
+/// derives `Serialize` but not `Deserialize`, because it is only ever meant to
+/// travel towards the native side. Reading the JSON here is also what lets the
+/// page send camelCase, matching the plugin's own JavaScript convention.
 #[tauri::command]
 #[allow(unused_variables)]
-pub fn media_update_state<R: Runtime>(app: AppHandle<R>, state: serde_json::Value) -> Result<(), String> {
+pub fn media_update_state<R: Runtime>(
+  app: AppHandle<R>,
+  state: serde_json::Value,
+) -> Result<(), String> {
   #[cfg(any(target_os = "android", target_os = "ios"))]
   {
-    let parsed: MediaState = serde_json::from_value(state).map_err(|e| e.to_string())?;
-    return app.media_session().update_state(parsed);
+    let str_of = |key: &str| state.get(key).and_then(|v| v.as_str()).map(String::from);
+    let num_of = |key: &str| state.get(key).and_then(|v| v.as_f64());
+    let bool_of = |key: &str| state.get(key).and_then(|v| v.as_bool());
+
+    return app.media_session().update_state(MediaState {
+      title: str_of("title"),
+      artist: str_of("artist"),
+      album: str_of("album"),
+      artwork_url: str_of("artworkUrl"),
+      duration: num_of("duration"),
+      position: num_of("position"),
+      playback_speed: num_of("playbackSpeed"),
+      is_playing: bool_of("isPlaying"),
+      can_prev: bool_of("canPrev"),
+      can_next: bool_of("canNext"),
+      can_seek: bool_of("canSeek"),
+    });
   }
   // Desktop has no shade to post to; the web build already gets controls from
   // navigator.mediaSession, so doing nothing is the correct behaviour rather
@@ -52,8 +75,11 @@ pub fn media_update_timeline<R: Runtime>(
 ) -> Result<(), String> {
   #[cfg(any(target_os = "android", target_os = "ios"))]
   {
-    let parsed: TimelineUpdate = serde_json::from_value(timeline).map_err(|e| e.to_string())?;
-    return app.media_session().update_timeline(parsed);
+    return app.media_session().update_timeline(TimelineUpdate {
+      position: timeline.get("position").and_then(|v| v.as_f64()),
+      duration: timeline.get("duration").and_then(|v| v.as_f64()),
+      playback_speed: timeline.get("playbackSpeed").and_then(|v| v.as_f64()),
+    });
   }
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   {

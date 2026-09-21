@@ -1,126 +1,59 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
-import { useAuthStore, isValidPassword } from '@/store/useAuthStore';
-import { notify } from '@/utils/notify';
+import { useAuthStore } from '@/store/useAuthStore';
 import './login-page.css';
 
 /**
- * 全屏账号登录页（QQ 音乐风格）：大圆角输入框、超大登录按钮、
- * 协议勾选与底部快捷入口。登录/注册共用本页，只保留账号密码方式。
+ * Where signing in happens, which is now Settings.
+ *
+ * The app used to have its own account - a second one for the same person,
+ * holding a nickname and an avatar that the NetEase account already has. Since
+ * that account is needed anyway to play anything from that source, the app's
+ * identity is that account now, and the sign-in is the QR scan in Settings.
+ *
+ * This page stays because it is a route people have bookmarked and a link the
+ * UI still points at; rather than a form that cannot succeed, it says where to
+ * go and offers to go there.
  */
 export function LoginPage() {
   const navigate = useNavigate();
-  const loginUsername = useAuthStore((s) => s.loginUsername);
-  const registerUsername = useAuthStore((s) => s.registerUsername);
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [agreed, setAgreed] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-
-  // Gate the button with the exact same rule the store enforces, so a 6-7
-  // char password can no longer be submitted and then rejected.
-  const canSubmit = username.trim().length >= 2 && isValidPassword(password, mode) && agreed && !busy;
-
-  const submit = async () => {
-    if (busy) return;
-    if (!agreed) {
-      setMsg('请先阅读并同意服务协议和隐私政策');
-      return;
-    }
-    setBusy(true);
-    setMsg('');
-    try {
-      const result =
-        mode === 'login'
-          ? await loginUsername(username.trim(), password)
-          : await registerUsername(username.trim(), username.trim(), password);
-      if (result.ok) {
-        notify(mode === 'login' ? '欢迎回来' : '注册成功，欢迎加入');
-        navigate('/me');
-      } else {
-        setMsg(result.message ?? '操作失败，请稍后再试');
-      }
-    } catch {
-      setMsg('网络异常，请稍后再试');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const user = useAuthStore((s) => s.user);
 
   return (
-    <div className="page login-page">
-      <button className="login-page__back" onClick={() => navigate(-1)} aria-label="返回">
-        <Icon name="chevronLeft" size={24} />
-      </button>
-      <button className="login-page__back login-page__back--right" onClick={() => navigate('/settings')} aria-label="扫码登录">
-        <Icon name="settings" size={20} />
-      </button>
-
-      <h1 className="login-page__title">{mode === 'login' ? '登录账号' : '注册账号'}</h1>
-
-      <div className="login-page__form">
-        <input
-          className="login-page__field"
-          value={username}
-          placeholder={mode === 'login' ? '输入账号名' : '设置账号名（中文/字母/数字）'}
-          autoComplete="username"
-          maxLength={20}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <div className="login-page__pw">
-          <input
-            className="login-page__field"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            placeholder={mode === 'login' ? '输入密码' : '设置密码（8 位以上，含字母和数字）'}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            maxLength={64}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button type="button" className="login-page__eye" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? '隐藏密码' : '显示密码'}>
-            <Icon name={showPassword ? 'close' : 'check'} size={16} />
-          </button>
+    <div className="login-page">
+      <div className="login-page__card">
+        <div className="login-page__brand">
+          <img className="login-page__mark" src="/flyme-mark.jpg" alt="" />
+          <div className="login-page__title">Flyme 账号</div>
+          <div className="login-page__sub">
+            {user ? '已登录：' + user.nickname : '使用网易云账号登录'}
+          </div>
         </div>
-      </div>
 
-      {msg ? <div className="login-page__msg" role="alert">{msg}</div> : null}
+        <div className="login-page__hint">
+          <p>
+            <Icon name="check" size={15} />
+            <span>应用不再单独注册账号，登录的就是网易云账号。</span>
+          </p>
+          <p>
+            <Icon name="check" size={15} />
+            <span>头像和昵称直接来自网易云，不需要另外填写。</span>
+          </p>
+          <p>
+            <Icon name="check" size={15} />
+            <span>不登录也能使用：本地音乐、其他音源和大多数功能都不受影响。</span>
+          </p>
+        </div>
 
-      <button className={'login-page__submit' + (canSubmit ? ' login-page__submit--ready' : '')} disabled={busy} onClick={() => void submit()}>
-        {busy ? '请稍候…' : mode === 'login' ? '登录' : '注册并登录'}
-      </button>
-
-      <div className="login-page__agree">
         <button
-          className={'login-page__agree-dot' + (agreed ? ' login-page__agree-dot--on' : '')}
-          onClick={() => setAgreed((v) => !v)}
-          aria-label={agreed ? '已同意协议' : '同意协议'}
+          className="am-btn am-btn--primary login-page__submit"
+          onClick={() => navigate('/settings')}
         >
-          {agreed ? <span className="login-page__agree-dot-inner" /> : null}
+          {user ? '前往设置管理账号' : '去设置里扫码登录'}
         </button>
-        <span>
-          已阅读并同意<b>服务协议</b>和<b>隐私政策</b>
-        </span>
-      </div>
 
-      <div className="login-page__switch">
-        {mode === 'login' ? (
-          <button className="login-page__quick" onClick={() => setMode('register')}>
-            <span className="login-page__quick-icon"><Icon name="user" size={22} /></span>
-            <span>注册账号</span>
-          </button>
-        ) : (
-          <button className="login-page__quick" onClick={() => setMode('login')}>
-            <span className="login-page__quick-icon"><Icon name="user" size={22} /></span>
-            <span>返回登录</span>
-          </button>
-        )}
-        <button className="login-page__quick" onClick={() => navigate('/settings')}>
-          <span className="login-page__quick-icon"><Icon name="music" size={22} /></span>
-          <span>扫码登录网易云</span>
+        <button className="login-page__ghost" onClick={() => navigate('/')}>
+          先不登录，直接使用
         </button>
       </div>
     </div>

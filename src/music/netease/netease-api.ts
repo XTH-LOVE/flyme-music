@@ -318,19 +318,34 @@ async function fetchPlaylistDetailWeapi(playlistId: string, signal?: AbortSignal
   if (!pl) throw codeError('netease playlist detail', detail.code);
 
   const ids = (pl.trackIds ?? []).slice(0, 300).map((t) => t.id);
-  const tracks: MusicTrack[] = [];
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    const songs = await callWeapi<{ songs?: RawSong[] }>(
-      '/weapi/v3/song/detail',
-      {
-        c: JSON.stringify(chunk.map((id) => ({ id }))),
-        ids: JSON.stringify(chunk),
-      },
-      signal,
-    );
-    tracks.push(...(songs.songs ?? []).map(toTrack));
-  }
+
+  /*
+   * The chunks go out together, not one after another.
+   *
+   * They used to be awaited in a loop, so a three-hundred track playlist was
+   * three round trips in series - each one a second or two against this API -
+   * and the page sat empty for five seconds while they completed. The work is
+   * independent, so there was never a reason for it to be sequential.
+   *
+   * Promise.all preserves the input order, so the tracks stay in playlist
+   * order without any sorting afterwards.
+   */
+  const chunks: number[][] = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+
+  const pages = await Promise.all(
+    chunks.map((chunk) =>
+      callWeapi<{ songs?: RawSong[] }>(
+        '/weapi/v3/song/detail',
+        {
+          c: JSON.stringify(chunk.map((id) => ({ id }))),
+          ids: JSON.stringify(chunk),
+        },
+        signal,
+      ),
+    ),
+  );
+  const tracks: MusicTrack[] = pages.flatMap((page) => (page.songs ?? []).map(toTrack));
 
   return {
     meta: {

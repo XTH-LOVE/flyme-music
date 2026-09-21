@@ -11,9 +11,9 @@ import './splash.css';
  * screen is worse than seeing something unfinished - the user concludes the app
  * has hung.
  */
-const MAX_MS = 2500;
+const MAX_MS = 1200;
 /** Below this it reads as a flicker rather than a screen. */
-const MIN_MS = 650;
+const MIN_MS = 350;
 
 export function SplashScreen({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false);
@@ -22,13 +22,21 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
     let cancelled = false;
     const started = Date.now();
 
-    const ready = Promise.all([
-      // Fonts decide the shape of the wordmark, so showing it before they load
-      // means showing it in the wrong typeface and then reflowing.
-      'fonts' in document ? document.fonts.ready.catch(() => undefined) : Promise.resolve(),
-      // One frame past the mount, so the route underneath has painted.
-      new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
-    ]);
+    /*
+     * One frame past the mount, so the route underneath has painted - and
+     * nothing else.
+     *
+     * This used to wait for `document.fonts.ready` as well, on the reasoning
+     * that the wordmark would otherwise appear in the wrong typeface and then
+     * reflow. It does not: the font is declared with `font-display: swap`, so
+     * it shows in the fallback immediately and is replaced when it arrives.
+     * Waiting bought nothing and cost whatever the font took to download -
+     * which became visible the moment the app started shipping a font, and
+     * turned a screen that should be a beat into a screen that lasted seconds.
+     */
+    const ready = new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
 
     void ready.then(() => {
       if (cancelled) return;

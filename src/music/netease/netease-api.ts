@@ -268,7 +268,13 @@ function toTrackAny(
  * would leave the cache empty every time someone navigates away quickly - which
  * is exactly when the cache is worth having.
  */
-const PLAYLIST_TTL_MS = 10 * 60 * 1000;
+/*
+ * An hour, which is what Otter Music uses for the same call.
+ *
+ * A playlist's contents do not change on the scale of a listening session, and
+ * the cost of being wrong is one stale list until the hour is up.
+ */
+const PLAYLIST_TTL_MS = 60 * 60 * 1000;
 const playlistCache = new Map<string, { at: number; value: NetPlaylistDetail }>();
 const playlistInflight = new Map<string, Promise<NetPlaylistDetail>>();
 
@@ -357,7 +363,8 @@ async function fetchPlaylistDetailWeapi(playlistId: string, signal?: AbortSignal
   const pl = detail.playlist;
   if (!pl) throw codeError('netease playlist detail', detail.code);
 
-  const ids = (pl.trackIds ?? []).slice(0, 300).map((t) => t.id);
+  // 500 per request means a large playlist still costs a handful of round trips.
+  const ids = (pl.trackIds ?? []).slice(0, 1000).map((t) => t.id);
 
   /*
    * The chunks go out together, not one after another.
@@ -370,8 +377,16 @@ async function fetchPlaylistDetailWeapi(playlistId: string, signal?: AbortSignal
    * Promise.all preserves the input order, so the tracks stay in playlist
    * order without any sorting afterwards.
    */
+  /*
+   * Five hundred per request, not one hundred.
+   *
+   * This is the number Otter Music uses, and it is the reason a playlist there
+   * opens in about a second: three hundred tracks fit in a single request
+   * rather than three. The API accepts it, and the response is the same shape
+   * either way.
+   */
   const chunks: number[][] = [];
-  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  for (let i = 0; i < ids.length; i += 500) chunks.push(ids.slice(i, i + 500));
 
   const pages = await Promise.all(
     chunks.map((chunk) =>

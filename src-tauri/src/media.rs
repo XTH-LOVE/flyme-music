@@ -9,7 +9,7 @@
 
 use tauri::{
   plugin::{Builder, TauriPlugin},
-  Runtime,
+  Manager, Runtime,
 };
 
 /// Handle to the Android plugin, kept so Rust could call into it later.

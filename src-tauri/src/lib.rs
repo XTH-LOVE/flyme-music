@@ -2,7 +2,6 @@ mod netease;
 mod ai;
 mod download;
 mod tags;
-mod media;
 
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::{Listener, Manager};
@@ -132,14 +131,10 @@ pub fn run() {
 
   // The notification-shade player. Android-only in effect: on other platforms
   // this registers a plugin that does nothing.
-  builder = builder.plugin(media::init());
 
   builder
     .invoke_handler(tauri::generate_handler![
       netease::netease_post,
-      media::media_update_state,
-      media::media_update_timeline,
-      media::media_clear,
       ai::ai_status,
       ai::ai_models,
       ai::ai_chat_completions,

@@ -7,7 +7,6 @@
   ],
   "permissions": [
     "core:default",
-    "media-session:default",
     "opener:default",
     {
       "identifier": "http:default",

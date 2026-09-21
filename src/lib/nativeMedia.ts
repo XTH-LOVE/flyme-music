@@ -1,31 +1,24 @@
 /**
- * The notification-shade player, via `tauri-plugin-media-session`.
+ * The notification-shade player.
  *
- * This replaced a hand-written Android plugin - a Kotlin MediaSessionCompat, a
- * foreground service, a permission file and the ACL entries to let the page
- * call it. That version never worked, and the reason is worth keeping: the
- * plugin's commands were invoked from JavaScript, so they passed through
- * Tauri's ACL, which Tauri's own Android plugins never have to because they are
- * only called from Rust. Every call was rejected before reaching Kotlin, and a
- * `catch` in this file swallowed the rejection - so the notification simply
- * never appeared and nothing said why.
+ * The Android side is a plain `@JavascriptInterface` bridge rather than a Tauri
+ * plugin. That is not a stylistic preference: a plugin's commands are invoked
+ * from JavaScript, so they pass through Tauri's ACL, which the framework's own
+ * Android plugins never have to because they are only called from Rust. An
+ * earlier version of this file spent several rounds calling a plugin whose
+ * every invocation was rejected before it reached Kotlin, with the rejection
+ * swallowed by a `catch` - so the notification never appeared and nothing said
+ * why. `onWebViewCreate` hands over the WebView directly, so both directions
+ * are a plain call and there is nothing in between to fail quietly.
  *
- * The maintained plugin also handles the Android 13 notification permission and
- * downloads artwork natively, both of which had been separate problems here.
- *
- * Note the units: the plugin takes seconds, where the rest of this app works in
- * milliseconds.
+ * Units are seconds throughout, matching the native side.
  */
 
 import { isTauri } from '@/lib/apiTransport';
-import { notify } from '@/utils/notify';
 
 export interface NowPlaying {
   title: string;
   artist?: string;
-  album?: string;
-  /** Cover URL; the plugin fetches and decodes it natively. */
-  cover?: string;
   /** Seconds. */
   duration?: number;
   /** Seconds. */
@@ -35,114 +28,95 @@ export interface NowPlaying {
 
 export type MediaAction = 'play' | 'pause' | 'next' | 'previous' | 'stop' | 'seek';
 
-/** `listen` hands back an unsubscribe function, not an object. */
-let unlisten: (() => void) | null = null;
-let reported = false;
-let announcedAction = false;
-
-/**
- * Reports a failure once per session, in the interface.
- *
- * Every call here used to end in `console.warn`, which on a phone is nowhere.
- * A notification that does not appear is then indistinguishable from
- * notification code that is wrong, and this cost several rounds of guessing
- * before the cause turned out to be rejected calls. A problem that cannot be
- * seen gets guessed at.
- */
-function reportOnce(detail: string): void {
-  if (reported) return;
-  reported = true;
-  notify('通知栏播放器不可用：' + detail.slice(0, 60), 5000);
-  console.warn('[nativeMedia]', detail);
+interface NativeBridge {
+  update(
+    title: string,
+    artist: string,
+    playing: boolean,
+    positionSec: number,
+    durationSec: number,
+  ): void;
+  stop(): void;
 }
 
-async function call(command: string, args?: Record<string, unknown>): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  await invoke(command, args);
+declare global {
+  interface Window {
+    FlymeMedia?: NativeBridge;
+    __flymeMediaAction?: (action: string) => void;
+  }
 }
 
-/** Publishes the current track. Omitted fields keep their previous values. */
-export async function updateNativeNowPlaying(info: NowPlaying): Promise<void> {
+const bridge = (): NativeBridge | undefined =>
+  typeof window === 'undefined' ? undefined : window.FlymeMedia;
+
+/** Publishes the current track. Safe to call often; the native side merges. */
+export function updateNativeNowPlaying(info: NowPlaying): void {
   if (!isTauri()) return;
+  const native = bridge();
+  if (!native) return;
   try {
-    await call('media_update_state', {
-      state: {
-        title: info.title,
-        artist: info.artist ?? '',
-        album: info.album ?? '',
-        ...(info.cover ? { artworkUrl: info.cover } : {}),
-        ...(info.duration ? { duration: info.duration } : {}),
-        ...(info.position !== undefined ? { position: info.position } : {}),
-        isPlaying: info.playing,
-        canPrev: true,
-        canNext: true,
-      },
-    });
+    native.update(
+      info.title,
+      info.artist ?? '',
+      info.playing,
+      info.position ?? 0,
+      info.duration ?? 0,
+    );
   } catch (error) {
-    reportOnce(error instanceof Error ? error.message : String(error));
+    // A missing notification must never break playback, so this does not
+    // rethrow - but it is not silent either, because silence is what made the
+    // previous version take several rounds to diagnose.
+    console.warn('[nativeMedia] update failed', error);
   }
 }
 
 /** Play/pause only, for the frequent case. */
-export async function setNativePlaying(playing: boolean): Promise<void> {
+export function setNativePlaying(playing: boolean, position = 0, duration = 0): void {
   if (!isTauri()) return;
+  const native = bridge();
+  if (!native) return;
   try {
-    await call('media_update_state', { state: { isPlaying: playing } });
+    // The bridge has no merge semantics of its own, so the title and artist
+    // are resent from the last known values by the caller.
+    native.update(lastTitle, lastArtist, playing, position, duration);
   } catch (error) {
-    reportOnce(error instanceof Error ? error.message : String(error));
+    console.warn('[nativeMedia] setPlaying failed', error);
   }
 }
 
-/** Position and speed without rebuilding the notification. Seconds. */
-export async function setNativePosition(position: number, playbackSpeed: number): Promise<void> {
-  if (!isTauri()) return;
-  try {
-    await call('media_update_timeline', { timeline: { position, playbackSpeed } });
-  } catch {
-    // Position sync runs often; a failure here is not worth a notification,
-    // and updateNativeNowPlaying will have reported the same underlying fault.
-  }
-}
+let lastTitle = '';
+let lastArtist = '';
 
 /** Removes the notification when playback stops entirely. */
-export async function clearNativeNowPlaying(): Promise<void> {
+export function clearNativeNowPlaying(): void {
   if (!isTauri()) return;
   try {
-    await call('media_clear');
+    bridge()?.stop();
   } catch (error) {
-    reportOnce(error instanceof Error ? error.message : String(error));
+    console.warn('[nativeMedia] clear failed', error);
   }
 }
 
 /**
- * Subscribes to transport presses.
+ * Registers the handler the native side calls for transport presses.
  *
- * The plugin emits a Tauri event rather than requiring a plugin listener, so
- * this uses `listen` from the core API - covered by `core:default`, with none
- * of the ACL questions a plugin command would raise.
+ * A plain global function rather than a listener: `evaluateJavascript` calls it
+ * by name, and a name that exists only while this module is loaded is the
+ * simplest thing that can work.
  */
-export async function onNativeMediaAction(
-  handler: (action: MediaAction, seekPosition?: number) => void,
-): Promise<void> {
-  if (!isTauri() || unlisten) return;
-  try {
-    const { listen } = await import('@tauri-apps/api/event');
-    unlisten = await listen<{ action?: string; seekPosition?: number }>('media_action', (event) => {
-      const action = event.payload?.action;
-      if (!action) return;
-      // Announced once so it is visible whether the button press reaches the
-      // page at all. That is the fork in the road: if this never appears the
-      // notification's buttons are not being delivered, and if it appears but
-      // playback does not change the fault is downstream of here. Without it
-      // both look identical from the outside.
-      if (!announcedAction) {
-        announcedAction = true;
-        notify('收到通知栏操作：' + action, 2500);
-      }
-      console.warn('[nativeMedia] action', action);
-      handler(action as MediaAction, event.payload?.seekPosition);
-    });
-  } catch (error) {
-    reportOnce(error instanceof Error ? error.message : String(error));
-  }
+export function onNativeMediaAction(handler: (action: MediaAction) => void): void {
+  if (!isTauri() || typeof window === 'undefined') return;
+  window.__flymeMediaAction = (raw: string) => {
+    if (raw.startsWith('seek:')) {
+      handler('seek');
+      return;
+    }
+    handler(raw as MediaAction);
+  };
+}
+
+/** Remembered so `setNativePlaying` can resend the metadata the bridge requires. */
+export function rememberTrack(title: string, artist: string): void {
+  lastTitle = title;
+  lastArtist = artist;
 }

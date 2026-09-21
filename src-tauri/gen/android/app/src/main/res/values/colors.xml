@@ -7,4 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- Matches the app background token in the web stylesheet, so the system window and the
+         WebView agree and the handover is invisible. -->
+    <color name="splash_bg">#0E0E12</color>
 </resources>

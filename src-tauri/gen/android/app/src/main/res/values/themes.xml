@@ -10,5 +10,9 @@
           env(safe-area-inset-top), which left the page header drawn
           underneath the Android status bar.
         -->
+        <!-- The window background during startup. Set on the base theme so
+             both light and night use the app's own colour rather than the
+             platform's. -->
+        <item name="android:windowBackground">@drawable/splash_background</item>
     </style>
 </resources>

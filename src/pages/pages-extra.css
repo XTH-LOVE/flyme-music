@@ -25,7 +25,7 @@
   flex: 1;
   min-width: 160px;
 }
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .playlist-import {
     align-items: stretch;
     flex-wrap: wrap;

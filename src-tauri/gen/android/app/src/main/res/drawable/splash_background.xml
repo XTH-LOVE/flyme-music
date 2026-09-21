@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The window background, shown from the moment the process starts until the
+  WebView has painted.
+
+  Without this the window uses the platform default, which is white - so a dark
+  app opens with a white flash and then the splash screen appears. Matching the
+  colour here is what makes the whole handover invisible.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_bg" />
+    <item
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:gravity="center"
+        android:width="96dp"
+        android:height="96dp" />
+</layer-list>

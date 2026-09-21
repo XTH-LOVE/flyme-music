@@ -6,12 +6,10 @@ import { SectionHeader } from '@/design-system/components/SectionHeader';
 import { Chip } from '@/design-system/components/Chip';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
-import { getMusicProvider } from '@/music/musicService';
 import { getTrackProvider } from '@/music/source/factory';
 import { searchSourceOptions } from '@/music/source/types';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { aggregateSearch, dedupeKey } from '@/ai/musicSearch';
-import { useProviderData } from '@/music/musicStore';
 import { getNeteaseSearchMeta, type NetSearchMeta } from '@/music/netease/netease-api';
 import { BilibiliUnavailableError } from '@/music/bilibili/bilibili-api';
 import { useNavigate } from 'react-router-dom';
@@ -55,7 +53,6 @@ export function SearchPage() {
   const addKeyword = useLibraryStore((s) => s.addSearchKeyword);
   const removeKeyword = useLibraryStore((s) => s.removeSearchKeyword);
   const clearHistory = useLibraryStore((s) => s.clearSearchHistory);
-  const { data: hotKeywords } = useProviderData(() => getMusicProvider().getHotKeywords());
 
   const runSearch = async (kw: string, src: SearchTab, pageNo: number, append: boolean) => {
     abortRef.current?.abort();
@@ -139,17 +136,6 @@ export function SearchPage() {
 
       {!submitted ? (
         <>
-          <section>
-            <SectionHeader title="热门搜索" />
-            <div className="chip-row chip-row--wrap">
-              {(hotKeywords ?? []).map((kw) => (
-                <Chip key={kw} onClick={() => doSearch(kw)}>
-                  {kw}
-                </Chip>
-              ))}
-            </div>
-          </section>
-
           {history.length ? (
             <section>
               <div className="history-header">

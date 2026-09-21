@@ -176,7 +176,7 @@
   z-index: 120;
   cursor: pointer;
 }
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .mini-player {
     left: 268px;
     right: 24px;
@@ -266,7 +266,7 @@
 .bottom-nav__item--active {
   color: var(--am-accent);
 }
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .bottom-nav {
     display: none;
   }
@@ -314,7 +314,7 @@
  * it is real information, and hiding it would buy only about four more
  * characters.
  */
-@media (max-width: 560px) {
+@media (max-width: 599px) {
   .song-item {
     gap: 6px;
     padding: 8px 6px;

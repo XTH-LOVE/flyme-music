@@ -1,0 +1,163 @@
+/* The first-launch agreement. One screen, no scroll on a normal phone, and the
+   button below the fold only if the screen is genuinely short. */
+
+.consent {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  background: var(--am-bg, #0e0e12);
+  padding: calc(28px + env(safe-area-inset-top)) 24px calc(20px + env(safe-area-inset-bottom));
+}
+
+.consent__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+
+.consent__mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  margin-bottom: 14px;
+}
+
+.consent__title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--am-text-1);
+}
+
+.consent__by {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  color: var(--am-text-3);
+}
+
+.consent__by strong {
+  color: var(--am-text-2);
+  font-weight: 600;
+}
+
+.consent__intro {
+  margin: 18px 0 0;
+  max-width: 30em;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--am-text-2);
+}
+
+/* The three lines that actually get read. Boxed so they do not read as more
+   body copy in a wall of it. */
+.consent__key {
+  margin: 22px 0 0;
+  width: 100%;
+  max-width: 30em;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px;
+  border-radius: var(--am-radius-lg, 16px);
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.08));
+  text-align: left;
+}
+
+.consent__key-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--am-text-2);
+}
+
+.consent__key-line svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--am-accent, #3d7bff);
+}
+
+.consent__key-line strong {
+  color: var(--am-text-1);
+  font-weight: 600;
+}
+
+.consent__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 30em;
+}
+
+.consent__dot {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--am-border-soft, rgba(130, 130, 150, 0.5));
+  color: #fff;
+  transition: background-color 140ms var(--am-ease-standard, ease),
+    border-color 140ms var(--am-ease-standard, ease);
+}
+
+.consent__dot--on {
+  background: var(--am-accent, #3d7bff);
+  border-color: var(--am-accent, #3d7bff);
+}
+
+.consent__check-text {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--am-text-2);
+}
+
+/* Inline links, so the checkbox stays one sentence rather than three rows. */
+.consent__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--am-accent, #3d7bff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.consent__foot {
+  flex: 0 0 auto;
+  padding-top: 18px;
+}
+
+.consent__go {
+  width: 100%;
+  height: 46px;
+  font-size: 15px;
+}
+
+.consent__note {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--am-text-3);
+}

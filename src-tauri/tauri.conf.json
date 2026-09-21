@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Flyme Music",
-  "version": "0.4.5",
+  "version": "0.4.8",
   "identifier": "com.flyme.music",
   "build": {
     "frontendDist": "../dist",

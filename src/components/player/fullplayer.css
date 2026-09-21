@@ -70,7 +70,7 @@
   opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
 }
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .fp-bg__img {
     filter: blur(86px) saturate(1.25) brightness(0.72);
   }
@@ -83,7 +83,7 @@
   flex-direction: column;
   padding: 10px 20px calc(12px + env(safe-area-inset-bottom));
 }
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .fp3-shell {
     padding: 16px 40px 14px;
   }
@@ -440,7 +440,7 @@
 }
 
 /* ---------- Desktop: true left/right split + full bar ---------- */
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .fp3-main {
     flex-direction: row;
     align-items: center;
@@ -682,4 +682,91 @@
   font-size: 11px;
   color: rgba(255, 255, 255, 0.66);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Adjustable EQ ---------- */
+
+/* Three labelled sliders. The value is printed beside each one because a
+   slider alone tells you the shape but not the amount, and "a bit more bass"
+   is not reproducible across sessions. */
+.hc-eq {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px 2px;
+}
+
+.hc-eq__row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.hc-eq__name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12.5px;
+  color: var(--am-text-1);
+}
+
+.hc-eq__name em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.hc-eq__slider {
+  width: 100%;
+  height: 3px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--am-text-1, #fff) 12%, transparent);
+  cursor: pointer;
+}
+
+.hc-eq__slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--am-accent, #3d7bff);
+  border: 2px solid var(--am-bg, #0e0e12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+.hc-eq__slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--am-bg, #0e0e12);
+  border-radius: 50%;
+  background: var(--am-accent, #3d7bff);
+}
+
+.hc-eq__value {
+  font-size: 11.5px;
+  color: var(--am-text-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.hc-eq__reset {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.2));
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--am-text-3);
+  cursor: pointer;
+}
+
+.hc-eq__reset:hover {
+  color: var(--am-text-1);
 }

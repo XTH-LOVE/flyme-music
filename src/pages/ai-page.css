@@ -4,13 +4,18 @@
   grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
   gap: 16px;
   align-items: start;
-  height: calc(100vh - 120px);
+  /* Measured against the real bottom stack, not a guess.
+     `100vh` includes the strip the nav pill and the mini player sit on, and the
+     shell already reserves 150px plus the safe areas for them - so anything
+     computed from the raw viewport lands underneath them. `dvh` rather than
+     `vh` because a phone's browser chrome changes the height while scrolling. */
+  height: calc(100dvh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   min-height: 480px;
 }
-@media (max-width: 959px) {
+@media (max-width: 1023px) {
   .ai-page {
     grid-template-columns: 1fr;
-    height: calc(100vh - 170px);
+    height: calc(100dvh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
   .ai-page__side {
     display: none;
@@ -526,7 +531,7 @@
 
 /* On phones the chat is the primary experience; keep the companion panels
    reachable on desktop without shrinking the composer below a usable height. */
-@media (max-width: 959px) {
+@media (max-width: 1023px) {
   .ai-page {
     display: block !important;
     height: calc(100dvh - 170px);
@@ -685,7 +690,7 @@
   border-top: 1px solid var(--am-divider);
 }
 
-@media (max-width: 959px) {
+@media (max-width: 1023px) {
   .ai-page__context-toggle {
     display: inline-flex;
   }

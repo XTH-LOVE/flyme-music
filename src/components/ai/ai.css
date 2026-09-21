@@ -336,7 +336,7 @@
 .ai-send:active {
   transform: scale(0.9);
 }
-@media (max-width: 959px) {
+@media (max-width: 1023px) {
   .ai-orb-wrap {
     right: 14px;
     bottom: 118px;

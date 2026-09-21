@@ -36,8 +36,40 @@ const LEVEL_TARGET_RMS = 0.14;
 const LEVEL_MIN_GAIN = 0.3;
 const LEVEL_MAX_GAIN = 3.5;
 const LEVEL_TICK_MS = 250;
-/** Fraction of the remaining error applied per tick. */
-const LEVEL_SMOOTHING = 0.25;
+
+/**
+ * Attack and release, and why they are not the same number.
+ *
+ * The first version applied a symmetric 25% of the remaining error every
+ * 250ms, which is a time constant of about 0.75s. That is fast enough to
+ * follow the music rather than the recording: the gain dropped on every chorus
+ * and came back up on every verse, and the result was a track that got quieter
+ * and louder throughout - exactly what level matching is supposed to prevent.
+ *
+ * A real AGC is asymmetric. Reducing gain may be urgent (a loud passage is
+ * about to clip) so it moves quickly; raising it is never urgent, and doing it
+ * quickly means amplifying a quiet passage just in time for the loud one after
+ * it. The release is therefore an order of magnitude slower.
+ */
+const LEVEL_ATTACK = 0.35;
+const LEVEL_RELEASE = 0.03;
+
+/**
+ * Ignore corrections smaller than this.
+ *
+ * Without a deadband the loop chases its own noise floor forever, nudging the
+ * gain every tick by an amount nobody can hear but which keeps the compressor
+ * audibly busy.
+ */
+const LEVEL_DEADBAND_DB = 1.5;
+
+/**
+ * Ticks averaged before a correction is considered - about two seconds.
+ *
+ * The measurement window has to be longer than a phrase. Over 250ms the loop
+ * sees syllables; over two seconds it sees how loud the passage actually is.
+ */
+const LEVEL_WINDOW_TICKS = 8;
 const LEVEL_STORAGE_KEY = 'aurora.levelMatching';
 
 let levelGain: GainNode | null = null;
@@ -45,6 +77,8 @@ let levelAnalyser: AnalyserNode | null = null;
 let levelTimer: number | null = null;
 let levelEnabled = false;
 let levelBuf: Float32Array | null = null;
+let levelRmsSum = 0;
+let levelRmsTicks = 0;
 
 const clampGain = (value: number): number =>
   Math.max(LEVEL_MIN_GAIN, Math.min(LEVEL_MAX_GAIN, value));
@@ -62,9 +96,23 @@ function tickLevel(): void {
   // crank the gain up during the quiet intro of every track.
   if (rms < 1e-4) return;
 
+  // Average across the window before acting on it - see LEVEL_WINDOW_TICKS.
+  levelRmsSum += rms;
+  levelRmsTicks += 1;
+  if (levelRmsTicks < LEVEL_WINDOW_TICKS) return;
+  const average = levelRmsSum / levelRmsTicks;
+  levelRmsSum = 0;
+  levelRmsTicks = 0;
+
   const current = levelGain.gain.value;
-  const desired = clampGain(current * (LEVEL_TARGET_RMS / rms));
-  levelGain.gain.value = current + (desired - current) * LEVEL_SMOOTHING;
+  const desired = clampGain(current * (LEVEL_TARGET_RMS / average));
+
+  const changeDb = 20 * Math.log10(desired / current);
+  if (Math.abs(changeDb) < LEVEL_DEADBAND_DB) return;
+
+  // Loud is urgent, quiet is not.
+  const rate = desired < current ? LEVEL_ATTACK : LEVEL_RELEASE;
+  levelGain.gain.value = current + (desired - current) * rate;
 }
 
 function syncLevelTimer(): void {
@@ -76,6 +124,9 @@ function syncLevelTimer(): void {
     levelTimer = null;
     // Hand control back to the user's volume slider untouched.
     if (levelGain) levelGain.gain.value = 1;
+    // A stale window would apply the last track's loudness to the next one.
+    levelRmsSum = 0;
+    levelRmsTicks = 0;
   }
 }
 
@@ -122,6 +173,25 @@ export const EQ_PRESETS: EqPreset[] = [
 ];
 
 const EQ_STORAGE_KEY = 'aurora.eq.preset';
+const EQ_CUSTOM_KEY = 'aurora.eq.custom';
+
+/**
+ * A user-set curve, stored separately from the preset key.
+ *
+ * Kept apart rather than as another entry in EQ_PRESETS because it is not one:
+ * a preset is a named starting point that ships with the app, and this is what
+ * the user arrived at by moving the sliders. Folding it into the list would
+ * mean either a preset that changes under them or a growing list of unnamed
+ * ones.
+ */
+export interface EqGains {
+  low: number;
+  mid: number;
+  high: number;
+}
+
+/** The band limits the sliders offer, in dB. */
+export const EQ_RANGE_DB = 12;
 
 function isSafeForWebAudio(src: string): boolean {
   if (!src) return false;
@@ -184,12 +254,27 @@ export function ensureWired(el: HTMLAudioElement): boolean {
         node.fftSize = 2048;
         return node;
       })();
-    sourceNode.connect(lowNode);
+    // Order matters, and the obvious one is wrong.
+    //
+    // Level matching runs first, on the raw source, and the EQ runs after it.
+    // With the EQ first the two fight: the loop measures its own output, so
+    // raising a band raises the measured level, and the loop lowers the gain to
+    // compensate - the band is boosted and the whole track is turned down, and
+    // the slider sounds like it did nothing.
+    //
+    // It is also the more honest arrangement. Level matching exists because
+    // different sources are mastered at different loudness, which is a property
+    // of the source; the EQ curve is a property of the listener. Measuring the
+    // source for the first and applying the second afterwards is what each is
+    // actually for.
+    sourceNode.connect(levelGain);
+    levelGain.connect(levelAnalyser);
+    levelAnalyser.connect(lowNode);
     lowNode.connect(midNode);
     midNode.connect(highNode);
-    highNode.connect(levelGain);
-    levelGain.connect(levelAnalyser);
-    levelAnalyser.connect(analyserNode);
+    // The visualiser sits last on purpose: it should show what is coming out,
+    // not what went in.
+    highNode.connect(analyserNode);
     analyserNode.connect(audioCtx.destination);
     wiredElement = el;
     if (audioCtx.state === 'suspended') void audioCtx.resume();
@@ -221,6 +306,23 @@ export function isWebAudioTainted(): boolean {
 }
 
 /** Whether the platform offers Web Audio at all. */
+/**
+ * Whether anything in the Web Audio chain is actually doing work.
+ *
+ * The player routes audio through a same-origin proxy to unlock Web Audio, and
+ * it used to do that only when the spectrum visualiser was on. The EQ and level
+ * matching depend on the same wiring but had no say in it, so with the
+ * visualiser off every preset and slider was silently inert - the controls
+ * moved, the audio did not change, and nothing said why.
+ *
+ * Anything that needs the graph has to be able to ask for it.
+ */
+export function needsSameOriginAudio(): boolean {
+  if (isLevelMatching()) return true;
+  const gains = getEqGains();
+  return gains.low !== 0 || gains.mid !== 0 || gains.high !== 0;
+}
+
 export function hasWebAudioSupport(): boolean {
   return typeof AudioContext !== 'undefined';
 }
@@ -241,7 +343,7 @@ export function getSpectrum(bins: Uint8Array): boolean {
   return true;
 }
 
-function applyGains(p: EqPreset): void {
+function applyGains(p: EqGains): void {
   if (low && mid && high) {
     low.gain.value = p.low;
     mid.gain.value = p.mid;
@@ -252,6 +354,10 @@ function applyGains(p: EqPreset): void {
 function applyStoredPreset(): void {
   try {
     const key = localStorage.getItem(EQ_STORAGE_KEY);
+    if (key === 'custom') {
+      applyGains(getEqGains());
+      return;
+    }
     const preset = EQ_PRESETS.find((p) => p.key === key);
     if (preset) applyGains(preset);
   } catch {
@@ -276,4 +382,60 @@ export function setEqPreset(key: string): void {
   } catch {
     /* ignore */
   }
+}
+
+/** The curve currently in effect, whether it came from a preset or the user. */
+export function getEqGains(): EqGains {
+  try {
+    if (localStorage.getItem(EQ_STORAGE_KEY) === 'custom') {
+      const raw = localStorage.getItem(EQ_CUSTOM_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<EqGains>;
+        return {
+          low: clampDb(Number(parsed.low) || 0),
+          mid: clampDb(Number(parsed.mid) || 0),
+          high: clampDb(Number(parsed.high) || 0),
+        };
+      }
+    }
+  } catch {
+    /* fall through to the preset */
+  }
+  const preset = EQ_PRESETS.find((p) => p.key === getEqPreset());
+  return preset ? { low: preset.low, mid: preset.mid, high: preset.high } : { low: 0, mid: 0, high: 0 };
+}
+
+export function isEqCustom(): boolean {
+  try {
+    return localStorage.getItem(EQ_STORAGE_KEY) === 'custom';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Applies a hand-made curve and remembers it.
+ *
+ * Applied immediately rather than on release: the whole point of a slider is
+ * hearing what it does, and committing only at the end makes the control feel
+ * like it is deciding for you.
+ */
+export function setEqGains(gains: EqGains): void {
+  const next: EqGains = {
+    low: clampDb(gains.low),
+    mid: clampDb(gains.mid),
+    high: clampDb(gains.high),
+  };
+  applyGains(next);
+  try {
+    localStorage.setItem(EQ_STORAGE_KEY, 'custom');
+    localStorage.setItem(EQ_CUSTOM_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clampDb(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(-EQ_RANGE_DB, Math.min(EQ_RANGE_DB, Math.round(value * 10) / 10));
 }

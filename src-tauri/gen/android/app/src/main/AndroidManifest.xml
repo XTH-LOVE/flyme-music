@@ -35,7 +35,30 @@
         <service
             android:name=".PlaybackService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:foregroundServiceType="mediaPlayback">
+            <!-- The transport buttons in the notification arrive as
+                 ACTION_MEDIA_BUTTON, and without this filter the service is not
+                 a candidate to receive them. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </service>
+
+        <!--
+          Routes notification and headset buttons into the MediaSession.
+
+          Required, and easy to miss: MediaButtonReceiver is what
+          MediaButtonReceiver.buildMediaButtonPendingIntent targets, so without
+          this declaration the notification's own buttons have nowhere to go -
+          they are built, drawn, and do nothing when tapped.
+        -->
+        <receiver
+            android:name="androidx.media.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"

@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { SongListItem } from '@/components/SongListItem';
 import { TrackListItem } from '@/components/TrackListItem';
-import { MusicCard } from '@/components/MusicCard';
-import { ArtistCard } from '@/components/ArtistCard';
 import { TrackCover } from '@/components/TrackCover';
 import { PlaylistArt } from '@/components/PlaylistArt';
 import { resizeToSquareJpeg } from '@/utils/imageResize';
@@ -13,7 +11,7 @@ import { Chip } from '@/design-system/components/Chip';
 import { Dialog } from '@/design-system/components/Dialog';
 import { EmptyState } from '@/design-system/components/EmptyState';
 import { Skeleton } from '@/design-system/components/Skeleton';
-import { useSongs, useAllAlbums, useAllArtists } from '@/music/musicStore';
+import { useSongs } from '@/music/musicStore';
 import { useNeteaseRecommend } from '@/music/netease/useNetease';
 import { songToTrack, type MusicTrack } from '@/music/source/types';
 import { useLibraryStore } from '@/store/useLibraryStore';
@@ -26,15 +24,13 @@ import { exportBackup, readBackupFile, restoreBackupToStorage } from '@/utils/ba
 import { notify } from '@/utils/notify';
 import './pages.css';
 
-type Tab = 'recent' | 'favorite' | 'mine' | 'songs' | 'albums' | 'artists' | 'playlists' | 'netease';
+type Tab = 'recent' | 'favorite' | 'mine' | 'songs' | 'playlists' | 'netease';
 
 const tabs: { key: Tab; label: string }[] = [
   { key: 'recent', label: '最近播放' },
   { key: 'favorite', label: '我喜欢' },
   { key: 'mine', label: '我的歌单' },
   { key: 'songs', label: '歌曲' },
-  { key: 'albums', label: '专辑' },
-  { key: 'artists', label: '艺术家' },
   { key: 'playlists', label: '推荐歌单' },
 ];
 
@@ -61,8 +57,6 @@ export function MePage() {
   // nothing and the list stayed empty. `favoriteSongs` is kept only as the
   // fallback for ids saved before tracks were stored.
   const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
-  const { data: allAlbums, loading: albumsLoading } = useAllAlbums();
-  const { data: allArtists, loading: artistsLoading } = useAllArtists();
   const { data: netPlaylists, loading: netLoading } = useNeteaseRecommend();
   const userPlaylists = usePlaylistStore((s) => s.playlists);
   const createPlaylist = usePlaylistStore((s) => s.createPlaylist);
@@ -374,36 +368,6 @@ export function MePage() {
             </div>
           ) : (
             <EmptyState title="曲库空空如也" description="播放或收藏歌曲后会出现在这里" />
-          ))}
-
-        {tab === 'albums' &&
-          (albumsLoading ? (
-            <div className="grid-cards">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} height={180} radius="var(--am-radius-xl)" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid-cards">
-              {(allAlbums ?? []).map((al) => (
-                <MusicCard key={al.id} palette={al.palette} title={al.title} subtitle={al.artistName} to={'/album/' + al.id} />
-              ))}
-            </div>
-          ))}
-
-        {tab === 'artists' &&
-          (artistsLoading ? (
-            <div className="grid-cards">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} height={140} radius="var(--am-radius-xl)" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid-artists">
-              {(allArtists ?? []).map((ar) => (
-                <ArtistCard key={ar.id} artist={ar} />
-              ))}
-            </div>
           ))}
 
         {tab === 'playlists' &&

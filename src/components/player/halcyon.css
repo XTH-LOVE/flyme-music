@@ -580,7 +580,7 @@
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  max-width: 560px;
+  max-width: 599px;
   margin: 0 auto;
   padding: 24px 22px calc(14px + env(safe-area-inset-bottom));
 }

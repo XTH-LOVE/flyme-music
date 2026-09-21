@@ -130,7 +130,7 @@ body {
   min-height: 64px;
 }
 
-@media (max-width: 959px) {
+@media (max-width: 1023px) {
   .app-main {
     padding-left: 16px;
     padding-right: 16px;

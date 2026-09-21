@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { usePlayerStore } from '@/store/usePlayerStore';
+import { useLibraryStore } from '@/store/useLibraryStore';
 import { useAiStore, aiConfigured, nextAiMsgId } from '@/store/useAiStore';
 import { chatStreamWithFallback } from '@/ai/aiClient';
 import { PERSONA_PROMPTS } from '@/ai/aiTools';
@@ -7,9 +8,52 @@ import { buildCommentaryMessages, commentarySourceNote } from '@/ai/songCommenta
 import { analyzeInBackground, readCachedCard, trackKeyOf } from '@/audio/analysis';
 import { fetchLyricLines } from '@/utils/currentLyric';
 
+/**
+ * The user's own history with a track, read on demand.
+ *
+ * `getState()` rather than a store subscription: the play log changes on every
+ * single play, and subscribing would put it in the effect's dependencies - which
+ * would re-run the whole commentary each time, i.e. every time the thing it is
+ * commenting on starts.
+ *
+ * Matched on name and artist rather than a track key: the log is capped and
+ * older entries predate the snapshot field, so a key that is present for new
+ * rows would silently find nothing for old ones.
+ */
+function listeningHistoryFor(song: { name: string; artist: string[] }) {
+  const { playLog, favoriteTracks } = useLibraryStore.getState();
+  const artist = song.artist.join(' / ');
+
+  const mine = playLog.filter((e) => e.name === song.name && e.artist === artist);
+  const favourited = favoriteTracks.some(
+    (t) => t.name === song.name && t.artist.join(' / ') === artist,
+  );
+
+  if (!mine.length && !favourited) return null;
+
+  // The log is newest-first, so the last element is the earliest still held.
+  const stamp = (ts: number) => new Date(ts).toISOString().slice(0, 10);
+  return {
+    playCount: mine.length,
+    firstPlayed: mine.length ? stamp(mine[mine.length - 1].ts) : undefined,
+    lastPlayed: mine.length ? stamp(mine[0].ts) : undefined,
+    favourited,
+  };
+}
+
 const MAX_LYRIC_LINES = 80;
 const MAX_LYRIC_CHARS = 5200;
-const LYRIC_TIMEOUT_MS = 2800;
+/**
+ * How long the commentary waits for lyrics before writing without them.
+ *
+ * Raised from 2800: the request races the local audio analysis and goes out on
+ * a cold connection the moment a track starts, so the first call routinely took
+ * longer than that - and a miss is not cached, so every track paid it again.
+ * The commentary then read as "lyrics never load" rather than "the network was
+ * briefly slow". Still bounded, because a slow provider must not hold the
+ * response indefinitely.
+ */
+const LYRIC_TIMEOUT_MS = 6000;
 const AI_TIMEOUT_MS = 18000;
 /**
  * How long the commentary waits for the local audio analysis before falling
@@ -144,16 +188,35 @@ export function AiCompanion() {
     const timer = window.setTimeout(() => {
       void (async () => {
         let timedOut = false;
+        // Declared outside the try so the catch can report it - the whole point
+        // of keeping it is that the failure reason survives to the message.
+        let lyricFailure = '';
         try {
           // Lyrics are useful context, but a slow provider must never hold the
           // companion response indefinitely. Continue with metadata on timeout.
-          const lyricRequest = fetchLyricLines(song).catch(() => []);
+          // The reason a fetch produced nothing is kept, not swallowed.
+          //
+          // It used to be `.catch(() => [])`, which made three different
+          // failures - no such song, a rejected request, a timeout - look
+          // identical from the outside. Every one of them showed the same
+          // "lyrics did not load" line, and there was nothing anywhere to say
+          // which had happened.
+          const lyricRequest = fetchLyricLines(song).catch((error: unknown) => {
+            lyricFailure = error instanceof Error ? error.message : String(error);
+            console.warn('[ai] lyric fetch failed', error);
+            return [] as Awaited<ReturnType<typeof fetchLyricLines>>;
+          });
           const lines = await Promise.race([
             lyricRequest,
             new Promise<Awaited<typeof lyricRequest>>((resolve) =>
-              window.setTimeout(() => resolve([]), LYRIC_TIMEOUT_MS),
+              window.setTimeout(() => {
+                lyricFailure = 'timeout';
+                console.warn('[ai] lyric fetch timed out after ' + LYRIC_TIMEOUT_MS + 'ms');
+                resolve([]);
+              }, LYRIC_TIMEOUT_MS),
             ),
           ]);
+          if (!lines.length && !lyricFailure) lyricFailure = 'empty';
           const lyric = lines
             .map((line) => line.text.trim())
             .filter(Boolean)
@@ -202,6 +265,7 @@ export function AiCompanion() {
               song,
               lyric: lyric || null,
               card,
+              listening: listeningHistoryFor(song),
             }),
             (delta) => {
               streamed += delta;
@@ -245,7 +309,7 @@ export function AiCompanion() {
               useAiStore.getState().setConfig({ model: text.model });
             }
           }
-        } catch {
+        } catch (error) {
           if (!controller.signal.aborted || timedOut) {
             // A failed upgrade must not destroy the commentary already shown.
             if (upgrading && cachedText) {
@@ -256,10 +320,24 @@ export function AiCompanion() {
                 thought: commentarySourceNote(null),
               });
             } else {
+              // Named for what actually failed.
+              //
+              // This branch is the commentary's catch-all, and it used to blame
+              // the lyrics for everything - so an expired key, an unreachable
+              // endpoint and a genuinely missing lyric all produced the same
+              // sentence, and the sentence was wrong in two of the three cases.
+              const detail =
+                error instanceof Error ? error.message : error ? String(error) : '';
+              console.warn('[ai] commentary failed', { timedOut, detail, lyricFailure });
+              const reason = timedOut
+                ? '自动解读超时了'
+                : lyricFailure && lyricFailure !== 'empty'
+                  ? '歌词没能取到（' + lyricFailure + '）'
+                  : detail
+                    ? '解读服务出错：' + detail.slice(0, 80)
+                    : '解读没能完成';
               useAiStore.getState().updateMessage(messageId, {
-                text: timedOut
-                  ? '自动解读超时了，稍后可以在「一起听」里重试。'
-                  : '这首歌的歌词暂时没加载好，稍后可以在「一起听」里重试。',
+                text: reason + '，稍后可以在「一起听」里重试。',
                 streaming: false,
                 analysisStatus: 'error',
               });

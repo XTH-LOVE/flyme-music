@@ -11,6 +11,7 @@ import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { getAiStatus, listAiModels } from '@/ai/aiClient';
 import { isLevelMatching, setLevelMatching } from '@/player/webAudio';
 import { useDesktopLyrics } from '@/hooks/useDesktopLyrics';
+import { isMaterialYouEnabled, setMaterialYou } from '@/hooks/useMaterialYou';
 import { openOverlaySettings } from '@/lib/nativeMedia';
 import { notify } from '@/utils/notify';
 import {
@@ -56,6 +57,7 @@ export function SettingsPage() {
   const settings = useSettingsStore();
   const [levelMatching, setLevelMatchingState] = useState(isLevelMatching());
   const desktopLyric = useDesktopLyrics();
+  const [materialYou, setMaterialYouState] = useState(isMaterialYouEnabled);
   const [apiUrl, setApiUrl] = useState(getMusicApiUrls()[0]);
   const [apiSaved, setApiSaved] = useState(false);
 
@@ -449,6 +451,15 @@ export function SettingsPage() {
               setLevelMatching(value);
             }}
           />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">跟随系统取色</div>
+            <div className="settings-row__desc">
+              用系统壁纸取色的主色替换应用配色（Android 12 及以上）
+            </div>
+          </div>
+          <Switch checked={materialYou} onChange={(v) => { setMaterialYouState(v); setMaterialYou(v); }} />
         </div>
         <div className="settings-row">
           <div className="settings-row__body">

@@ -197,7 +197,13 @@ class MediaPlaybackService : Service() {
             }
             if (bitmap != null) {
                 artwork = bitmap
-                main.post { if (foreground) rebuild() }
+                main.post {
+                    if (foreground) rebuild()
+                    // The widget shows the same cover, so it is redrawn from
+                    // the same bitmap rather than fetching a second copy.
+                    PlaybackWidget.cover = bitmap
+                    PlaybackWidget.refresh(this@MediaPlaybackService)
+                }
             }
         }
     }

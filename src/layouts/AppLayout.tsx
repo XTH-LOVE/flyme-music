@@ -22,8 +22,10 @@ import { useBackgroundAnalysis } from '@/hooks/useBackgroundAnalysis';
 import { useEffect } from 'react';
 import { UpdateCapsule } from '@/components/UpdateCapsule';
 import { AiCapsule } from '@/components/AiCapsule';
+import { useMaterialYou } from '@/hooks/useMaterialYou';
 
 export function AppLayout() {
+  useMaterialYou();
   usePlaybackSync();
   useMediaSession();
   useSleepTimer();

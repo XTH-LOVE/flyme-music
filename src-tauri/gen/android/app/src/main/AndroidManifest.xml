@@ -128,6 +128,19 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <!-- Home screen widget. APPWIDGET_UPDATE is the action the launcher
+             sends when the widget needs its first render. -->
+        <receiver
+            android:name=".PlaybackWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.flyme.music.WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
     </application>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 </manifest>

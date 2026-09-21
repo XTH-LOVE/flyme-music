@@ -56,6 +56,8 @@ interface NativeBridge {
   hideLyric(): void;
   canShowLyric(): boolean;
   openOverlaySettings(): void;
+  /** `#RRGGBB` from the wallpaper palette, or empty before Android 12. */
+  systemAccent(): string;
   update(
     title: string,
     artist: string,
@@ -203,6 +205,25 @@ export function openOverlaySettings(): void {
     bridge()?.openOverlaySettings();
   } catch (error) {
     console.warn('[nativeMedia] openOverlaySettings failed', error);
+  }
+}
+
+/* ---------------- Material You ---------------- */
+
+/**
+ * The wallpaper-derived accent, or null when the device has no palette.
+ *
+ * Read once at start rather than observed: the framework offers no callback for
+ * a wallpaper change that would reach here, and a colour that updates on the
+ * next launch is a fair trade for not polling.
+ */
+export function systemAccent(): string | null {
+  if (!isTauri()) return null;
+  try {
+    const value = bridge()?.systemAccent() ?? '';
+    return /^#[0-9a-f]{6}$/i.test(value) ? value : null;
+  } catch {
+    return null;
   }
 }
 

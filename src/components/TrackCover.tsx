@@ -24,7 +24,19 @@ interface TrackCoverProps {
  * direct hotlinks.
  */
 export function TrackCover({ track, radius, bare = false, title, priority = false }: TrackCoverProps) {
-  const size = priority ? '500y500' : '300y300';
+  /*
+   * Two sizes, and the small one is much smaller than it was.
+   *
+   * List rows show a 48-56px cover and were asking the CDN for 300x300 - about
+   * thirty times the pixels on screen. A fifty-track playlist therefore pulled
+   * one and a half megabytes of thumbnail, which on a phone arrives visibly one
+   * cover at a time while the page waits.
+   *
+   * 160 is still sharp at three times the display size for a row, and it is
+   * about a third of the bytes. The large size is unchanged: it is used where
+   * the cover really is large, and there the extra detail is the point.
+   */
+  const size = priority ? '500y500' : '160y160';
   const [url, setUrl] = useState<string | null>(withPicSize(track.picUrl, size) || null);
   const { src: imgSrc, stage, onError, onLoad, imgRef } = useProxiedImage(url);
   const [loaded, setLoaded] = useState(false);

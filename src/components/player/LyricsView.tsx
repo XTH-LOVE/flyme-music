@@ -92,8 +92,19 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const el = container.querySelector('[data-active="true"]');
-    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const el = container.querySelector<HTMLElement>('[data-active="true"]');
+    if (!el) return;
+
+    // Two overlapping smooth scrolls fight: the second cancels the first and
+    // restarts from wherever it had reached, which is what a stutter looks
+    // like on fast lyrics. A small step - the usual case, one line at a time -
+    // is therefore jumped instantly, where the animation was too short to read
+    // anyway. Only a long move, which means a seek, is worth animating.
+    const target = el.offsetTop - (container.clientHeight - el.offsetHeight) / 2;
+    const distance = Math.abs(target - container.scrollTop);
+    const smooth = distance > container.clientHeight * 0.8;
+
+    container.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'auto' });
   }, [activeIndex, track.id]);
 
   useEffect(
@@ -138,7 +149,6 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     return lines.map((line, i) => {
       const parsed = voices.lines[i];
       const dist = Math.abs(i - activeIndex);
-      const signed = Math.max(-6, Math.min(6, i - activeIndex));
       const side = voices.duet ? voiceSide(parsed.voice) : 'center';
       const cls =
         'lyrics__line' +
@@ -156,11 +166,6 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
           key={track.id + '-' + i}
           data-active={i === activeIndex}
           className={cls}
-          style={
-            i === activeIndex
-              ? undefined
-              : { transform: 'rotateX(' + signed * -2.4 + 'deg)' }
-          }
           onClick={
             seekable
               ? (e) => {

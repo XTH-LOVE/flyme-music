@@ -185,30 +185,41 @@ function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime
   if (!lines.length || active < 0) return null;
 
   /*
-   * Two rows: the current line and the one after it.
+   * One continuous track of every line, translated to the current one.
    *
-   * Keyed by the line's own index rather than by its position in the array, so
-   * when the song advances each row is recognised as a different line and
-   * remounts. That matters because the movement is a CSS animation rather than
-   * a transition: an animation plays when a node appears, whereas a transition
-   * needs a property to change, and here nothing does - the rows simply hold
-   * different text.
+   * The previous version rendered only the visible rows and keyed them by line
+   * index, so each new line was a new element playing an entrance animation -
+   * which meant the outgoing line vanished the instant its replacement
+   * appeared. That reads as flicker, because that is what it is.
    *
-   * The incoming line rises into place from below, which is the direction the
-   * eye is already travelling when reading a lyric.
+   * Here nothing mounts or unmounts. Every line is already in the track, the
+   * whole thing is shifted by exactly one row height when the song advances,
+   * and a transition interpolates that shift. The line you were reading leaves
+   * through the top while its successor arrives from below, in one movement,
+   * with nothing appearing or disappearing anywhere.
+   *
+   * The offset is a multiple of the current line, not a constant - a constant
+   * transform never changes, so there is nothing for the transition to
+   * interpolate and the strip sits still. That was the first attempt's mistake.
    */
-  const rows = [lines[active], lines[active + 1]];
-
   return (
     <div className="hc-p-minilyric">
-      {rows.map((row, index) => (
-        <div
-          key={(row ? row.time : 'end') + '-' + index}
-          className={'hc-p-minilyric__line' + (index === 0 ? '' : ' hc-p-minilyric__line--next')}
-        >
-          {row?.text || (index === 0 ? '· · ·' : '')}
-        </div>
-      ))}
+      <div
+        className="hc-p-minilyric__track"
+        style={{ transform: 'translateY(calc(' + -active + ' * var(--hc-lyric-row)))' }}
+      >
+        {lines.map((line, index) => (
+          <div
+            key={line.time + '-' + index}
+            className={
+              'hc-p-minilyric__line' +
+              (index === active ? '' : ' hc-p-minilyric__line--next')
+            }
+          >
+            {line.text || '· · ·'}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

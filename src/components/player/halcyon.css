@@ -748,21 +748,29 @@
 }
 
 /*
- * The movement.
+ * The movement: the whole track slides by one row when the song advances.
  *
- * An animation, not a transition: the rows hold different text rather than
- * changing a property, so there is nothing for a transition to interpolate -
- * which is exactly why the previous attempt sat still. Keyed by line index, each
- * row is a new element when its turn comes and the animation plays on mount.
+ * A transition, and this time there is something for it to interpolate - the
+ * transform is a multiple of the current line index, so it changes on every
+ * line. The earlier attempt used a constant transform, which never changed and
+ * therefore never animated, and the one after that remounted each row instead,
+ * which made the outgoing line disappear rather than leave.
+ *
+ * Nothing mounts or unmounts here, so there is no frame in which the strip is
+ * empty or half-drawn. That absence is what smoothness actually is.
  */
-@keyframes hc-lyric-rise {
-  from {
-    opacity: 0;
-    transform: translateY(60%);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+.hc-p-minilyric__track {
+  display: flex;
+  flex-direction: column;
+  /* Long enough to read as movement, short enough that the next line has
+     arrived by the time you look at it. */
+  transition: transform 480ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1));
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-p-minilyric__track {
+    transition: none;
   }
 }
 
@@ -776,14 +784,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* Plays on mount, which is why the rows are keyed by line index: a new key
-     means a new element, and a new element means the animation runs. */
-  animation: hc-lyric-rise 420ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1)) both;
+  /* Only the dimming changes as the track moves, so this is a transition too. */
+  transition: opacity 480ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hc-p-minilyric__line {
-    animation: none;
+    transition: none;
   }
 }
 

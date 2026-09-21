@@ -185,38 +185,41 @@ function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime
   if (!lines.length || active < 0) return null;
 
   /*
-   * One continuous track of every line, translated to the current one.
+   * A window of lines, absolutely placed, inside a track that slides.
    *
-   * The previous version rendered only the visible rows and keyed them by line
-   * index, so each new line was a new element playing an entrance animation -
-   * which meant the outgoing line vanished the instant its replacement
-   * appeared. That reads as flicker, because that is what it is.
+   * The first working version put every line of the song in the track. It
+   * scrolled correctly and made playback stutter: a hundred-odd nodes
+   * reconciled several times a second, inside a compositing layer thousands of
+   * pixels tall, is enough to starve the main thread.
    *
-   * Here nothing mounts or unmounts. Every line is already in the track, the
-   * whole thing is shifted by exactly one row height when the song advances,
-   * and a transition interpolates that shift. The line you were reading leaves
-   * through the top while its successor arrives from below, in one movement,
-   * with nothing appearing or disappearing anywhere.
-   *
-   * The offset is a multiple of the current line, not a constant - a constant
-   * transform never changes, so there is nothing for the transition to
-   * interpolate and the strip sits still. That was the first attempt's mistake.
+   * So only the lines near the current one are rendered. They are placed by
+   * their absolute index rather than by their order in the array, which is what
+   * lets the window move without the rows moving with it - the transform stays
+   * a multiple of the current line, so it still animates, and the nodes that
+   * come and go do so off-screen where nobody sees them mount.
    */
+  const WINDOW = 2;
+  const from = Math.max(0, active - WINDOW);
+  const to = Math.min(lines.length - 1, active + WINDOW);
+  const visible: number[] = [];
+  for (let i = from; i <= to; i += 1) visible.push(i);
+
   return (
     <div className="hc-p-minilyric">
       <div
         className="hc-p-minilyric__track"
         style={{ transform: 'translateY(calc(' + -active + ' * var(--hc-lyric-row)))' }}
       >
-        {lines.map((line, index) => (
+        {visible.map((index) => (
           <div
-            key={line.time + '-' + index}
+            key={lines[index].time + '-' + index}
             className={
               'hc-p-minilyric__line' +
               (index === active ? '' : ' hc-p-minilyric__line--next')
             }
+            style={{ top: 'calc(var(--hc-lyric-row) * ' + index + ')' }}
           >
-            {line.text || '· · ·'}
+            {lines[index].text || '· · ·'}
           </div>
         ))}
       </div>

@@ -760,8 +760,9 @@
  * empty or half-drawn. That absence is what smoothness actually is.
  */
 .hc-p-minilyric__track {
-  display: flex;
-  flex-direction: column;
+  /* Absolutely placed rows, so the window can move without moving the rows. */
+  position: relative;
+  height: 100%;
   /* Long enough to read as movement, short enough that the next line has
      arrived by the time you look at it. */
   transition: transform 480ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1));
@@ -775,6 +776,9 @@
 }
 
 .hc-p-minilyric__line {
+  position: absolute;
+  left: 0;
+  right: 0;
   height: var(--hc-lyric-row);
   line-height: var(--hc-lyric-row);
   font-size: 18px;

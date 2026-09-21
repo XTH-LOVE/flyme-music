@@ -1,64 +1,105 @@
 /**
- * The Android notification-shade player.
+ * The notification-shade player, via `tauri-plugin-media-session`.
  *
- * `navigator.mediaSession` already drives lock-screen and headset controls on
- * the web, but in a Tauri WebView it never produces a notification - posting one
- * is a browser feature, not a WebView one. So the packaged app posts its own,
- * built by the `media` plugin, and this module is the two directions of that
- * conversation:
+ * This replaced a hand-written Android plugin - a Kotlin MediaSessionCompat, a
+ * foreground service, a permission file and the ACL entries to let the page
+ * call it. That version never worked, and the reason is worth keeping: the
+ * plugin's commands were invoked from JavaScript, so they passed through
+ * Tauri's ACL, which Tauri's own Android plugins never have to because they are
+ * only called from Rust. Every call was rejected before reaching Kotlin, and a
+ * `catch` in this file swallowed the rejection - so the notification simply
+ * never appeared and nothing said why.
  *
- *   page -> Kotlin   metadata and play/pause state
- *   Kotlin -> page   transport button presses, so the single player in the
- *                    WebView stays the only thing that decides what plays
+ * The maintained plugin also handles the Android 13 notification permission and
+ * downloads artwork natively, both of which had been separate problems here.
+ *
+ * Note the units: the plugin takes seconds, where the rest of this app works in
+ * milliseconds.
  */
 
 import { isTauri } from '@/lib/apiTransport';
+import { notify } from '@/utils/notify';
 
-interface NowPlaying {
+export interface NowPlaying {
   title: string;
   artist?: string;
   album?: string;
-  /** Cover URL; the plugin fetches and decodes it. */
+  /** Cover URL; the plugin fetches and decodes it natively. */
   cover?: string;
-  /** Milliseconds. */
+  /** Seconds. */
   duration?: number;
+  /** Seconds. */
+  position?: number;
   playing: boolean;
 }
 
-let listener: { unregister: () => Promise<void> } | null = null;
+export type MediaAction = 'play' | 'pause' | 'next' | 'previous' | 'stop' | 'seek';
 
-async function invoke(command: string, args?: Record<string, unknown>): Promise<void> {
-  const { invoke: call } = await import('@tauri-apps/api/core');
-  // The command name is the Kotlin method name verbatim - Tauri's Android
-  // plugin registry keys commands by `Method.name` with no case conversion.
-  await call('plugin:media|' + command, args);
+/** `listen` hands back an unsubscribe function, not an object. */
+let unlisten: (() => void) | null = null;
+let reported = false;
+
+/**
+ * Reports a failure once per session, in the interface.
+ *
+ * Every call here used to end in `console.warn`, which on a phone is nowhere.
+ * A notification that does not appear is then indistinguishable from
+ * notification code that is wrong, and this cost several rounds of guessing
+ * before the cause turned out to be rejected calls. A problem that cannot be
+ * seen gets guessed at.
+ */
+function reportOnce(detail: string): void {
+  if (reported) return;
+  reported = true;
+  notify('通知栏播放器不可用：' + detail.slice(0, 60), 5000);
+  console.warn('[nativeMedia]', detail);
 }
 
-/** Pushes the current track to the notification. Safe to call on every change. */
+async function call(command: string, args?: Record<string, unknown>): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke(command, args);
+}
+
+/** Publishes the current track. Omitted fields keep their previous values. */
 export async function updateNativeNowPlaying(info: NowPlaying): Promise<void> {
   if (!isTauri()) return;
   try {
-    await invoke('updateNowPlaying', {
-      title: info.title,
-      artist: info.artist ?? '',
-      album: info.album ?? '',
-      cover: info.cover ?? '',
-      duration: info.duration ?? 0,
-      playing: info.playing,
+    await call('media_update_state', {
+      state: {
+        title: info.title,
+        artist: info.artist ?? '',
+        album: info.album ?? '',
+        ...(info.cover ? { artworkUrl: info.cover } : {}),
+        ...(info.duration ? { duration: info.duration } : {}),
+        ...(info.position !== undefined ? { position: info.position } : {}),
+        isPlaying: info.playing,
+        canPrev: true,
+        canNext: true,
+      },
     });
   } catch (error) {
-    // A missing notification must never break playback.
-    console.warn('native media: update failed', error);
+    reportOnce(error instanceof Error ? error.message : String(error));
   }
 }
 
-/** Pushes only the play/pause state, for the frequent case. */
+/** Play/pause only, for the frequent case. */
 export async function setNativePlaying(playing: boolean): Promise<void> {
   if (!isTauri()) return;
   try {
-    await invoke('setPlaying', { playing });
+    await call('media_update_state', { state: { isPlaying: playing } });
+  } catch (error) {
+    reportOnce(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/** Position and speed without rebuilding the notification. Seconds. */
+export async function setNativePosition(position: number, playbackSpeed: number): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await call('media_update_timeline', { timeline: { position, playbackSpeed } });
   } catch {
-    /* see above */
+    // Position sync runs often; a failure here is not worth a notification,
+    // and updateNativeNowPlaying will have reported the same underlying fault.
   }
 }
 
@@ -66,30 +107,30 @@ export async function setNativePlaying(playing: boolean): Promise<void> {
 export async function clearNativeNowPlaying(): Promise<void> {
   if (!isTauri()) return;
   try {
-    await invoke('clear');
-  } catch {
-    /* see above */
+    await call('media_clear');
+  } catch (error) {
+    reportOnce(error instanceof Error ? error.message : String(error));
   }
 }
 
 /**
- * Subscribes to transport presses from the notification.
+ * Subscribes to transport presses.
  *
- * Registered once; calling it again replaces the previous handler rather than
- * stacking listeners, because a second subscription would fire every action
- * twice and the player would skip two tracks per tap.
+ * The plugin emits a Tauri event rather than requiring a plugin listener, so
+ * this uses `listen` from the core API - covered by `core:default`, with none
+ * of the ACL questions a plugin command would raise.
  */
 export async function onNativeMediaAction(
-  handler: (action: 'play' | 'pause' | 'next' | 'previous' | 'stop') => void,
+  handler: (action: MediaAction, seekPosition?: number) => void,
 ): Promise<void> {
-  if (!isTauri() || listener) return;
+  if (!isTauri() || unlisten) return;
   try {
-    const { addPluginListener } = await import('@tauri-apps/api/core');
-    listener = await addPluginListener('media', 'action', (payload: { action?: string }) => {
-      const action = payload?.action;
-      if (action) handler(action as 'play' | 'pause' | 'next' | 'previous' | 'stop');
+    const { listen } = await import('@tauri-apps/api/event');
+    unlisten = await listen<{ action?: string; seekPosition?: number }>('media_action', (event) => {
+      const action = event.payload?.action;
+      if (action) handler(action as MediaAction, event.payload?.seekPosition);
     });
   } catch (error) {
-    console.warn('native media: listener failed', error);
+    reportOnce(error instanceof Error ? error.message : String(error));
   }
 }

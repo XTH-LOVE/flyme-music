@@ -26,6 +26,14 @@ class PlayerController {
   private listeners = new Set<PlayerListener>();
   private repeat: RepeatMode = 'off';
   private volume = 0.8;
+  /**
+   * How far to drop while something else is announcing.
+   *
+   * Low enough to be clearly underneath a navigation prompt, high enough that
+   * the track is still recognisable when it comes back - muting entirely reads
+   * as a glitch rather than as ducking.
+   */
+  private static readonly DUCK_FACTOR = 0.3;
   /** True once the user manually seeks the current song. */
   private userSeeked = false;
   /** Invalidates URL resolution started for a previous queue selection. */
@@ -97,9 +105,33 @@ class PlayerController {
     this.broadcast();
   }
 
+  /**
+   * Explicit play, as opposed to [toggle].
+   *
+   * The notification sends `play` and `pause` as separate events, so handling
+   * both with `toggle` would make the button do the opposite of what it says
+   * the moment the two sides disagree about the current state - which is the
+   * exact failure that made the previous single toggle button unusable.
+   */
+  resume(): void {
+    if (!this.queue.current) return;
+    if (this.snapshot().status === 'playing') return;
+    this.engine.play();
+    // A simulated clock with no stream attached (fresh session restore, or a
+    // previous stream failure) only ticks silently forever - go resolve the
+    // real stream URL instead of leaving a fake playback.
+    if (this.engine.isSimulated) void this.resolveAndAttach();
+    this.broadcast();
+  }
+
   pause(): void {
     this.engine.pause();
     this.broadcast();
+  }
+
+  /** Temporary attenuation for a short announcement; see the audio focus path. */
+  setDucked(ducked: boolean): void {
+    this.engine.setVolume(ducked ? this.volume * PlayerController.DUCK_FACTOR : this.volume);
   }
 
   next(): void {

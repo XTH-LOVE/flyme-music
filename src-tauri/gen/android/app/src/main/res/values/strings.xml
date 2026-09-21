@@ -1,4 +1,11 @@
 <resources>
     <string name="app_name">"Flyme Music"</string>
     <string name="main_activity_title">"Flyme Music"</string>
+    <string name="shortcut_search">搜索</string>
+    <string name="shortcut_search_long">搜索歌曲</string>
+    <string name="shortcut_favourites">我喜欢</string>
+    <string name="shortcut_favourites_long">打开我喜欢</string>
+    <string name="widget_description">显示当前播放并控制播放</string>
+    <string name="widget_toggle">播放或暂停</string>
+    <string name="widget_next">下一首</string>
 </resources>

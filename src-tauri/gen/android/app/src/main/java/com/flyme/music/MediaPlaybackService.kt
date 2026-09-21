@@ -2,17 +2,30 @@ package com.flyme.music
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.Executors
 
 /**
  * The player in the notification shade.
@@ -38,6 +51,15 @@ class MediaPlaybackService : Service() {
     private var positionMs = 0L
     private var durationMs = 0L
     private var foreground = false
+    private var artworkUrl = ""
+    private var artwork: Bitmap? = null
+    private val artworkLoader = Executors.newSingleThreadExecutor()
+    private lateinit var audio: AudioManager
+    private var focusRequest: AudioFocusRequest? = null
+    private var noisyReceiver: BroadcastReceiver? = null
+    /** Set while another app holds focus, so it is not asked for again on resume. */
+    private var ducked = false
+    private val main = Handler(Looper.getMainLooper())
 
     companion object {
         const val ACTION_UPDATE = "com.flyme.music.UPDATE"
@@ -51,6 +73,7 @@ class MediaPlaybackService : Service() {
         const val EXTRA_PLAYING = "playing"
         const val EXTRA_POSITION = "position"
         const val EXTRA_DURATION = "duration"
+        const val EXTRA_ARTWORK = "artwork"
 
         private const val CHANNEL_ID = "flyme_playback"
         private const val NOTIFICATION_ID = 1001
@@ -69,6 +92,24 @@ class MediaPlaybackService : Service() {
                 setSound(null, null)
             }
         )
+        audio = getSystemService(AUDIO_SERVICE) as AudioManager
+
+        // Headphones unplugged: pause rather than continue out of the phone's
+        // own speaker, which is the loudest possible way to be embarrassing in
+        // a quiet room. The system broadcasts this precisely so players can
+        // avoid it.
+        noisyReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                    forward("pause")
+                }
+            }
+        }
+        registerReceiver(
+            noisyReceiver,
+            IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        )
+
         session = MediaSession(this, "FlymeMusicSession").apply {
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() = forward("play")
@@ -94,6 +135,7 @@ class MediaPlaybackService : Service() {
                 playing = intent.getBooleanExtra(EXTRA_PLAYING, playing)
                 positionMs = intent.getLongExtra(EXTRA_POSITION, positionMs)
                 durationMs = intent.getLongExtra(EXTRA_DURATION, durationMs)
+                loadArtwork(intent.getStringExtra(EXTRA_ARTWORK) ?: "")
             }
             ACTION_PREV -> forward("previous")
             ACTION_NEXT -> forward("next")
@@ -104,6 +146,8 @@ class MediaPlaybackService : Service() {
                 return START_NOT_STICKY
             }
         }
+
+        if (playing) requestFocus() else if (!ducked) abandonFocus()
 
         syncSession()
         val notification = build()
@@ -121,12 +165,120 @@ class MediaPlaybackService : Service() {
         return START_STICKY
     }
 
+    /**
+     * Fetches the cover natively.
+     *
+     * It has to be done here rather than in the page: the image lives on the
+     * music source's CDN, and a WebView fetch of a cross-origin image that is
+     * then handed to native code is exactly the case that fails quietly. From
+     * Kotlin there is no origin at all.
+     *
+     * Only re-fetched when the URL actually changes, and the previous bitmap is
+     * dropped first so a slow response cannot show the last track's cover.
+     */
+    private fun loadArtwork(url: String) {
+        if (url == artworkUrl) return
+        artworkUrl = url
+        artwork = null
+        if (url.isEmpty()) return
+
+        artworkLoader.execute {
+            val bitmap = try {
+                val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    instanceFollowRedirects = true
+                }
+                connection.inputStream.use { BitmapFactory.decodeStream(it) }
+            } catch (error: Exception) {
+                // A missing cover must never break the notification, and the
+                // transport controls are what matter here.
+                null
+            }
+            if (bitmap != null) {
+                artwork = bitmap
+                main.post {
+                    if (foreground) rebuild()
+                    // The widget shows the same cover, so it is redrawn from
+                    // the same bitmap rather than fetching a second copy.
+                    PlaybackWidget.cover = bitmap
+                    PlaybackWidget.refresh(this@MediaPlaybackService)
+                }
+            }
+        }
+    }
+
+    private fun rebuild() {
+        notifications.notify(NOTIFICATION_ID, build())
+    }
+
+    /**
+     * Asks to become the thing the user is listening to.
+     *
+     * Without this the app plays over whatever else is playing: a video in
+     * another app, a phone call, a podcast. It is not a feature so much as the
+     * etiquette every player is expected to observe, and its absence is
+     * immediately audible.
+     *
+     * The three loss cases are handled differently on purpose:
+     *  - LOSS        - someone else wants the audio for good; stop.
+     *  - LOSS_TRANSIENT - a call or a navigation prompt; pause, and it may come
+     *                     back.
+     *  - CAN_DUCK    - a short announcement; lower the volume rather than
+     *                  stopping, so the listener does not have to restart.
+     */
+    private fun requestFocus() {
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(attributes)
+            .setOnAudioFocusChangeListener { change -> onFocusChange(change) }
+            .build()
+        focusRequest = request
+        audio.requestAudioFocus(request)
+    }
+
+    private fun abandonFocus() {
+        focusRequest?.let { audio.abandonAudioFocusRequest(it) }
+        focusRequest = null
+        ducked = false
+    }
+
+    private fun onFocusChange(change: Int) {
+        when (change) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                ducked = false
+                forward("pause")
+                abandonFocus()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                ducked = false
+                forward("pause")
+            }
+            // Ducking is a request to the app, not something the system does
+            // for it - hence telling the page rather than touching the session.
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                ducked = true
+                forward("duck")
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                if (ducked) {
+                    ducked = false
+                    forward("unduck")
+                }
+            }
+        }
+    }
+
     private fun syncSession() {
         session.setMetadata(
             MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, title)
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
                 .putLong(MediaMetadata.METADATA_KEY_DURATION, durationMs)
+                .apply { artwork?.let { putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it) } }
                 .build()
         )
         session.setPlaybackState(
@@ -175,6 +327,9 @@ class MediaPlaybackService : Service() {
 
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_note)
+            // The cover is what makes this look like a player rather than a
+            // status row, so it is set whenever one has arrived.
+            .apply { artwork?.let { setLargeIcon(it) } }
             .setContentTitle(title.ifEmpty { "Flyme Music" })
             .setContentText(artist)
             .setContentIntent(open)
@@ -201,6 +356,11 @@ class MediaPlaybackService : Service() {
     }
 
     override fun onDestroy() {
+        noisyReceiver?.let { runCatching { unregisterReceiver(it) } }
+        noisyReceiver = null
+        abandonFocus()
+        artworkLoader.shutdownNow()
+        artwork = null
         session.release()
         foreground = false
         super.onDestroy()

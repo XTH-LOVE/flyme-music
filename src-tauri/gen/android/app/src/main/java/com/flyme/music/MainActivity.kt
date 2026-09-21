@@ -63,6 +63,7 @@ class MainActivity : TauriActivity() {
             playing: Boolean,
             positionSec: Double,
             durationSec: Double,
+            artworkUrl: String,
         ) {
             val intent = android.content.Intent(this@MainActivity, MediaPlaybackService::class.java).apply {
                 action = MediaPlaybackService.ACTION_UPDATE
@@ -71,6 +72,7 @@ class MainActivity : TauriActivity() {
                 putExtra(MediaPlaybackService.EXTRA_PLAYING, playing)
                 putExtra(MediaPlaybackService.EXTRA_POSITION, (positionSec * 1000).toLong())
                 putExtra(MediaPlaybackService.EXTRA_DURATION, (durationSec * 1000).toLong())
+                putExtra(MediaPlaybackService.EXTRA_ARTWORK, artworkUrl)
             }
             // startForegroundService on O+ : the service must be told it is
             // allowed to post, or it is killed for not calling startForeground
@@ -80,6 +82,94 @@ class MainActivity : TauriActivity() {
             } else {
                 startService(intent)
             }
+
+            // The widget cannot ask the page anything, so it is told. Redrawing
+            // on every update is cheap and keeps it from lagging a track behind.
+            PlaybackWidget.title = title
+            PlaybackWidget.artist = artist
+            PlaybackWidget.playing = playing
+            PlaybackWidget.refresh(this@MainActivity)
+        }
+
+        /**
+         * The system's wallpaper-derived accent, as `#RRGGBB`, or empty when the
+         * device predates Material You.
+         *
+         * Read here rather than in the page because the palette is only
+         * reachable through the framework's own resources - and because the
+         * page has no way to observe it changing, so it is asked once at start.
+         */
+        @JavascriptInterface
+        fun systemAccent(): String {
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return ""
+            return try {
+                val color = getColor(android.R.color.system_accent1_500)
+                String.format("#%06X", 0xFFFFFF and color)
+            } catch (error: Exception) {
+                // A device can be S or later and still not supply a palette.
+                ""
+            }
+        }
+
+        /**
+         * Desktop lyrics.
+         *
+         * `show` is separate from `update` because showing is the moment the
+         * permission matters: if the user has not granted "display over other
+         * apps" the window is never added and nothing happens, so the answer is
+         * returned to the page instead of being discovered as a toggle that
+         * does nothing.
+         */
+        @JavascriptInterface
+        fun showLyric(text: String, locked: Boolean): Boolean {
+            if (!LyricOverlayService.canDraw(this@MainActivity)) return false
+            val intent = android.content.Intent(this@MainActivity, LyricOverlayService::class.java).apply {
+                action = LyricOverlayService.ACTION_SHOW
+                putExtra(LyricOverlayService.EXTRA_TEXT, text)
+                putExtra(LyricOverlayService.EXTRA_LOCKED, locked)
+            }
+            startService(intent)
+            return true
+        }
+
+        @JavascriptInterface
+        fun updateLyric(text: String, locked: Boolean) {
+            startService(
+                android.content.Intent(this@MainActivity, LyricOverlayService::class.java).apply {
+                    action = LyricOverlayService.ACTION_UPDATE
+                    putExtra(LyricOverlayService.EXTRA_TEXT, text)
+                    putExtra(LyricOverlayService.EXTRA_LOCKED, locked)
+                }
+            )
+        }
+
+        @JavascriptInterface
+        fun hideLyric() {
+            startService(
+                android.content.Intent(this@MainActivity, LyricOverlayService::class.java).apply {
+                    action = LyricOverlayService.ACTION_HIDE
+                }
+            )
+        }
+
+        /** Whether "display over other apps" has been granted. */
+        @JavascriptInterface
+        fun canShowLyric(): Boolean = LyricOverlayService.canDraw(this@MainActivity)
+
+        /** Opens the system page where that permission is granted. */
+        @JavascriptInterface
+        fun openOverlaySettings() {
+            val intent = android.content.Intent(
+                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                android.net.Uri.parse("package:" + packageName)
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { startActivity(intent) }
+        }
+
+        /** The cover is fetched by the playback service; the widget reuses it. */
+        @JavascriptInterface
+        fun widgetCoverReady() {
+            PlaybackWidget.refresh(this@MainActivity)
         }
 
         @JavascriptInterface

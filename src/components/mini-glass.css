@@ -71,7 +71,7 @@
   gap: 4px;
   flex-shrink: 0;
 }
-@media (max-width: 560px) {
+@media (max-width: 599px) {
   .mini-glass__controls .am-icon-btn:first-child {
     display: none;
   }

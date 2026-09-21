@@ -26,7 +26,16 @@ import { QueueSheet } from './QueueSheet';
 import { Visualizer } from './Visualizer';
 import { AmbientCanvas } from './AmbientCanvas';
 import { pipSupported, openPiPLyrics, closePiPLyrics, isPipOpen } from './PiPLyrics';
-import { EQ_PRESETS, getEqPreset, isWired, setEqPreset } from '@/player/webAudio';
+import {
+  EQ_PRESETS,
+  EQ_RANGE_DB,
+  getEqGains,
+  getEqPreset,
+  isWired,
+  setEqGains,
+  setEqPreset,
+  type EqGains,
+} from '@/player/webAudio';
 import { flingVelocity, trimSamples, type DragSample } from '@/player/dismissGesture';
 import { glowFillWidth, glowHeadOpacity } from '@/utils/glowProgress';
 import { deviceTier } from '@/utils/deviceTier';
@@ -386,6 +395,9 @@ export function FullPlayer() {
   const [pipOpen, setPipOpen] = useState(isPipOpen());
   const trackPalette = useCoverPalette(current?.picUrl, current?.id ?? '');
   const [eqPreset, setEqPresetState] = useState(() => getEqPreset());
+  // Seeded from whatever is in effect, so opening the sheet shows the curve the
+  // user is actually hearing rather than a row of zeroes.
+  const [eqGains, setEqGainsState] = useState<EqGains>(() => getEqGains());
   const [dragX, setDragX] = useState(0);
   const [dismissY, setDismissY] = useState(0);
   const [dismissX, setDismissX] = useState(0);
@@ -686,7 +698,13 @@ export function FullPlayer() {
             ))}
           </div>
 
-          <div className="hc-more__label">均衡器{isWired() ? '' : ' · 当前音源不支持'}</div>
+          {/* The audio URL is chosen when a track is attached, so switching the
+              chain on mid-track cannot affect the track already playing. Saying
+              "next track" is more useful than a bare "unsupported", which reads
+              as a permanent limitation rather than a timing one. */}
+          <div className="hc-more__label">
+            均衡器{isWired() ? '' : ' · 下一首生效'}
+          </div>
           <div className="hc-more__chips">
             {EQ_PRESETS.map((p) => (
               <button
@@ -700,6 +718,60 @@ export function FullPlayer() {
                 {p.label}
               </button>
             ))}
+          </div>
+
+          {/* The sliders sit under the presets rather than in a separate panel:
+              a preset is a starting point and this is where you go from it, so
+              they are two halves of one control. */}
+          <div className="hc-more__label">
+            自定义{EQ_PRESETS.some((p) => p.key === eqPreset) && eqPreset !== 'flat' ? '（调整后覆盖预设）' : ''}
+          </div>
+          <div className="hc-eq">
+            {(
+              [
+                ['low', '低音', '250Hz'],
+                ['mid', '中音', '1.8kHz'],
+                ['high', '高音', '4kHz'],
+              ] as const
+            ).map(([band, label, freq]) => (
+              <label key={band} className="hc-eq__row">
+                <span className="hc-eq__name">
+                  {label}
+                  <em>{freq}</em>
+                </span>
+                <input
+                  className="hc-eq__slider"
+                  type="range"
+                  min={-EQ_RANGE_DB}
+                  max={EQ_RANGE_DB}
+                  step={0.5}
+                  value={eqGains[band]}
+                  onChange={(e) => {
+                    // Applied on every input event, not on release: the point
+                    // of a slider is hearing what it does as you move it.
+                    const next = { ...eqGains, [band]: Number(e.target.value) };
+                    setEqGainsState(next);
+                    setEqGains(next);
+                    setEqPresetState('custom');
+                  }}
+                />
+                <span className="hc-eq__value">
+                  {eqGains[band] > 0 ? '+' : ''}
+                  {eqGains[band].toFixed(1)}
+                </span>
+              </label>
+            ))}
+            <button
+              className="hc-eq__reset"
+              onClick={() => {
+                const flat = { low: 0, mid: 0, high: 0 };
+                setEqGainsState(flat);
+                setEqGains(flat);
+                setEqPresetState('custom');
+              }}
+            >
+              归零
+            </button>
           </div>
 
           <div className="hc-more__label">定时关闭{sleepLabel ? ' · ' + sleepLabel : ''}</div>

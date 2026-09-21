@@ -1,0 +1,173 @@
+/**
+ * The AI pill.
+ *
+ * The first version was loud - heavy glassmorphism, a glowing gradient orb, a
+ * full-pill radius and a single hard shadow. Those are the signals of something
+ * trying to look expensive. This one is quiet instead:
+ *
+ *   - a hairline border rather than a visible stroke
+ *   - two stacked shadows (a tight one plus a wide soft one) rather than one
+ *     heavy drop, which is the single biggest tell between considered and cheap
+ *   - an 18px radius rather than a full pill, so it reads as a card that was
+ *     designed rather than a shape that was defaulted
+ *   - one accent, as a thin vertical rule, instead of a glowing ball
+ *   - type doing the work: a spaced-out micro-label over a tight preview
+ *
+ * Positioned bottom-right because the update capsule owns the top slot, and
+ * above the mini player using the same arithmetic the nav and the player use -
+ * so changing either cannot silently overlap this.
+ */
+
+.ai-capsule {
+  position: fixed;
+  right: 14px;
+  /* nav (62 @ 10) + mini player (62 @ 86) + a gap */
+  bottom: calc(160px + env(safe-area-inset-bottom));
+  z-index: 190;
+  display: flex;
+  align-items: stretch;
+  max-width: min(304px, calc(100vw - 28px));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--am-bg, #0e0e12) 94%, transparent);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--am-text-1, #fff) 9%, transparent);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 10px 30px -10px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  /* A settle, not a bounce. */
+  animation: ai-capsule-in 420ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1)) both;
+}
+
+@keyframes ai-capsule-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-capsule {
+    animation: none;
+  }
+}
+
+/* Above 1024px the sidebar replaces the floating nav, so the stack is shorter
+   and the pill would otherwise float in open space. */
+@media (min-width: 1024px) {
+  .ai-capsule {
+    bottom: calc(104px + env(safe-area-inset-bottom));
+    right: 24px;
+  }
+}
+
+.ai-capsule__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 4px 11px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/*
+ * The accent. A 2px rule with a soft falloff rather than a glowing dot: it
+ * signals "this is the AI" without a second colour competing with the content,
+ * and it stays legible at 8px wide where a gradient ball turns to mush.
+ */
+.ai-capsule__orb {
+  flex: 0 0 auto;
+  width: 2px;
+  align-self: stretch;
+  margin: 2px 0;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--am-accent, #3d7bff) 22%,
+    var(--am-accent-2, #8a5cff) 78%,
+    transparent
+  );
+  opacity: 0.9;
+}
+
+.ai-capsule__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Micro-label: small, spaced, quiet. It labels without asking to be read. */
+.ai-capsule__label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.9px;
+  color: var(--am-text-3);
+}
+
+.ai-capsule__preview {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--am-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-capsule__chevron {
+  flex: 0 0 auto;
+  color: var(--am-text-3);
+  opacity: 0.7;
+}
+
+/* ---------- Actions ---------- */
+
+/* Separated by a hairline rather than a heavier rule: the actions are secondary
+   to the sentence, and a strong divider makes them look like a toolbar. */
+.ai-capsule__actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 6px;
+  border-left: 1px solid color-mix(in srgb, var(--am-text-1, #fff) 7%, transparent);
+}
+
+.ai-capsule__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  /* No colour until touched. Three tinted icons in a row is what makes a small
+     surface look busy. */
+  color: var(--am-text-3);
+  cursor: pointer;
+  transition:
+    color 140ms var(--am-ease-standard, ease),
+    background-color 140ms var(--am-ease-standard, ease);
+}
+
+.ai-capsule__action:hover {
+  color: var(--am-text-1);
+  background: color-mix(in srgb, var(--am-text-1, #fff) 7%, transparent);
+}
+
+.ai-capsule__action:active {
+  background: color-mix(in srgb, var(--am-text-1, #fff) 11%, transparent);
+}

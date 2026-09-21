@@ -45,6 +45,14 @@ interface AiConfigState {
   model: string;
   persona: AiPersona;
   companion: boolean;
+  /**
+   * Whether the floating AI pill is shown.
+   *
+   * Off by default, unlike every other switch here. It floats over the content
+   * and the content is the point - a feature that announces itself is worth
+   * less than the view it covers. People who want it will find it in Settings.
+   */
+  capsule: boolean;
   proactive: boolean;
 }
 
@@ -79,12 +87,14 @@ function loadConfig(): AiConfigState {
         model: '',
         persona: 'gentle',
         companion: true,
+        capsule: false,
         proactive: true,
         ...(typeof parsed.model === 'string' ? { model: parsed.model } : {}),
         ...(parsed.persona === 'gentle' || parsed.persona === 'sharp' || parsed.persona === 'chuuni'
           ? { persona: parsed.persona }
           : {}),
         ...(typeof parsed.companion === 'boolean' ? { companion: parsed.companion } : {}),
+        ...(typeof parsed.capsule === 'boolean' ? { capsule: parsed.capsule } : {}),
         ...(typeof parsed.proactive === 'boolean' ? { proactive: parsed.proactive } : {}),
       };
       if ('apiKey' in parsed || 'endpoint' in parsed) {
@@ -95,7 +105,7 @@ function loadConfig(): AiConfigState {
   } catch {
     /* ignore */
   }
-  return { model: '', persona: 'gentle', companion: true, proactive: true };
+  return { model: '', persona: 'gentle', companion: true, capsule: false, proactive: true };
 }
 
 function loadDislikes(): string[] {
@@ -127,6 +137,7 @@ export const useAiStore = create<AiState>((set, get) => ({
       model: next.model,
       persona: next.persona,
       companion: next.companion,
+      capsule: next.capsule,
       proactive: next.proactive,
     };
     try {

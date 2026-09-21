@@ -61,7 +61,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .stats-cards {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -89,7 +89,7 @@
   grid-template-columns: 1.4fr 1fr;
   gap: 12px;
 }
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .stats-grid {
     grid-template-columns: 1fr;
   }

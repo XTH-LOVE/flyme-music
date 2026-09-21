@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { notify } from '@/utils/notify';
 import { setPlaybackFailure, clearPlaybackFailure } from './playbackFailure';
 import { isTauri } from '@/lib/apiTransport';
+import { needsSameOriginAudio } from './webAudio';
 import { PlayerEngine } from './PlayerEngine';
 import { PlayerQueue } from './PlayerQueue';
 import type { PlayerListener, PlayerSnapshot, RepeatMode } from './PlayerState';
@@ -289,7 +290,9 @@ class PlayerController {
    */
   private attachUrlFor(url: string): string {
     if (isTauri()) return url;
-    if (!useSettingsStore.getState().realSpectrum) return url;
+    // Either the visualiser or the audio chain needs it. Checking only the
+    // visualiser left the EQ silently dead whenever it was off.
+    if (!useSettingsStore.getState().realSpectrum && !needsSameOriginAudio()) return url;
     if (!/^https?:\/\//.test(url)) return url;
     return '/api/media-proxy?url=' + encodeURIComponent(url);
   }

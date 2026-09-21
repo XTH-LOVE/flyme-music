@@ -339,7 +339,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .am-sheet-root {
     align-items: center;
   }

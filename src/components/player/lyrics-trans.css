@@ -14,7 +14,7 @@
   opacity: 0.85;
   font-size: 0.62em;
 }
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .lyrics__line--active .lyrics__trans {
     font-size: 0.58em;
   }

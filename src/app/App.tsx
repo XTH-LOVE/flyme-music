@@ -36,6 +36,10 @@ import '@/styles/monet.css';
 import '@/styles/settings-miuix.css';
 import '@/styles/a11y.css';
 import '@/styles/halcyon-global.css';
+import { useState } from 'react';
+import { useIsMobileLayout } from '@/hooks/useIsMobileLayout';
+import { SplashScreen } from '@/components/SplashScreen';
+import { ConsentGate, hasConsented } from '@/components/ConsentGate';
 
 function PageFallback() {
   return (
@@ -48,8 +52,29 @@ function PageFallback() {
 }
 
 export function App() {
+  // Both screens belong to the phone experience. On a desktop window the app
+  // is already interactive by the time anything could be drawn over it, and a
+  // splash there is a curtain in front of a room the user can already see.
+  const mobileLayout = useIsMobileLayout();
+  const [splashDone, setSplashDone] = useState(false);
+  const [agreed, setAgreed] = useState(() => hasConsented());
+
+  // The routes are deliberately not mounted until consent is recorded.
+  //
+  // Rendering them underneath the gate would look the same and be wrong: the
+  // layout mounts the update check and the AI companion, both of which reach
+  // the network on mount. Agreeing first and collecting afterwards is the
+  // whole point of the gate, and a gate that lets the requests through is
+  // decoration.
+  const showSplash = mobileLayout && !splashDone;
+  const showConsent = mobileLayout && splashDone && !agreed;
+  const ready = !mobileLayout || (splashDone && agreed);
+
   return (
     <ErrorBoundary>
+      {showSplash ? <SplashScreen onDone={() => setSplashDone(true)} /> : null}
+      {showConsent ? <ConsentGate onAgree={() => setAgreed(true)} /> : null}
+      {ready ? (
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route element={<AppLayout />}>
@@ -79,6 +104,7 @@ export function App() {
           </Route>
         </Routes>
       </Suspense>
+      ) : null}
     </ErrorBoundary>
   );
 }

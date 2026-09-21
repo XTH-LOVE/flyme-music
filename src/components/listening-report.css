@@ -1,0 +1,164 @@
+/* The listening report. Reads as a page of prose with numbers in it, not as a
+   dashboard - hence the summary sentence carrying the weight and the grids
+   staying quiet underneath it. */
+
+.report {
+  margin: 0 0 24px;
+  padding: 20px 18px;
+  border-radius: var(--am-radius-xl, 20px);
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.08));
+  border: 1px solid var(--am-border-soft, rgba(120, 120, 140, 0.14));
+}
+
+.report__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.report__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--am-text-1);
+}
+
+.report__ranges {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--am-text-1, #fff) 6%, transparent);
+}
+
+.report__range {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--am-text-3);
+  cursor: pointer;
+  transition: color 140ms var(--am-ease-standard, ease);
+}
+
+.report__range--on {
+  color: var(--am-text-1);
+  background: var(--am-bg, #0e0e12);
+  font-weight: 600;
+}
+
+/* The sentence is the feature. Everything below it is supporting evidence. */
+.report__summary {
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--am-text-1);
+}
+
+.report__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+@media (max-width: 599px) {
+  .report__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.report__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.report__stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--am-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.report__stat-label {
+  font-size: 11.5px;
+  color: var(--am-text-3);
+}
+
+.report__lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 22px;
+  margin-top: 24px;
+}
+
+.report__list-title {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--am-text-3);
+}
+
+.report__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.report__item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 84px auto;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+
+.report__item-rank {
+  font-size: 11px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.report__item-label {
+  color: var(--am-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report__item-bar {
+  height: 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--am-text-1, #fff) 8%, transparent);
+  overflow: hidden;
+}
+
+.report__item-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--am-accent, #3d7bff);
+}
+
+.report__item-count {
+  font-size: 11.5px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.report__footnote {
+  margin: 22px 0 0;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--am-text-3);
+}

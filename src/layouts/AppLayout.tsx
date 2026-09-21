@@ -21,6 +21,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useBackgroundAnalysis } from '@/hooks/useBackgroundAnalysis';
 import { useEffect } from 'react';
 import { UpdateCapsule } from '@/components/UpdateCapsule';
+import { AiCapsule } from '@/components/AiCapsule';
 
 export function AppLayout() {
   usePlaybackSync();
@@ -76,6 +77,7 @@ export function AppLayout() {
   return (
     <div className="app-shell">
       <UpdateCapsule />
+      <AiCapsule />
       <MonetAccent />
       <Sidebar />
       <main className="app-main">

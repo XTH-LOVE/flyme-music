@@ -303,6 +303,13 @@ export function SettingsPage() {
         </div>
         <div className="settings-row">
           <div className="settings-row__body">
+            <div className="settings-row__title">悬浮入口</div>
+            <div className="settings-row__desc">在页面右下角显示一个 AI 悬浮胶囊，显示最新一句解读，点击进入「一起听」</div>
+          </div>
+          <Switch checked={ai.capsule} onChange={(v) => ai.setConfig({ capsule: v })} />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
             <div className="settings-row__title">主动陪伴</div>
             <div className="settings-row__desc">时段问候、连听关心与每周听歌报告</div>
           </div>

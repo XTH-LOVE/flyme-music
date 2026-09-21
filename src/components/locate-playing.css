@@ -45,7 +45,7 @@
   outline-offset: 3px;
 }
 
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .locate-playing {
     right: 28px;
     /* The nav is hidden from 960px up and the mini player moves to bottom: 20. */

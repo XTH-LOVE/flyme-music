@@ -23,6 +23,25 @@ export interface CommentarySong {
   source: string;
 }
 
+/**
+ * What the user's own listening says about this track.
+ *
+ * The commentary used to be handed the song and nothing about its listener, so
+ * every line it produced was a review - accurate, well-grounded, and addressed
+ * to nobody in particular. A companion is supposed to know you have played this
+ * eleven times since March; that is a fact the app already has and was simply
+ * not passing on.
+ */
+export interface ListeningHistory {
+  /** Times this track appears in the play log. */
+  playCount: number;
+  /** YYYY-MM-DD of the first play, when the log still reaches back that far. */
+  firstPlayed?: string;
+  /** YYYY-MM-DD of the most recent play. */
+  lastPlayed?: string;
+  favourited: boolean;
+}
+
 export interface CommentaryInput {
   /** The persona preamble (PERSONA_PROMPTS[persona]). */
   persona: string;
@@ -31,6 +50,8 @@ export interface CommentaryInput {
   lyric: string | null;
   /** Measured features, or null when the track could not be analysed. */
   card: AudioFeatures | null;
+  /** The user's own history with this track, or null when there is none. */
+  listening?: ListeningHistory | null;
 }
 
 const SHARED_RULES =
@@ -55,12 +76,39 @@ const GROUNDED_RULES =
  * rewrite exists to stop - so it is replaced by a prohibition rather than left
  * to the model's judgement.
  */
+/**
+ * Appended only when there is real history to speak from.
+ *
+ * Phrased as permission rather than instruction: a companion that opens every
+ * single time with "this is your twelfth listen" is a counter, not a companion.
+ * The prohibition is the important half - the numbers given are the only ones
+ * it may use, and a play count it rounds up is a lie about the user's own data.
+ */
+const LISTENING_RULES =
+  ' 你还知道这位用户自己的播放记录（听了几次、第一次与最近一次是什么时候、是否已收藏）。' +
+  '如果确实有记录，可以自然地带一句你认识他，例如「你从三月开始反复听这首」；' +
+  '但**不是每次都要提**，只在它真的能支撑你的观点时才用。' +
+  '**所有数字必须与给你的记录完全一致，不要四舍五入、不要推算、不要夸大。**' +
+  '记录里没有的东西就不要提。';
+
 const LYRICS_ONLY_RULES =
   SHARED_RULES +
   ' 本次**没有拿到音频实测数据**，你只能依据歌词与歌曲元数据（歌名/歌手/专辑）来谈：' +
   '歌词的主题、意象、叙事与人称，以及它直接传达的情绪。' +
   '**不要推断编曲、乐器、速度、调性或制作手法**，也不要使用"层层递进""弦乐铺陈"这类听起来具体、实际没有依据的描述。' +
   '如果没有歌词，就明确说「暂时没有拿到歌词」，只做最谨慎的判断，不要用想象补齐。';
+
+/** Rendered only when there is something to say; an empty block reads as data. */
+function listeningOf(history: ListeningHistory | null | undefined): string {
+  if (!history) return '';
+  const lines: string[] = [];
+  if (history.playCount > 0) lines.push('播放次数：' + history.playCount);
+  if (history.firstPlayed) lines.push('第一次播放：' + history.firstPlayed);
+  if (history.lastPlayed) lines.push('最近一次播放：' + history.lastPlayed);
+  if (history.favourited) lines.push('已收藏：是');
+  if (!lines.length) return '';
+  return '这位用户的播放记录：\n' + lines.join('\n');
+}
 
 function metadataOf(song: CommentarySong): string {
   return [
@@ -75,10 +123,13 @@ function metadataOf(song: CommentarySong): string {
 
 /** Build the system + user messages for one automatic commentary. */
 export function buildCommentaryMessages(input: CommentaryInput): AiChatMessage[] {
-  const { persona, song, lyric, card } = input;
-  const system = persona + (card ? GROUNDED_RULES : LYRICS_ONLY_RULES);
+  const { persona, song, lyric, card, listening } = input;
+  const history = listeningOf(listening);
+  const system =
+    persona + (card ? GROUNDED_RULES : LYRICS_ONLY_RULES) + (history ? LISTENING_RULES : '');
 
   const parts = ['刚切到一首新歌，请开始分析。\n' + metadataOf(song)];
+  if (history) parts.push('\n' + history);
   // The card goes before the lyrics: it is the part the model is asked to lead
   // with, and it is short enough that position costs nothing.
   if (card) parts.push('\n' + renderFactCard(card));

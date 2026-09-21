@@ -10,7 +10,7 @@
   }
 }
 
-@media (min-width: 960px) {
+@media (min-width: 1024px) {
   .am-sheet-root--drawer {
     align-items: stretch;
     justify-content: flex-end;

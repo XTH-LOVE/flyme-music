@@ -251,22 +251,62 @@ function toTrackAny(
 }
 
 /** 歌单详情：歌单元信息 + 完整歌曲列表（真实曲目，可直接播放）。 */
+/*
+ * Playlist details are kept for a while, and shared while in flight.
+ *
+ * Nothing was cached before, so opening a playlist, leaving, and opening it
+ * again re-fetched the whole thing - three or four round trips each time, and
+ * the same wait on the way back out. A playlist's contents do not change
+ * between two visits a few seconds apart.
+ *
+ * The in-flight map matters as much as the cache: a component that mounts
+ * twice - a re-render, or a navigation that unmounts and remounts - would
+ * otherwise issue two identical requests and wait for both.
+ *
+ * The signal is deliberately not forwarded. Passing it would let the first
+ * caller's unmount abort a request the second caller is also waiting on, and
+ * would leave the cache empty every time someone navigates away quickly - which
+ * is exactly when the cache is worth having.
+ */
+const PLAYLIST_TTL_MS = 10 * 60 * 1000;
+const playlistCache = new Map<string, { at: number; value: NetPlaylistDetail }>();
+const playlistInflight = new Map<string, Promise<NetPlaylistDetail>>();
+
 export async function getNeteasePlaylistDetail(
   playlistId: string,
   signal?: AbortSignal,
 ): Promise<NetPlaylistDetail> {
-  return withRiskRetry(async () => {
-  try {
-    return await fetchPlaylistDetailWeapi(playlistId, signal);
-  } catch (e) {
-    // weapi 是网易风控的重灾区（海外出口间歇性 -462，深夜尤甚）；
-    // 网易的老非加密接口不受该风控路径影响，作为兑底通道。
-    if (isRiskError(e) && !signal?.aborted) {
-      return getPlaylistDetailLegacy(playlistId, signal);
+  const cached = playlistCache.get(playlistId);
+  if (cached && Date.now() - cached.at < PLAYLIST_TTL_MS) return cached.value;
+
+  const running = playlistInflight.get(playlistId);
+  if (running) return running;
+
+  const request = withRiskRetry(async () => {
+    try {
+      return await fetchPlaylistDetailWeapi(playlistId);
+    } catch (e) {
+      // weapi 是网易风控的重灾区（海外出口间歇性 -462，深夜尤甚）；
+      // 网易的老非加密接口不受该风控路径影响，作为兑底通道。
+      if (isRiskError(e)) {
+        return getPlaylistDetailLegacy(playlistId);
+      }
+      throw e;
     }
-    throw e;
-  }
-  });
+  })
+    .then((value) => {
+      playlistCache.set(playlistId, { at: Date.now(), value });
+      return value;
+    })
+    .finally(() => {
+      playlistInflight.delete(playlistId);
+    });
+
+  playlistInflight.set(playlistId, request);
+  // Kept referenced so the request finishes and fills the cache even if the
+  // caller has already gone.
+  void signal;
+  return request;
 }
 
 function isRiskError(e: unknown): boolean {

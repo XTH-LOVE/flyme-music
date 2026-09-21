@@ -56,6 +56,11 @@ export function MePage() {
   const dislikes = useAiStore((s) => s.dislikes);
   const { data: legacySongs } = useSongs(recentTracks.length ? undefined : legacyRecentIds);
   const { data: favoriteSongs } = useSongs(favoriteIds);
+  // Rendered from the stored tracks, not from the ids: `useSongs` can only
+  // answer for mock songs, so anything liked from an online source resolved to
+  // nothing and the list stayed empty. `favoriteSongs` is kept only as the
+  // fallback for ids saved before tracks were stored.
+  const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
   const { data: allAlbums, loading: albumsLoading } = useAllAlbums();
   const { data: allArtists, loading: artistsLoading } = useAllArtists();
   const { data: netPlaylists, loading: netLoading } = useNeteaseRecommend();
@@ -256,7 +261,7 @@ export function MePage() {
           ))}
 
         {tab === 'favorite' &&
-          (favoriteSongs && favoriteSongs.length ? (
+          (favoriteTracks.length ? (
             <>
               <div className="backup-bar">
                 <span className="backup-bar__hint">收藏、歌单与听歌记录仅保存在本机</span>
@@ -283,8 +288,13 @@ export function MePage() {
               </div>
               {backupMsg ? <div className="settings-account-note">{backupMsg}</div> : null}
               <div className="song-list">
-                {favoriteSongs.map((s) => (
-                  <SongListItem key={s.id} song={s} context={favoriteSongs} />
+                {(favoriteTracks.length ? favoriteTracks : []).map((track, index) => (
+                  <TrackListItem
+                    key={track.id}
+                    track={track}
+                    index={index}
+                    context={favoriteTracks}
+                  />
                 ))}
               </div>
             </>

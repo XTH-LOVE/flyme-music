@@ -2,6 +2,7 @@ mod netease;
 mod ai;
 mod download;
 mod tags;
+mod media;
 
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::{Listener, Manager};
@@ -128,6 +129,10 @@ pub fn run() {
   // `window.open(url, "_system")`, which is why porting the update UI from
   // an Otter-style codebase looked like it should just work.
   builder = builder.plugin(tauri_plugin_opener::init());
+
+  // The notification-shade player. Android-only in effect: on other platforms
+  // this registers a plugin that does nothing.
+  builder = builder.plugin(media::init());
 
   builder
     .invoke_handler(tauri::generate_handler![

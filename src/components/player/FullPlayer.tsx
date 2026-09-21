@@ -584,7 +584,7 @@ export function FullPlayer() {
   const favButton = (
     <button
       className={'hc-iconbtn' + (fav ? ' hc-iconbtn--fav' : '')}
-      onClick={() => toggleFavorite(current.id)}
+      onClick={() => toggleFavorite(current)}
       aria-label={fav ? '取消喜欢' : '喜欢'}
     >
       <Icon name={fav ? 'heartFill' : 'heart'} size={20} />

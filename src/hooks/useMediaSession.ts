@@ -2,6 +2,13 @@ import { useEffect } from 'react';
 import { playerController } from '@/player';
 import { resolveTrackPic } from '@/music/source/track-resolver';
 import type { MusicTrack } from '@/music/source/types';
+import { isTauri } from '@/lib/apiTransport';
+import {
+  clearNativeNowPlaying,
+  onNativeMediaAction,
+  setNativePlaying,
+  updateNativeNowPlaying,
+} from '@/lib/nativeMedia';
 
 /**
  * Lockscreen cover, OS media keys and system playback controls via the
@@ -152,6 +159,87 @@ export function useMediaSession(): void {
       }
       media.metadata = null;
       media.playbackState = 'none';
+    };
+  }, []);
+
+  /**
+   * The Android notification, kept as its own effect.
+   *
+   * It must not sit inside the one above: that effect returns early when
+   * `navigator.mediaSession` is missing, and a Tauri WebView does not
+   * necessarily expose it - which is the whole reason the native path exists.
+   * Nesting it there would disable the fallback exactly when it is needed.
+   */
+  useEffect(() => {
+    if (!isTauri()) return;
+    let alive = true;
+
+    void onNativeMediaAction((action) => {
+      // Routed to the same controller the web path uses, so there is still one
+      // player making the decisions.
+      switch (action) {
+        case 'play':
+        case 'pause':
+          playerController.toggle();
+          break;
+        case 'next':
+          playerController.next();
+          break;
+        case 'previous':
+          playerController.previous();
+          break;
+        case 'stop':
+          playerController.pause();
+          break;
+      }
+    });
+
+    let lastKey = '';
+    const unsub = playerController.subscribe((snap) => {
+      const track = snap.current;
+      const key = track ? trackKeyOf(track) : '';
+
+      if (track && key !== lastKey) {
+        lastKey = key;
+        void artworkFor(track).then((artwork) => {
+          if (!alive) return;
+          // Artwork resolution is async; a stale result must not overwrite a
+          // track the user has already moved past.
+          const current = playerController.snapshot().current;
+          if (!current || trackKeyOf(current) !== key) return;
+          const cover = artwork[0]?.src;
+          void updateNativeNowPlaying({
+            title: track.name,
+            artist: track.artist.join(' / '),
+            album: track.album || undefined,
+            // Only a real URL: the plugin downloads the image, and local tracks
+            // produce a data: URL that HttpURLConnection cannot open.
+            cover: cover && /^https?:/i.test(cover) ? cover : undefined,
+            // The web API wants seconds; the plugin wants milliseconds.
+            duration: Number.isFinite(snap.duration) ? Math.round(snap.duration * 1000) : 0,
+            playing: snap.status === 'playing',
+          });
+        });
+        return;
+      }
+
+      if (!track) {
+        if (lastKey) {
+          lastKey = '';
+          void clearNativeNowPlaying();
+        }
+        return;
+      }
+
+      // Same track: only the play state can have changed, so the metadata and
+      // the cover fetch are skipped.
+      void setNativePlaying(snap.status === 'playing');
+    });
+
+    return () => {
+      alive = false;
+      unsub();
+      void clearNativeNowPlaying();
     };
   }, []);
 }

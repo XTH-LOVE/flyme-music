@@ -215,8 +215,10 @@ export function useMediaSession(): void {
             // Only a real URL: the plugin downloads the image, and local tracks
             // produce a data: URL that HttpURLConnection cannot open.
             cover: cover && /^https?:/i.test(cover) ? cover : undefined,
-            // The web API wants seconds; the plugin wants milliseconds.
-            duration: Number.isFinite(snap.duration) ? Math.round(snap.duration * 1000) : 0,
+            // Seconds here too - the plugin's own unit, and the same one the
+            // web API uses above, so there is no conversion to get wrong.
+            duration: Number.isFinite(snap.duration) ? snap.duration : 0,
+            position: Number.isFinite(snap.currentTime) ? snap.currentTime : 0,
             playing: snap.status === 'playing',
           });
         });

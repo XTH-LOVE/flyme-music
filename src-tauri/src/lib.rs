@@ -137,6 +137,9 @@ pub fn run() {
   builder
     .invoke_handler(tauri::generate_handler![
       netease::netease_post,
+      media::media_update_state,
+      media::media_update_timeline,
+      media::media_clear,
       ai::ai_status,
       ai::ai_models,
       ai::ai_chat_completions,

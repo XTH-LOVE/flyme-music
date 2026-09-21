@@ -7,6 +7,7 @@
   ],
   "permissions": [
     "core:default",
+    "media-session:default",
     "opener:default",
     {
       "identifier": "http:default",
@@ -18,11 +19,6 @@
           "url": "http://**"
         }
       ]
-    },
-    "allow-update-now-playing",
-    "allow-set-playing",
-    "allow-clear",
-    "allow-register-listener",
-    "allow-remove-listener"
+    }
   ]
 }

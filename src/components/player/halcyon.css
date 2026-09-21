@@ -745,13 +745,20 @@
   font-weight: 600;
   line-height: 1.45;
   color: #17181d;
-  /* Two lines rather than one: a single line ellipsised most lyrics away,
-     which made the strip look broken rather than concise. */
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* One row each, ellipsised. Two lines of text means the current line and the
+     one after it, not one line wrapped - a wrapped line would push its
+     successor out of the strip, which is the opposite of the point. */
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The line after this one. Dimmed rather than smaller: the two are the same
+   kind of thing, and a size difference reads as a hierarchy that is not there. */
+.hc-p-minilyric__line--next {
+  color: #17181d;
+  opacity: 0.45;
+  font-weight: 500;
   animation: hc-lyric-swap 360ms var(--am-ease-standard);
 }
 @keyframes hc-lyric-swap {

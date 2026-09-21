@@ -164,7 +164,13 @@ function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: 
   return <div className="hc-imm__lyric">{line?.text ?? ''}</div>;
 }
 
-/** Mobile cover page: single active lyric line right below the cover. */
+/**
+ * Mobile cover page: the current lyric line with the next one under it.
+ *
+ * Two lines rather than one, because a single line is not enough to sing along
+ * with - you see the words after you needed them. The second line is dimmed so
+ * the pair reads as "here" and "next" rather than as two equally current lines.
+ */
 function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
   const lines = useSungLines(track);
   // Same global timing correction the lyrics view applies, so the strip and the
@@ -177,11 +183,22 @@ function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime
     else break;
   }
   if (!lines.length || active < 0) return null;
+
+  const current = lines[active];
+  const upcoming = lines[active + 1];
+
   // key on the line index so React remounts the node and replays the swap animation
   return (
     <div className="hc-p-minilyric">
       <div key={track.id + '-' + active} className="hc-p-minilyric__line">
-        {lines[active].text || '· · ·'}
+        {current.text || '· · ·'}
+      </div>
+      {/*
+        Reserved even when there is no next line, so the block keeps its height
+        and the title underneath does not jump on the last line of a song.
+      */}
+      <div className="hc-p-minilyric__line hc-p-minilyric__line--next">
+        {upcoming?.text || ''}
       </div>
     </div>
   );

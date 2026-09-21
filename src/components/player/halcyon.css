@@ -766,7 +766,17 @@
   /* Long enough to read as movement, short enough that the next line has
      arrived by the time you look at it. */
   transition: transform 480ms var(--am-ease-out, cubic-bezier(0.22, 0.61, 0.36, 1));
-  will-change: transform;
+  /*
+   * Deliberately no `will-change`. It was here, and it is the wrong tool: the
+   * hint promotes the element to its own compositing layer for the whole life
+   * of the page, and this one is re-laid-out constantly - the player re-renders
+   * on every playback tick. The cost of maintaining that layer lands on the
+   * compositor and shows up as jank everywhere, not just here, which is why the
+   * cover started stuttering too.
+   *
+   * The transform still runs on the compositor without it. The hint buys
+   * nothing that matters here and costs something that does.
+   */
 }
 
 @media (prefers-reduced-motion: reduce) {

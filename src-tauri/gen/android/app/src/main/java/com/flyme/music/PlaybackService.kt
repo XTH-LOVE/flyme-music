@@ -9,6 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.support.v4.media.session.MediaButtonReceiver
+import android.support.v4.media.session.MediaSessionCompat
 import androidx.core.app.NotificationCompat
 
 /**
@@ -30,13 +32,12 @@ class PlaybackService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    // A transport button from the notification arrives here as a service start.
-    // It is handed to the plugin rather than acted on: the player is in the
-    // WebView and this service has no handle on it.
-    if (intent?.action == ACTION_MEDIA_BUTTON) {
-      val action = intent.getLongExtra(EXTRA_MEDIA_ACTION, 0L)
-      onMediaAction?.invoke(action)
-      // Nothing to foreground here - the service is already running.
+    // A transport button arrives as a service start. It goes through the
+    // official receiver rather than being read out of the extras by hand: the
+    // session's callback is what knows which action was requested, and it is
+    // the same path the lockscreen and a headset button take.
+    if (intent?.action == android.content.Intent.ACTION_MEDIA_BUTTON) {
+      mediaSession?.let { MediaButtonReceiver.handleIntent(it, intent) }
       return START_NOT_STICKY
     }
 
@@ -103,8 +104,14 @@ class PlaybackService : Service() {
     const val CHANNEL_ID = "flyme-music-playback"
     const val NOTIFICATION_ID = 1
 
-    const val ACTION_MEDIA_BUTTON = "com.flyme.music.MEDIA_BUTTON"
-    const val EXTRA_MEDIA_ACTION = "media_action"
+    /**
+     * The live session, set by `MediaPlugin`.
+     *
+     * Held here so the service can hand a media button to it. `MediaButtonReceiver`
+     * needs the session itself; there is no way to route the intent without it.
+     */
+    @Volatile
+    var mediaSession: MediaSessionCompat? = null
 
     @Volatile
     var isRunning = false
@@ -118,17 +125,6 @@ class PlaybackService : Service() {
      */
     @Volatile
     var mediaNotification: Notification? = null
-
-    /**
-     * Set by `MediaPlugin` so a shade button reaches the WebView.
-     *
-     * A plain callback rather than a MediaSession round-trip: the session's own
-     * callback already covers lock-screen and headset controls, and routing the
-     * notification buttons through it as well would need a MediaButtonReceiver
-     * for no behavioural difference.
-     */
-    @Volatile
-    var onMediaAction: ((Long) -> Unit)? = null
 
     /** Starts the service, tolerating the platform differences in the call. */
     fun start(context: Context) {

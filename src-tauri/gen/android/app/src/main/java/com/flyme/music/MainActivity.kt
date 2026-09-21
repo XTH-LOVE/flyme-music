@@ -26,10 +26,11 @@ class MainActivity : TauriActivity() {
     super.onStop()
   }
 
-  override fun onStart() {
-    super.onStart()
-    // Back in the foreground: the WebView runs normally, and an ongoing
-    // notification for an app the user is looking at is just noise.
-    PlaybackService.stop(this)
-  }
+  // onStart deliberately does not stop the service any more.
+  //
+  // It used to, back when the notification was a generic "running in the
+  // background" - a thing worth hiding while the user was looking at the app.
+  // The notification is now the media player, so stopping on return would make
+  // the controls vanish exactly when the user comes back to use them. The
+  // service is stopped by the player instead, when nothing is loaded.
 }

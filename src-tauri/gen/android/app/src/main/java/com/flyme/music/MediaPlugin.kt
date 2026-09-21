@@ -11,6 +11,7 @@ import android.app.PendingIntent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaButtonReceiver
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
@@ -120,6 +121,9 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun clear(invoke: Invoke) {
     NotificationManagerCompat.from(activity).cancel(PlaybackService.NOTIFICATION_ID)
+    // Nothing left to keep alive, and an ongoing notification for a stopped
+    // player is worse than none.
+    PlaybackService.stop(activity)
     session?.isActive = false
     title = ""
     artist = ""
@@ -155,19 +159,9 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
     })
     created.isActive = true
     session = created
+    // The service needs the session to route media buttons into it.
+    PlaybackService.mediaSession = created
 
-    // Shade buttons arrive as service starts (see the PendingIntent above), so
-    // the service needs a way back into the plugin.
-    PlaybackService.onMediaAction = { action ->
-      when (action) {
-        PlaybackStateCompat.ACTION_PLAY -> forward("play")
-        PlaybackStateCompat.ACTION_PAUSE -> forward("pause")
-        PlaybackStateCompat.ACTION_PLAY_PAUSE -> forward(if (playing) "pause" else "play")
-        PlaybackStateCompat.ACTION_SKIP_TO_NEXT -> forward("next")
-        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS -> forward("previous")
-        PlaybackStateCompat.ACTION_STOP -> forward("stop")
-      }
-    }
   }
 
   private fun forward(action: String) {
@@ -203,10 +197,18 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
   private fun publish() {
     val notification = buildNotification()
     PlaybackService.mediaNotification = notification
-    if (PlaybackService.isRunning) {
-      NotificationManagerCompat.from(activity)
-        .notify(PlaybackService.NOTIFICATION_ID, notification)
-    }
+
+    // Promote the service to the foreground as soon as there is something to
+    // show, rather than waiting for the app to go to the background.
+    //
+    // Two reasons. A media notification is only allowed to be persistent when
+    // it belongs to a foreground service, and on Android 13+ one posted by a
+    // background app is dropped outright. And the previous version only posted
+    // while the service was already running - which it was not until onStop -
+    // so pulling the shade down with the app open showed nothing at all.
+    PlaybackService.start(activity)
+    NotificationManagerCompat.from(activity)
+      .notify(PlaybackService.NOTIFICATION_ID, notification)
   }
 
   private fun buildNotification(): Notification {
@@ -230,17 +232,17 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
       .addAction(
         android.R.drawable.ic_media_previous,
         "上一首",
-        mediaButton(PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS, 1),
+        mediaButton(PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS),
       )
       .addAction(
         if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
         if (playing) "暂停" else "播放",
-        mediaButton(PlaybackStateCompat.ACTION_PLAY_PAUSE, 2),
+        mediaButton(PlaybackStateCompat.ACTION_PLAY_PAUSE),
       )
       .addAction(
         android.R.drawable.ic_media_next,
         "下一首",
-        mediaButton(PlaybackStateCompat.ACTION_SKIP_TO_NEXT, 3),
+        mediaButton(PlaybackStateCompat.ACTION_SKIP_TO_NEXT),
       )
 
     cover?.let { builder.setLargeIcon(it) }
@@ -254,16 +256,15 @@ class MediaPlugin(private val activity: Activity) : Plugin(activity) {
     return builder.build()
   }
 
-  /** Routes a shade button press into the MediaSession callback above. */
-  private fun mediaButton(action: Long, requestCode: Int): PendingIntent {
-    val intent = android.content.Intent(activity, PlaybackService::class.java)
-      .setAction(PlaybackService.ACTION_MEDIA_BUTTON)
-      .putExtra(PlaybackService.EXTRA_MEDIA_ACTION, action)
-    return PendingIntent.getService(
-      activity, requestCode, intent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
-  }
+  /**
+   * Routes a shade button press into the MediaSession callback above.
+   *
+   * The androidx helper, not a hand-built PendingIntent: it produces the
+   * ACTION_MEDIA_BUTTON intent the platform and the receiver expect, so the
+   * press reaches the session instead of being drawn and ignored.
+   */
+  private fun mediaButton(action: Long): PendingIntent =
+    MediaButtonReceiver.buildMediaButtonPendingIntent(activity, action)
 
   private fun loadCover(url: String) {
     coverPool.execute {

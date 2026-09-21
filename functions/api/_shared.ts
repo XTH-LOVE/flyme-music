@@ -42,14 +42,34 @@ export interface PagesContext {
  * (scripts burning the AI key, open-proxy abuse). Extra origins can be
  * whitelisted via the AURORA_ALLOWED_ORIGINS env var (comma separated hosts).
  */
-export function guard(request: Request, env: Env, scope: keyof typeof RATE_LIMITS): Response | null {
+export function guard(
+  request: Request,
+  env: Env,
+  scope: keyof typeof RATE_LIMITS,
+  /**
+   * Allow requests that carry no origin evidence at all.
+   *
+   * For a route that is opened by navigating to it - a download link handed to
+   * the system browser - there is no Origin header, because top-level
+   * navigations do not send one, and no Referer either. The origin check reads
+   * that absence as an attacker and rejects the legitimate case.
+   *
+   * Only safe where the route has its own restriction on what it will talk to,
+   * which is the stronger check anyway: the target allowlist is what stops a
+   * proxy being an open relay, and the origin never was.
+   */
+  opts?: { allowNavigation?: boolean },
+): Response | null {
   const input: GuardInput = {
     host: new URL(request.url).host,
     origin: request.headers.get('origin'),
     referer: request.headers.get('referer'),
     extraAllowed: (env.AURORA_ALLOWED_ORIGINS ?? '').split(','),
   };
-  if (!isAllowedRequest(input)) {
+  // A request that *does* carry evidence is still checked, so a fetch from a
+  // foreign page is rejected as before.
+  const hasEvidence = Boolean(input.origin?.trim() || input.referer?.trim());
+  if (!(opts?.allowNavigation && !hasEvidence) && !isAllowedRequest(input)) {
     return json({ error: 'origin not allowed' }, 403);
   }
   const ip =

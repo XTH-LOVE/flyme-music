@@ -201,3 +201,101 @@
   padding: 6px;
   display: flex;
 }
+
+/* ------------------------------------------------------------------
+ * The sign-in explainer card.
+ *
+ * These class names had no rules at all when the page was rewritten: the old
+ * stylesheet was written for the username/password form that used to be here,
+ * and nothing matched what replaced it. Everything rendered unstyled, which
+ * meant the mark rendered at its natural size - the "why is the icon enormous"
+ * that the rewrite caused.
+ *
+ * Kept alongside the old rules rather than replacing them, because the form's
+ * styles are still referenced elsewhere and deleting them is a separate change.
+ * ------------------------------------------------------------------ */
+
+.login-page__card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 380px;
+  margin: auto;
+  padding: 28px 24px 24px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  border-radius: var(--am-radius-lg, 20px);
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+}
+
+.login-page__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+/*
+ * The size is the fix. An <img> with no width renders at the file's own
+ * dimensions, which for a square mark is as large as the container allows.
+ */
+.login-page__mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+}
+
+.login-page__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--am-text-1);
+}
+
+.login-page__sub {
+  font-size: 12.5px;
+  color: var(--am-text-3);
+}
+
+.login-page__hint {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--am-surface-1, rgba(255, 255, 255, 0.04));
+}
+
+.login-page__hint p {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--am-text-2);
+}
+
+.login-page__hint svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--am-accent, #3482ff);
+}
+
+.login-page__submit {
+  width: 100%;
+  height: 46px;
+  font-size: 14.5px;
+}
+
+.login-page__ghost {
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--am-text-3);
+  cursor: pointer;
+}

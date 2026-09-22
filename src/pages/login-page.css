@@ -299,3 +299,148 @@
   color: var(--am-text-3);
   cursor: pointer;
 }
+
+/* ------------------------------------------------------------------
+ * The sign-in sheet.
+ *
+ * A code has to be readable, so it gets room: a sheet that dims the page and
+ * puts the code on its own surface, rather than squeezing it into the card.
+ *
+ * The frame is a fixed square in every state. Loading, waiting, expired and
+ * success all occupy the same box, so the panel never resizes while the user is
+ * holding a phone up to it - which is the one moment a layout shift is most
+ * expensive.
+ * ------------------------------------------------------------------ */
+
+.login-qr {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 8, 12, 0.55);
+  /* Blur rather than a darker scrim: the page stays legible underneath, so the
+     sheet reads as a layer over the app and not as a different screen. */
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  animation: login-qr-fade 180ms var(--am-ease-standard, ease-out) both;
+}
+
+@keyframes login-qr-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.login-qr__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 300px;
+  padding: 20px 20px 22px;
+  border: 1px solid var(--am-border-soft, rgba(255, 255, 255, 0.1));
+  border-radius: 24px;
+  background: var(--am-surface-elevated, #1c1c20);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  animation: login-qr-rise 240ms var(--am-ease-spring, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+@keyframes login-qr-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+.login-qr__head {
+  display: flex;
+  align-items: center;
+}
+
+.login-qr__title {
+  flex: 1 1 auto;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+
+.login-qr__close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: -6px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--am-text-3);
+  cursor: pointer;
+}
+
+.login-qr__frame {
+  position: relative;
+  width: 196px;
+  height: 196px;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  /* White regardless of theme: a QR code on a dark surface is a code some
+     cameras will not read, and this is the one place where contrast is not a
+     style choice. */
+  background: #fff;
+  overflow: hidden;
+}
+
+.login-qr__placeholder {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: #6b6b73;
+  cursor: pointer;
+}
+
+.login-qr__placeholder:disabled {
+  cursor: default;
+}
+
+.login-qr__veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 12.5px;
+  color: #3a3a42;
+  cursor: pointer;
+  animation: login-qr-fade 200ms ease-out both;
+}
+
+.login-qr__veil--ok {
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--am-accent, #3482ff);
+  cursor: default;
+}
+
+.login-qr__status {
+  min-height: 18px;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--am-text-3);
+  transition: color 200ms ease-out;
+}
+
+.login-qr__status--scanned,
+.login-qr__status--success {
+  color: var(--am-accent, #3482ff);
+}
+
+.login-qr__status--error {
+  color: #ff6b6b;
+}

@@ -168,11 +168,13 @@
   position: fixed;
   left: 12px;
   right: 12px;
-  /* 86px, not 70: the floating glass nav pill is 62px tall (a 50px bubble plus
-     5px padding and a 1px border on each side) and sits at 10px, so its top
-     edge is at 72px. At 70 the mini player overlapped it by 2px, which is what
-     made the two look welded together. 86 leaves a 14px gap. */
-  bottom: calc(86px + env(safe-area-inset-bottom));
+  /* 82px: the floating glass nav pill is 62px tall (a 50px bubble plus 5px
+     padding and a 1px border on each side) and sits at 6px, so its top edge is
+     at 68px. 82 leaves a 14px gap.
+     The two numbers move together - lowering the nav without lowering this
+     would close the gap, and at 70 the mini player overlapped the nav by 2px,
+     which is what made the two look welded together. */
+  bottom: calc(82px + env(safe-area-inset-bottom));
   z-index: 120;
   cursor: pointer;
 }

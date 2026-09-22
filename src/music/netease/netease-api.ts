@@ -278,6 +278,19 @@ const PLAYLIST_TTL_MS = 60 * 60 * 1000;
 const playlistCache = new Map<string, { at: number; value: NetPlaylistDetail }>();
 const playlistInflight = new Map<string, Promise<NetPlaylistDetail>>();
 
+/**
+ * Drops the playlist cache.
+ *
+ * Exported for tests, and worth having anyway: the cache is module-level and
+ * outlives a single call, so a test that expects a second call to fail will get
+ * the first call's result instead. That is what it is for in production and
+ * exactly what is wrong in a test.
+ */
+export function clearPlaylistCache(): void {
+  playlistCache.clear();
+  playlistInflight.clear();
+}
+
 export async function getNeteasePlaylistDetail(
   playlistId: string,
   signal?: AbortSignal,

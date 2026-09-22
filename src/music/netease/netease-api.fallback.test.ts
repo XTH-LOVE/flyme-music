@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { clearPlaylistCache } from './netease-api';
 
 // 纯 node 环境：isTauri() 为 false，全部走 fetch 分支。
 afterEach(() => {
   vi.unstubAllGlobals();
+  // The playlist cache is module-level and survives between cases, so a test
+  // that expects the second call to fail would get the first call's result.
+  clearPlaylistCache();
 });
 
 function weapiEnvelope(json: unknown): Response {

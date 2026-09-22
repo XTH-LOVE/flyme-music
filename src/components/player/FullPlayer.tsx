@@ -376,6 +376,8 @@ export function FullPlayer() {
   const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
   const volume = usePlayerStore((s) => s.volume);
+  const loopA = usePlayerStore((s) => s.loopA);
+  const loopB = usePlayerStore((s) => s.loopB);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const repeat = usePlayerStore((s) => s.repeat);
   const lyricsMode = usePlayerStore((s) => s.lyricsMode);
@@ -687,6 +689,23 @@ export function FullPlayer() {
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
       <BottomSheet open={moreOpen} title="更多操作" onClose={() => setMoreOpen(false)}>
         <div className="hc-more">
+          {/*
+            One control for three states, because that is the gesture: press
+            where the part starts, press again where it ends, press once more to
+            stop. The label says which press this will be, so the user never has
+            to remember.
+          */}
+          <button
+            className={loopA !== null ? 'hc-more__on' : undefined}
+            onClick={() => playerController.markLoopPoint()}
+          >
+            <Icon name="repeat" size={18} />
+            {loopA === null
+              ? 'A-B 循环'
+              : loopB === null
+                ? '标记 B 点（已标记 A：' + formatTime(loopA) + '）'
+                : '取消 A-B 循环（' + formatTime(loopA) + ' → ' + formatTime(loopB) + '）'}
+          </button>
           <button onClick={() => toggleImmersive()}>
             <Icon name="album" size={18} />
             {immersive ? '退出沉浸封面' : '沉浸封面模式'}

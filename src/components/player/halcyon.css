@@ -998,3 +998,8 @@
 .hc--still .hc-bg__flow--live {
   animation: none;
 }
+
+/* An A-B mark is set: the row reads as active rather than as another action. */
+.hc-more__on {
+  color: var(--am-accent, #3482ff);
+}

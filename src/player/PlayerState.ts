@@ -11,6 +11,15 @@ export interface PlayerSnapshot {
   currentTime: number;
   duration: number;
   volume: number;
+  /**
+   * A-B repeat marks in seconds, or null when unset.
+   *
+   * Exposed so the control can show which of the three states it is in - off,
+   * waiting for the end mark, or looping - without keeping a copy of the
+   * player's own state.
+   */
+  loopA: number | null;
+  loopB: number | null;
   /** Engine playback rate (0.5-3x); needed so the OS can interpolate position. */
   speed: number;
   queue: MusicTrack[];

@@ -203,53 +203,59 @@
 }
 
 /* ------------------------------------------------------------------
- * The sign-in explainer card.
+ * The sign-in card.
  *
- * These class names had no rules at all when the page was rewritten: the old
- * stylesheet was written for the username/password form that used to be here,
- * and nothing matched what replaced it. Everything rendered unstyled, which
- * meant the mark rendered at its natural size - the "why is the icon enormous"
- * that the rewrite caused.
+ * Built from the project's own tokens, the same ones the sheets and the mini
+ * player use. The first version used hand-picked greys, which is how a page
+ * ends up looking like it belongs to a different app.
  *
- * Kept alongside the old rules rather than replacing them, because the form's
- * styles are still referenced elsewhere and deleting them is a separate change.
+ * The mark is the one thing that needed a size: an <img> with no width renders
+ * at the file's own dimensions, which is what made the icon enormous.
  * ------------------------------------------------------------------ */
+
+.login-page {
+  display: flex;
+  min-height: 100dvh;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+}
 
 .login-page__card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   width: 100%;
-  max-width: 380px;
+  max-width: 360px;
   margin: auto;
-  padding: 28px 24px 24px;
-  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
-  border-radius: var(--am-radius-lg, 20px);
-  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+  padding: 30px 24px 24px;
+  border: 1px solid var(--am-glass-border, var(--am-border-soft));
+  border-radius: var(--am-radius-xl, 20px);
+  background: var(--am-glass, var(--am-surface));
+  backdrop-filter: blur(var(--am-glass-blur, 30px)) saturate(var(--am-glass-saturate, 1.5));
+  -webkit-backdrop-filter: blur(var(--am-glass-blur, 30px)) saturate(var(--am-glass-saturate, 1.5));
+  box-shadow: var(--am-glass-shadow, 0 12px 40px rgba(16, 16, 20, 0.14));
 }
 
 .login-page__brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-align: center;
 }
 
-/*
- * The size is the fix. An <img> with no width renders at the file's own
- * dimensions, which for a square mark is as large as the container allows.
- */
+/* The size is the fix for the enormous icon. */
 .login-page__mark {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
   object-fit: cover;
+  box-shadow: 0 6px 20px rgba(16, 16, 20, 0.16);
 }
 
 .login-page__title {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--am-text-1);
 }
 
@@ -261,16 +267,17 @@
 .login-page__hint {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 11px;
   padding: 14px 16px;
-  border-radius: 14px;
-  background: var(--am-surface-1, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--am-border-soft);
+  border-radius: var(--am-radius-lg, 16px);
+  background: var(--am-surface-1, rgba(255, 255, 255, 0.72));
 }
 
 .login-page__hint p {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 9px;
   margin: 0;
   font-size: 12.5px;
   line-height: 1.55;
@@ -285,8 +292,21 @@
 
 .login-page__submit {
   width: 100%;
-  height: 46px;
-  font-size: 14.5px;
+  height: 48px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--am-accent, #3482ff);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--am-accent, #3482ff) 34%, transparent);
+  transition: transform 160ms var(--am-ease-standard, ease-out);
+}
+
+.login-page__submit:active {
+  transform: scale(0.975);
 }
 
 .login-page__ghost {
@@ -303,13 +323,20 @@
 /* ------------------------------------------------------------------
  * The sign-in sheet.
  *
- * A code has to be readable, so it gets room: a sheet that dims the page and
- * puts the code on its own surface, rather than squeezing it into the card.
+ * Built from the project's own glass tokens rather than from colours chosen
+ * here. The first version hardcoded a dark panel and a dark scrim, which is
+ * wrong in the light theme - it rendered as a black rectangle over a white
+ * page. Every value below already exists in the design system and follows the
+ * theme on its own.
  *
- * The frame is a fixed square in every state. Loading, waiting, expired and
- * success all occupy the same box, so the panel never resizes while the user is
- * holding a phone up to it - which is the one moment a layout shift is most
- * expensive.
+ * The scrim is a blur and nothing else, which is what the rest of the app does
+ * (see .am-sheet-scrim). A dark overlay is a different design language; this
+ * one keeps the page visible underneath and treats the sheet as a pane of glass
+ * laid over it.
+ *
+ * The frame is a fixed square in every state, so the panel never resizes while
+ * the user is holding a phone up to it - the one moment a layout shift costs
+ * the most.
  * ------------------------------------------------------------------ */
 
 .login-qr {
@@ -319,11 +346,9 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(8, 8, 12, 0.55);
-  /* Blur rather than a darker scrim: the page stays legible underneath, so the
-     sheet reads as a layer over the app and not as a different screen. */
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  /* No background colour. The blur is the separation. */
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
   animation: login-qr-fade 180ms var(--am-ease-standard, ease-out) both;
 }
 
@@ -340,10 +365,13 @@
   width: 100%;
   max-width: 300px;
   padding: 20px 20px 22px;
-  border: 1px solid var(--am-border-soft, rgba(255, 255, 255, 0.1));
-  border-radius: 24px;
-  background: var(--am-surface-elevated, #1c1c20);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--am-glass-border, var(--am-border-soft));
+  border-radius: var(--am-radius-xl, 20px);
+  /* The design system's glass surface, which is already theme-aware. */
+  background: var(--am-glass, var(--am-surface));
+  backdrop-filter: blur(var(--am-glass-blur, 30px)) saturate(var(--am-glass-saturate, 1.5));
+  -webkit-backdrop-filter: blur(var(--am-glass-blur, 30px)) saturate(var(--am-glass-saturate, 1.5));
+  box-shadow: var(--am-glass-shadow, 0 12px 40px rgba(16, 16, 20, 0.14));
   animation: login-qr-rise 240ms var(--am-ease-spring, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
 
@@ -386,10 +414,12 @@
   margin: 0 auto;
   display: grid;
   place-items: center;
-  border-radius: 16px;
-  /* White regardless of theme: a QR code on a dark surface is a code some
-     cameras will not read, and this is the one place where contrast is not a
-     style choice. */
+  border-radius: var(--am-radius-lg, 16px);
+  /*
+   * White regardless of theme, and the one place here where that is not a
+   * style choice: a QR code on a dark surface is a code some cameras will not
+   * read.
+   */
   background: #fff;
   overflow: hidden;
 }

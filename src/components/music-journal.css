@@ -1,0 +1,93 @@
+/*
+ * The music journal.
+ *
+ * A list of days, each a line of track names. Closer to a notebook than to a
+ * chart: no bars, no numbers competing with the words, because the words are
+ * the point - reading back what you played is the whole feature.
+ */
+.journal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  border-radius: var(--am-radius-lg, 18px);
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+}
+
+.journal--empty {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--am-text-3);
+}
+
+.journal__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.journal__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+
+.journal__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.journal__day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.journal__when {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.journal__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--am-text-2);
+}
+
+.journal__count {
+  font-size: 11.5px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.journal__tracks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.journal__track {
+  font-size: 12.5px;
+  color: var(--am-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* The repeat count sits under the name rather than beside it at full weight:
+   it is a footnote to the track, not a second piece of information. */
+.journal__track em {
+  margin-left: 3px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--am-text-3);
+}

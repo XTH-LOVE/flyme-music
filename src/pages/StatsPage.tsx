@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { ListeningCalendar } from '@/components/ListeningCalendar';
+import { TimeMachine } from '@/components/TimeMachine';
+import { MusicJournal } from '@/components/MusicJournal';
 import { OS3Wallpaper } from '@/components/OS3Wallpaper';
 import { TrackCover } from '@/components/TrackCover';
 import { useLibraryStore } from '@/store/useLibraryStore';
@@ -108,6 +110,14 @@ export function StatsPage() {
           <em>累计播放</em>
         </div>
       </div>
+
+      {/*
+        Above the numbers on purpose. A total is a scoreboard; a date is a
+        memory, and the memory is the reason someone opens this page twice.
+      */}
+      <TimeMachine />
+
+      <MusicJournal />
 
       <div className="stats-cards">
         <div className="stats-card">

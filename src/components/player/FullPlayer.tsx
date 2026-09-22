@@ -43,6 +43,7 @@ import './fullplayer.css';
 import './halcyon.css';
 import './QueueEnhance.css';
 import './immersive.css';
+import { useBookmarkStore } from '@/store/useBookmarkStore';
 
 const SOURCE_LABEL: Record<string, string> = {
   netease: '网易云',
@@ -376,6 +377,15 @@ export function FullPlayer() {
   const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
   const volume = usePlayerStore((s) => s.volume);
+  const loopA = usePlayerStore((s) => s.loopA);
+  const bookmarks = useBookmarkStore((s) => s.bookmarks);
+  const addBookmark = useBookmarkStore((s) => s.add);
+  const removeBookmark = useBookmarkStore((s) => s.remove);
+  // Derived defensively: this runs before the guard that rejects a null
+  // current, and an empty key simply matches nothing.
+  const trackKey = current ? current.source + ':' + current.id : '';
+  const trackBookmarks = bookmarks.filter((b) => b.trackKey === trackKey && trackKey !== '');
+  const loopB = usePlayerStore((s) => s.loopB);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const repeat = usePlayerStore((s) => s.repeat);
   const lyricsMode = usePlayerStore((s) => s.lyricsMode);
@@ -687,6 +697,60 @@ export function FullPlayer() {
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
       <BottomSheet open={moreOpen} title="更多操作" onClose={() => setMoreOpen(false)}>
         <div className="hc-more">
+          {/*
+            One control for three states, because that is the gesture: press
+            where the part starts, press again where it ends, press once more to
+            stop. The label says which press this will be, so the user never has
+            to remember.
+          */}
+          <button
+            className={loopA !== null ? 'hc-more__on' : undefined}
+            onClick={() => playerController.markLoopPoint()}
+          >
+            <Icon name="repeat" size={18} />
+            {loopA === null
+              ? 'A-B 循环'
+              : loopB === null
+                ? '标记 B 点（已标记 A：' + formatTime(loopA) + '）'
+                : '取消 A-B 循环（' + formatTime(loopA) + ' → ' + formatTime(loopB) + '）'}
+          </button>
+          <button
+            onClick={() => {
+              addBookmark(trackKey, currentTime, '');
+              notify('已在此处加书签');
+            }}
+          >
+            <Icon name="clock" size={18} />
+            在此处加书签
+          </button>
+          {trackBookmarks.length ? (
+            <div className="hc-more__group">
+              {trackBookmarks
+                .slice()
+                .sort((a, b) => a.time - b.time)
+                .map((mark) => (
+                  <div key={mark.id} className="hc-more__mark">
+                    <button
+                      className="hc-more__mark-go"
+                      onClick={() => {
+                        playerController.seek(mark.time);
+                        setMoreOpen(false);
+                      }}
+                    >
+                      <span className="hc-more__mark-time">{formatTime(mark.time)}</span>
+                      {mark.note ? <span className="hc-more__mark-note">{mark.note}</span> : null}
+                    </button>
+                    <button
+                      className="hc-more__mark-del"
+                      onClick={() => removeBookmark(mark.id)}
+                      aria-label="删除书签"
+                    >
+                      <Icon name="close" size={15} />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          ) : null}
           <button onClick={() => toggleImmersive()}>
             <Icon name="album" size={18} />
             {immersive ? '退出沉浸封面' : '沉浸封面模式'}

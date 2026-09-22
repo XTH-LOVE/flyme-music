@@ -998,3 +998,72 @@
 .hc--still .hc-bg__flow--live {
   animation: none;
 }
+
+/* An A-B mark is set: the row reads as active rather than as another action. */
+.hc-more__on {
+  color: var(--am-accent, #3482ff);
+}
+
+/* An A-B mark is set: the row reads as active rather than as another action. */
+.hc-more__on {
+  color: var(--am-accent, #3482ff);
+}
+
+/* Bookmarks inside the more sheet: a list of moments, each one a jump. */
+.hc-more__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px;
+  padding-left: 10px;
+  /* A rule rather than a box: these belong to the track above, and a border
+     would make them look like a separate section. */
+  border-left: 2px solid var(--am-border-soft, rgba(130, 130, 150, 0.18));
+}
+
+.hc-more__mark {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hc-more__mark-go {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--am-text-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hc-more__mark-time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--am-accent, #3482ff);
+}
+
+.hc-more__mark-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-more__mark-del {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--am-text-3);
+  cursor: pointer;
+}

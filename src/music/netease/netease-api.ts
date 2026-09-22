@@ -251,22 +251,68 @@ function toTrackAny(
 }
 
 /** 歌单详情：歌单元信息 + 完整歌曲列表（真实曲目，可直接播放）。 */
+/*
+ * Playlist details are kept for a while, and shared while in flight.
+ *
+ * Nothing was cached before, so opening a playlist, leaving, and opening it
+ * again re-fetched the whole thing - three or four round trips each time, and
+ * the same wait on the way back out. A playlist's contents do not change
+ * between two visits a few seconds apart.
+ *
+ * The in-flight map matters as much as the cache: a component that mounts
+ * twice - a re-render, or a navigation that unmounts and remounts - would
+ * otherwise issue two identical requests and wait for both.
+ *
+ * The signal is deliberately not forwarded. Passing it would let the first
+ * caller's unmount abort a request the second caller is also waiting on, and
+ * would leave the cache empty every time someone navigates away quickly - which
+ * is exactly when the cache is worth having.
+ */
+/*
+ * An hour, which is what Otter Music uses for the same call.
+ *
+ * A playlist's contents do not change on the scale of a listening session, and
+ * the cost of being wrong is one stale list until the hour is up.
+ */
+const PLAYLIST_TTL_MS = 60 * 60 * 1000;
+const playlistCache = new Map<string, { at: number; value: NetPlaylistDetail }>();
+const playlistInflight = new Map<string, Promise<NetPlaylistDetail>>();
+
 export async function getNeteasePlaylistDetail(
   playlistId: string,
   signal?: AbortSignal,
 ): Promise<NetPlaylistDetail> {
-  return withRiskRetry(async () => {
-  try {
-    return await fetchPlaylistDetailWeapi(playlistId, signal);
-  } catch (e) {
-    // weapi 是网易风控的重灾区（海外出口间歇性 -462，深夜尤甚）；
-    // 网易的老非加密接口不受该风控路径影响，作为兑底通道。
-    if (isRiskError(e) && !signal?.aborted) {
-      return getPlaylistDetailLegacy(playlistId, signal);
+  const cached = playlistCache.get(playlistId);
+  if (cached && Date.now() - cached.at < PLAYLIST_TTL_MS) return cached.value;
+
+  const running = playlistInflight.get(playlistId);
+  if (running) return running;
+
+  const request = withRiskRetry(async () => {
+    try {
+      return await fetchPlaylistDetailWeapi(playlistId);
+    } catch (e) {
+      // weapi 是网易风控的重灾区（海外出口间歇性 -462，深夜尤甚）；
+      // 网易的老非加密接口不受该风控路径影响，作为兑底通道。
+      if (isRiskError(e)) {
+        return getPlaylistDetailLegacy(playlistId);
+      }
+      throw e;
     }
-    throw e;
-  }
-  });
+  })
+    .then((value) => {
+      playlistCache.set(playlistId, { at: Date.now(), value });
+      return value;
+    })
+    .finally(() => {
+      playlistInflight.delete(playlistId);
+    });
+
+  playlistInflight.set(playlistId, request);
+  // Kept referenced so the request finishes and fills the cache even if the
+  // caller has already gone.
+  void signal;
+  return request;
 }
 
 function isRiskError(e: unknown): boolean {
@@ -317,20 +363,45 @@ async function fetchPlaylistDetailWeapi(playlistId: string, signal?: AbortSignal
   const pl = detail.playlist;
   if (!pl) throw codeError('netease playlist detail', detail.code);
 
-  const ids = (pl.trackIds ?? []).slice(0, 300).map((t) => t.id);
-  const tracks: MusicTrack[] = [];
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    const songs = await callWeapi<{ songs?: RawSong[] }>(
-      '/weapi/v3/song/detail',
-      {
-        c: JSON.stringify(chunk.map((id) => ({ id }))),
-        ids: JSON.stringify(chunk),
-      },
-      signal,
-    );
-    tracks.push(...(songs.songs ?? []).map(toTrack));
-  }
+  // 500 per request means a large playlist still costs a handful of round trips.
+  const ids = (pl.trackIds ?? []).slice(0, 1000).map((t) => t.id);
+
+  /*
+   * The chunks go out together, not one after another.
+   *
+   * They used to be awaited in a loop, so a three-hundred track playlist was
+   * three round trips in series - each one a second or two against this API -
+   * and the page sat empty for five seconds while they completed. The work is
+   * independent, so there was never a reason for it to be sequential.
+   *
+   * Promise.all preserves the input order, so the tracks stay in playlist
+   * order without any sorting afterwards.
+   */
+  /*
+   * One hundred per request.
+   *
+   * This was raised to five hundred to match Otter Music, and it made things
+   * three times slower rather than faster - so the difference between the two
+   * implementations is somewhere else, and this number was not it. Reverted
+   * until the actual cause is known; a change that makes things worse is not a
+   * change worth keeping while guessing.
+   */
+  const chunks: number[][] = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+
+  const pages = await Promise.all(
+    chunks.map((chunk) =>
+      callWeapi<{ songs?: RawSong[] }>(
+        '/weapi/v3/song/detail',
+        {
+          c: JSON.stringify(chunk.map((id) => ({ id }))),
+          ids: JSON.stringify(chunk),
+        },
+        signal,
+      ),
+    ),
+  );
+  const tracks: MusicTrack[] = pages.flatMap((page) => (page.songs ?? []).map(toTrack));
 
   return {
     meta: {

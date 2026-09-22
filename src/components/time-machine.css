@@ -1,0 +1,91 @@
+/*
+ * The time machine card.
+ *
+ * Deliberately quieter than the rest of the stats page: it is a memory, not a
+ * scoreboard, so it reads as a note rather than as another chart.
+ */
+.tm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  border-radius: var(--am-radius-lg, 18px);
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+}
+
+.tm-card--empty {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  color: var(--am-text-3);
+}
+
+.tm-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tm-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+
+.tm-card__date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--am-text-3);
+}
+
+.tm-card__count {
+  font-size: 13px;
+  color: var(--am-text-2);
+}
+
+.tm-card__count strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--am-accent, #3482ff);
+  margin: 0 2px;
+}
+
+.tm-card__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tm-card__list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--am-text-2);
+}
+
+.tm-card__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tm-card__times {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--am-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.tm-card__sub,
+.tm-card__note {
+  font-size: 12px;
+  color: var(--am-text-3);
+  line-height: 1.5;
+}

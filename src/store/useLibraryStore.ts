@@ -4,6 +4,49 @@ import type { MusicTrack } from '@/music/source/types';
 const MAX_RECENT = 30;
 const MAX_HISTORY = 12;
 const MAX_PLAY_LOG = 500;
+/** A year of days. At one small row per day this is a rounding error in size. */
+const MAX_DAY_LOG = 366;
+
+/**
+ * The local date, as `YYYY-MM-DD`.
+ *
+ * Built from the local parts rather than from `toISOString`, which would give
+ * the UTC date - and would file an eleven-at-night play under tomorrow for
+ * anyone east of Greenwich, which is exactly where this app's users are.
+ */
+function localDate(at: Date): string {
+  const month = String(at.getMonth() + 1).padStart(2, '0');
+  const day = String(at.getDate()).padStart(2, '0');
+  return at.getFullYear() + '-' + month + '-' + day;
+}
+
+/**
+ * One day's listening, kept for a year.
+ *
+ * The detailed play log below holds 500 entries, which a heavy listener fills
+ * in a few weeks - long enough to show "recently played", far too short to look
+ * back at. This is the shape that can answer "what was I listening to a year
+ * ago": one row per day, no track objects, small enough that a year of it costs
+ * less than a week of the detailed log.
+ *
+ * `top` holds track keys with their play counts rather than the tracks
+ * themselves, for the same reason - a key is a few dozen bytes.
+ */
+export interface DayLog {
+  /** Local date, `YYYY-MM-DD`. Local because "yesterday" is a local question. */
+  date: string;
+  plays: number;
+  /**
+   * The day's most played tracks, most played first.
+   *
+   * The name travels with the key because a key alone cannot be resolved later
+   * - the detailed log it would be looked up in holds 500 entries and will have
+   * rolled over long before a year has passed. Five is enough to say what the
+   * day sounded like, and small enough that a year of it is under a hundred
+   * kilobytes.
+   */
+  top: { key: string; name: string; count: number }[];
+}
 
 export interface PlayLogEntry {
   key: string;
@@ -32,6 +75,7 @@ interface LibraryState {
   searchHistory: string[];
   /** Timestamped play log feeding the stats / listening-calendar page. */
   playLog: PlayLogEntry[];
+  dayLog: DayLog[];
   playSong: (songId: string) => void;
   recordTrack: (track: MusicTrack) => void;
   toggleFavorite: (track: MusicTrack) => void;
@@ -75,6 +119,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   favoriteTracks: load('aurora.favoriteTracks.v1', [] as MusicTrack[]),
   searchHistory: load('aurora.searchHistory', [] as string[]),
   playLog: load('aurora.playLog.v1', [] as PlayLogEntry[]),
+  dayLog: load('aurora.dayLog.v1', [] as DayLog[]),
 
   playSong: (songId) => {
     const next = [songId, ...get().recentSongIds.filter((id) => id !== songId)].slice(
@@ -104,7 +149,31 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const nextLog = [entry, ...log].slice(0, MAX_PLAY_LOG);
     save('aurora.playLog.v1', nextLog);
 
-    set({ recentTracks: next, playLog: nextLog });
+    // One row per day, so "a year ago today" stays answerable after the
+    // detailed log above has rolled over several times.
+    const today = localDate(new Date());
+    const days = get().dayLog;
+    const existing = days.find((d) => d.date === today);
+    const counts = new Map<string, { key: string; name: string; count: number }>(
+      (existing?.top ?? []).map((t) => [t.key, t]),
+    );
+    const previous = counts.get(entry.key);
+    counts.set(entry.key, {
+      key: entry.key,
+      name: previous?.name ?? entry.name,
+      count: (previous?.count ?? 0) + 1,
+    });
+    const day: DayLog = {
+      date: today,
+      plays: (existing?.plays ?? 0) + 1,
+      top: [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5),
+    };
+    const nextDays = [day, ...days.filter((d) => d.date !== today)]
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, MAX_DAY_LOG);
+    save('aurora.dayLog.v1', nextDays);
+
+    set({ recentTracks: next, playLog: nextLog, dayLog: nextDays });
   },
 
   toggleFavorite: (track) => {

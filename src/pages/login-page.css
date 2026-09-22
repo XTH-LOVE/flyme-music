@@ -1,203 +1,369 @@
-/* ---------- 全屏登录页（QQ 音乐风格） ---------- */
-.login-page {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100dvh - 235px);
-  padding-top: 10px;
-}
-.login-page__back {
-  position: absolute;
-  top: 2px;
-  left: -8px;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--am-text-1);
+/*
+ * The sign-in page.
+ *
+ * A full page, not a card floating in one. It is the front door of a music
+ * player; a small box in the middle reads as an interruption, and there is no
+ * reason for the door to be smaller than the room.
+ *
+ * Everything comes from the design system - --am-glass and its blur, the
+ * --am-surface ramp, --am-text-*, --am-radius-*. Nothing here is a colour
+ * chosen in this file, which is what made the previous version render as a
+ * black rectangle over a white page in the light theme.
+ *
+ * Two columns at 1024 and up, one below. The project's other pages break at 600
+ * and 1024, and a page that broke somewhere else would feel like it belonged to
+ * a different app at exactly the widths where that is most obvious.
+ *
+ * Nothing slides or fades in on load. The layout is fixed and the states change
+ * in place, because a page that moves while someone is holding a phone up to a
+ * code is harder to use at the moment it matters.
+ */
+
+.signin {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  min-height: 100dvh;
+  padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
 }
-.login-page__back--right {
-  left: auto;
-  right: -8px;
+
+.signin__inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  width: 100%;
+  max-width: 440px;
 }
-.login-page__title {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-align: center;
-  margin: 6px 0 44px;
-}
-.login-page__form {
+
+/* ---------- the left column: what this account is ---------- */
+
+.signin__intro {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  align-items: flex-start;
+  gap: 10px;
 }
-.login-page__field {
-  width: 100%;
-  min-height: 62px;
-  padding: 0 52px;
-  border: 0;
-  border-radius: 31px;
-  background: var(--am-surface);
-  box-shadow: 0 4px 20px rgba(16, 16, 20, 0.06);
-  color: var(--am-text-1);
-  font-family: inherit;
-  font-size: 16px;
-  text-align: center;
-  outline: 0;
-  transition: box-shadow var(--am-motion-normal) var(--am-ease-standard);
+
+.signin__mark img {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  object-fit: cover;
+  /* A size is not decoration here: an <img> with no width renders at the
+     file's own dimensions, which is what made the icon enormous. */
+  box-shadow: var(--am-glass-shadow, 0 12px 40px rgba(16, 16, 20, 0.14));
 }
-.login-page__field:focus {
-  box-shadow: 0 4px 24px rgba(16, 16, 20, 0.1), 0 0 0 2px var(--am-accent-soft);
-}
-.login-page__field::placeholder {
-  color: var(--am-text-3);
-  font-weight: 500;
-}
-.login-page__msg {
-  margin-top: 14px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--am-danger);
-}
-.login-page__submit {
-  margin-top: 26px;
-  width: 100%;
-  min-height: 62px;
-  border: 0;
-  border-radius: 32px;
-  background: color-mix(in srgb, var(--am-accent) 45%, var(--am-surface-2));
-  color: rgba(255, 255, 255, 0.85);
-  font-family: inherit;
-  font-size: 17px;
+
+.signin__title {
+  margin: 4px 0 0;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: 6px;
-  text-indent: 6px;
-  cursor: default;
-  transition: background-color var(--am-motion-normal) var(--am-ease-standard),
-    transform var(--am-motion-micro) var(--am-ease-spring);
+  letter-spacing: -0.02em;
+  color: var(--am-text-1);
 }
-.login-page__submit--ready {
-  background: var(--am-accent);
-  color: #fff;
-  cursor: pointer;
-}
-.login-page__submit--ready:active {
-  transform: scale(0.98);
-}
-.login-page__submit:disabled {
-  opacity: 1;
-}
-.login-page__agree {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 16px;
-  font-size: 12.5px;
+
+.signin__lead {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
   color: var(--am-text-2);
 }
-.login-page__agree b {
-  color: var(--am-accent);
-  font-weight: 600;
+
+.signin__points {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
 }
-.login-page__agree-dot {
-  width: 18px;
-  height: 18px;
+
+.signin__points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--am-text-2);
+}
+
+.signin__points svg {
   flex-shrink: 0;
-  border-radius: 50%;
-  border: 1.5px solid var(--am-text-3);
-  background: transparent;
-  cursor: pointer;
+  margin-top: 2px;
+  color: var(--am-accent, #3482ff);
+}
+
+/* ---------- the right column: signing in ---------- */
+
+.signin__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 20px 20px;
+  border: 1px solid var(--am-glass-border, var(--am-border-soft));
+  border-radius: var(--am-radius-xl, 20px);
+  background: var(--am-glass, var(--am-surface));
+  backdrop-filter: blur(var(--am-glass-blur, 30px)) saturate(var(--am-glass-saturate, 1.5));
+  -webkit-backdrop-filter: blur(var(--am-glass-blur, 30px)) saturate(var(--am-glass-saturate, 1.5));
+  box-shadow: var(--am-glass-shadow, 0 12px 40px rgba(16, 16, 20, 0.14));
+}
+
+.signin__panel-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
+  gap: 8px;
 }
-.login-page__agree-dot--on {
-  border-color: var(--am-accent);
-  background: var(--am-accent);
+
+.signin__panel-title {
+  flex: 1 1 auto;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--am-text-1);
 }
-.login-page__agree-dot-inner {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+
+.signin__badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--am-accent, #3482ff) 16%, transparent);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--am-accent, #3482ff);
+}
+
+/*
+ * The code, on the page rather than behind a button.
+ *
+ * It was a sheet. A sheet is a fine answer to "how does this fit", but the code
+ * is the entire point of the page, and hiding it behind one more tap was hiding
+ * the feature.
+ *
+ * The box is a fixed square in every state - loading, waiting, expired, success
+ * - so the layout never moves while someone is holding a phone up to it.
+ */
+.signin__code {
+  display: grid;
+  place-items: center;
+  width: 220px;
+  height: 220px;
+  margin: 0 auto;
+  border-radius: var(--am-radius-lg, 16px);
+  /*
+   * White regardless of theme, and the one place on this page where that is
+   * not a style choice: a QR code on a dark surface is a code some cameras will
+   * not read.
+   */
   background: #fff;
+  overflow: hidden;
 }
-.login-page__switch {
-  margin-top: auto;
-  padding-top: 26px;
-  padding-bottom: 8px;
-  display: flex;
-  justify-content: space-evenly;
+
+.signin__frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
 }
-.login-page__quick {
+
+.signin__placeholder {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: #6b6b73;
+  cursor: pointer;
+}
+
+.signin__placeholder:disabled {
+  cursor: default;
+}
+
+/*
+ * A veil over the code, not in place of it: the user can see that the thing
+ * they were looking at is the thing that expired.
+ */
+.signin__veil {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  color: var(--am-text-1);
-  font-size: 12.5px;
-  cursor: pointer;
-  font-family: inherit;
-}
-.login-page__quick-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  border: 0;
-  background: var(--am-surface);
-  box-shadow: 0 2px 12px rgba(16, 16, 20, 0.07);
-  display: flex;
-  align-items: center;
   justify-content: center;
-  color: var(--am-text-1);
-  transition: transform var(--am-motion-micro) var(--am-ease-spring),
-    border-color var(--am-motion-micro) var(--am-ease-standard);
-}
-.login-page__quick:active .login-page__quick-icon {
-  transform: scale(0.92);
-  border-color: var(--am-accent);
-  color: var(--am-accent);
+  gap: 6px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.92);
+  font: inherit;
+  font-size: 12.5px;
+  color: #3a3a42;
+  cursor: pointer;
 }
 
-.login-page__field {
-  padding-right: 52px;
-  text-align: left;
+.signin__veil--ok {
+  color: var(--am-accent, #3482ff);
+  cursor: default;
 }
-.login-page__eye {
-  position: absolute;
-  right: 22px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: 0;
-  background: transparent;
+
+.signin__status {
+  min-height: 18px;
+  font-size: 12.5px;
+  text-align: center;
   color: var(--am-text-3);
-  cursor: pointer;
-  padding: 6px;
+}
+
+.signin__status--scanned,
+.signin__status--success {
+  color: var(--am-accent, #3482ff);
+}
+
+.signin__status--error {
+  color: #ff6b6b;
+}
+
+/* ---------- signed in ---------- */
+
+.signin__signedin {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 8px;
+  text-align: center;
 }
 
-.login-page__pw {
-  position: relative;
+.signin__avatar {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--am-surface-3, rgba(120, 120, 140, 0.2));
+  color: var(--am-text-3);
 }
-.login-page__eye {
-  position: absolute;
-  right: 22px;
-  top: 50%;
-  transform: translateY(-50%);
+
+.signin__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.signin__signedin-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+
+.signin__signedin-sub {
+  font-size: 12px;
+  color: var(--am-text-3);
+}
+
+/* ---------- actions ---------- */
+
+.signin__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.signin__primary {
+  width: 100%;
+  height: 46px;
   border: 0;
-  background: transparent;
+  border-radius: 999px;
+  background: var(--am-accent, #3482ff);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--am-accent, #3482ff) 32%, transparent);
+  transition: transform 150ms var(--am-ease-standard, ease-out);
+}
+
+.signin__primary:active {
+  transform: scale(0.978);
+}
+
+/* Nothing to open until the code's URL exists, so the button waits rather than
+   opening a blank page. */
+.signin__primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+.signin__ghost {
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
   color: var(--am-text-3);
   cursor: pointer;
-  padding: 6px;
-  display: flex;
+}
+
+/* ---------- wide screens: two columns ---------- */
+
+@media (min-width: 1024px) {
+  .signin {
+    padding: 40px;
+  }
+
+  .signin__inner {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: center;
+    gap: 64px;
+    max-width: 860px;
+  }
+
+  /* Left column reads as a heading block rather than a stack of centred
+     fragments, so the mark and the title sit on the same line. */
+  .signin__intro {
+    gap: 14px;
+  }
+
+  .signin__title {
+    font-size: 34px;
+  }
+
+  .signin__lead {
+    font-size: 14.5px;
+    max-width: 34ch;
+  }
+
+  .signin__points {
+    gap: 11px;
+    margin-top: 12px;
+  }
+
+  .signin__panel {
+    padding: 26px 24px 22px;
+  }
+
+  .signin__code {
+    width: 240px;
+    height: 240px;
+  }
+}
+
+/* ---------- short screens: keep it on one screen ---------- */
+
+@media (max-height: 700px) and (max-width: 1023px) {
+  .signin__points {
+    display: none;
+  }
+
+  .signin__code {
+    width: 180px;
+    height: 180px;
+  }
+
+  .signin__mark img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .signin__title {
+    font-size: 22px;
+  }
 }

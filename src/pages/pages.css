@@ -794,8 +794,13 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--am-accent);
-  color: #fff;
+  /*
+   * White, not the accent. The mark inside is already a red disc with the note
+   * knocked out of it, so an accent background showed through as a blue ring
+   * around a red circle - two colours competing, and neither of them the logo.
+   * On white the mark reads as the logo does anywhere else.
+   */
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;

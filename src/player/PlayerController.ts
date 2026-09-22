@@ -33,6 +33,20 @@ class PlayerController {
    * as a glitch rather than as ducking.
    */
   private static readonly DUCK_FACTOR = 0.3;
+  /*
+   * A-B repeat.
+   *
+   * Two marks rather than a start and a duration, because that is how the
+   * gesture works: you hear the start of the part you want, you press, you hear
+   * the end, you press again. Asking for a length first would make the user
+   * convert something they can hear into a number they cannot.
+   *
+   * Both null means off. A set and B unset means "waiting for the end mark",
+   * which the UI shows so the state is never ambiguous.
+   */
+  private loopA: number | null = null;
+  private loopB: number | null = null;
+
   /** True once the user manually seeks the current song. */
   private userSeeked = false;
   /** Invalidates URL resolution started for a previous queue selection. */
@@ -157,6 +171,38 @@ class PlayerController {
     this.userSeeked = true;
     this.engine.seek(time);
     this.broadcast();
+  }
+
+  /**
+   * Advances the A-B marks: none -> A -> A and B -> none.
+   *
+   * Cycling back to none on the third press means the control never needs a
+   * separate way to cancel, which on a phone is worth more than the extra
+   * state.
+   */
+  markLoopPoint(): void {
+    const now = this.engine.currentTime;
+    if (this.loopA === null) {
+      this.loopA = now;
+    } else if (this.loopB === null && now > this.loopA + 0.5) {
+      this.loopB = now;
+    } else {
+      this.loopA = null;
+      this.loopB = null;
+    }
+    this.broadcast();
+  }
+
+  clearLoop(): void {
+    this.loopA = null;
+    this.loopB = null;
+    this.broadcast();
+  }
+
+  /** Wraps back to A once B is reached. Cheap enough to run on every tick. */
+  private applyLoop(): void {
+    if (this.loopA === null || this.loopB === null) return;
+    if (this.engine.currentTime >= this.loopB) this.engine.seek(this.loopA);
   }
 
   setVolume(v: number): void {
@@ -298,6 +344,8 @@ class PlayerController {
       currentTime: this.engine.currentTime,
       duration: this.engine.duration,
       volume: this.volume,
+      loopA: this.loopA,
+      loopB: this.loopB,
       speed: this.engine.playbackRate,
       queue: this.queue.list,
       queueIndex: this.queue.currentIndex,
@@ -465,6 +513,7 @@ class PlayerController {
   }
 
   private broadcast(): void {
+    this.applyLoop();
     const snap = this.snapshot();
     this.listeners.forEach((l) => l(snap));
   }

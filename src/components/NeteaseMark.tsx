@@ -1,16 +1,19 @@
 /**
- * The Netease Cloud Music mark, drawn rather than imported.
+ * The Netease Cloud Music mark.
  *
- * The avatar corner used to show a generic music note, which said "this is a
- * music app" where the badge is supposed to say "this account is a Netease
- * account". A brand mark has to be the brand's own shape to carry that.
+ * The real one, not a drawing of one. The previous version was a hand-made
+ * approximation - a red circle with a note on it - and an approximation of a
+ * logo is worse than no logo, because it reads as a mistake to anyone who knows
+ * the brand.
  *
- * Drawn as a vector rather than shipped as an image: it appears at 12-20px, and
- * a raster at that size is blurry on every phone made in the last decade. It is
- * also one file smaller to download.
+ * The path is from Simple Icons (CC0), which is the mark itself: one shape
+ * containing the disc and the note, with the note knocked out by the fill rule.
+ * The colour is the brand's #D43C33, which is also not what the approximation
+ * used.
  *
- * The red is the brand's. It is the one place in this app where a colour is
- * deliberately not from the theme - a recoloured logo is not a logo.
+ * A vector rather than an image because it renders at thirteen pixels in the
+ * avatar corner, and a raster at that size is soft on every phone made in the
+ * last decade.
  */
 export function NeteaseMark({ size = 14 }: { size?: number }) {
   return (
@@ -22,18 +25,7 @@ export function NeteaseMark({ size = 14 }: { size?: number }) {
       aria-label="网易云音乐"
       focusable="false"
     >
-      <circle cx="12" cy="12" r="12" fill="#C20C0C" />
-      {/* The note: a stem with a flag, and a head. Simplified to what survives
-          at this size rather than tracing the full mark. */}
-      <path
-        fill="#fff"
-        d="M15.9 5.2c0-.5-.4-.9-.9-.9-.5 0-.9.4-.9.9v8.3a3.1 3.1 0 0 0-1.6-.4c-1.7 0-3.1 1.3-3.1 2.9s1.4 2.9 3.1 2.9 3.1-1.3 3.1-2.9V8.4l1.6 1c.4.3 1 .2 1.2-.3.2-.4.1-.9-.3-1.2l-2.2-1.4V5.2Z"
-      />
-      <path
-        fill="#fff"
-        opacity="0.85"
-        d="M8.4 9.6c-.5-.1-.9.2-1 .7l-.5 2.4a2.4 2.4 0 0 0-1.2-.3c-1.3 0-2.4 1-2.4 2.3s1.1 2.3 2.4 2.3 2.4-1 2.4-2.3V9.6Z"
-      />
+      <path fill="#D43C33" fillRule="evenodd" clipRule="evenodd" d="M13.046 9.388a3.919 3.919 0 0 0-.66.19c-.809.312-1.447.991-1.666 1.775a2.269 2.269 0 0 0-.074.81c.048.546.333 1.05.764 1.35a1.483 1.483 0 0 0 2.01-.286c.406-.531.355-1.183.24-1.636-.098-.387-.22-.816-.345-1.249a64.76 64.76 0 0 1-.269-.954zm-.82 10.07c-3.984 0-7.224-3.24-7.224-7.223 0-.98.226-3.02 1.884-4.822A7.188 7.188 0 0 1 9.502 5.6a.792.792 0 1 1 .587 1.472 5.619 5.619 0 0 0-2.795 2.462 5.538 5.538 0 0 0-.707 2.7 5.645 5.645 0 0 0 5.638 5.638c1.844 0 3.627-.953 4.542-2.428 1.042-1.68.772-3.931-.627-5.238a3.299 3.299 0 0 0-1.437-.777c.172.589.334 1.18.494 1.772.284 1.12.1 2.181-.519 2.989-.39.51-.956.888-1.592 1.064a3.038 3.038 0 0 1-2.58-.44 3.45 3.45 0 0 1-1.44-2.514c-.04-.467.002-.93.128-1.376.35-1.256 1.356-2.339 2.622-2.826a5.5 5.5 0 0 1 .823-.246l-.134-.505c-.37-1.371.25-2.579 1.547-3.007.329-.109.68-.145 1.025-.105.792.09 1.476.592 1.709 1.023.258.507-.096 1.153-.706 1.153a.788.788 0 0 1-.54-.213c-.088-.08-.163-.174-.259-.247a.825.825 0 0 0-.632-.166.807.807 0 0 0-.634.551c-.056.191-.031.406.02.595.07.256.159.597.217.82 1.11.098 2.162.54 2.97 1.296 1.974 1.844 2.35 4.886.892 7.233-1.197 1.93-3.509 3.177-5.889 3.177zM0 12c0 6.627 5.373 12 12 12s12-5.373 12-12S18.627 0 12 0 0 5.373 0 12Z" />
     </svg>
   );
 }

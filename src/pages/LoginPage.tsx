@@ -25,32 +25,39 @@ import './login-page.css';
 
 
 /**
- * Hands the login URL to the Netease app.
+ * Opens the Netease app.
  *
- * The code's payload is an ordinary https URL, and the Netease app registers
- * that host - so opening it wakes the app and asks the user to confirm, with no
- * second device and no camera involved.
+ * This does not sign anyone in, and the label says so. The obvious idea - hand
+ * the code's own URL to the app and let it confirm - does not work: the login
+ * URL is an ordinary https address, the app does not register it, and opening
+ * it just shows a web page. Netease's published deep links cover opening the
+ * app, playlists, songs, artists and the radio, and there is no login among
+ * them.
  *
- * The packaged app cannot navigate to it: assigning to location would replace
- * the app itself with a web page and there would be no way back. So the OS is
- * asked to open it, through the same opener plugin the update flow uses. In a
- * browser a new tab is the equivalent, and if nothing handles the URL the page
- * simply opens and the QR is still there to scan.
+ * So this saves the step of finding the app, and the user still scans from its
+ * album - which is the workflow that already existed, minus the part where they
+ * hunt for the icon.
+ *
+ * The packaged app cannot navigate to a scheme itself: assigning to location
+ * would replace the app with something else and there would be no way back. The
+ * OS is asked to open it instead, through the same opener plugin the update
+ * flow uses.
  */
-async function openInNeteaseApp(url: string): Promise<void> {
+async function openNeteaseApp(): Promise<void> {
+  const target = 'orpheuswidget://';
   const { isTauri } = await import('@/lib/apiTransport');
   if (isTauri()) {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
-    await openUrl(url);
+    try {
+      await openUrl(target);
+    } catch {
+      // No Netease app installed. Nothing useful to say about that.
+    }
     return;
   }
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.target = '_blank';
-  anchor.rel = 'noopener noreferrer';
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
+  // A browser will refuse an unknown scheme rather than navigate, which is
+  // fine - the code is still on screen.
+  window.location.href = target;
 }
 
 /** The line under the code, which is the only thing that changes during a scan. */
@@ -75,7 +82,7 @@ function statusText(state: QrState): string {
 
 /** What the account gives you. Three lines, the same on both layouts. */
 const POINTS = [
-  { icon: 'music' as const, text: '用网易云 App 扫一扫即可，不用记密码' },
+  { icon: 'music' as const, text: '用另一台设备的网易云扫一扫，不用记密码' },
   { icon: 'user' as const, text: '头像和昵称直接来自网易云，不用另外填写' },
   { icon: 'check' as const, text: '不登录也能用：本地音乐和其他音源都不受影响' },
 ];
@@ -193,12 +200,8 @@ export function LoginPage() {
                 开始听歌
               </button>
             ) : (
-              <button
-                className="signin__primary"
-                disabled={!qr.qrValue}
-                onClick={() => void openInNeteaseApp(qr.qrValue)}
-              >
-                在网易云 App 中打开
+              <button className="signin__primary" onClick={() => void openNeteaseApp()}>
+                打开网易云 App 扫码
               </button>
             )}
             <button className="signin__ghost" onClick={() => navigate('/')}>

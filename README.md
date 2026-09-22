@@ -1,252 +1,277 @@
+<div align="center">
+
+<img src="public/flyme-mark.jpg" width="112" alt="Flyme Music" />
+
 # Flyme Music
 
-> 由 **缐廷华** 设计与开发 · <https://github.com/XTH-LOVE>
+**一个 HyperOS 风格的现代音乐播放器。**
+沉浸式歌词 · 动态环境色 · 液态玻璃 · 跨端同代码
 
-一款具有 **Xiaomi HyperOS 设计语言**、融合现代音乐播放器体验的高级音乐应用。
+[![Release](https://img.shields.io/github/v/release/XTH-LOVE/flyme-music?style=flat-square&color=3482ff&label=release)](https://github.com/XTH-LOVE/flyme-music/releases/latest)
+[![Android](https://img.shields.io/badge/Android-9%2B-3ddc84?style=flat-square&logo=android&logoColor=white)](https://github.com/XTH-LOVE/flyme-music/releases/latest)
+[![Windows](https://img.shields.io/badge/Windows-10%2B-0078d4?style=flat-square&logo=windows&logoColor=white)](https://github.com/XTH-LOVE/flyme-music/releases/latest)
+[![Web](https://img.shields.io/badge/Web-PWA-4285f4?style=flat-square&logo=pwa&logoColor=white)](https://flyme-music.pages.dev)
 
-> HyperOS + 现代音乐播放器 + 高级简约 + 轻量 Liquid Glass
+[![Tests](https://img.shields.io/badge/tests-707%20passing-3fb950?style=flat-square&logo=vitest&logoColor=white)](https://github.com/XTH-LOVE/flyme-music/actions)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
+[![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 
-> **关于命名**：产品名是 **Flyme Music**。项目历史上曾改名为 Aurora Music，现已改回；**显示文案已全部改回 Flyme Music**，但下列**标识符故意保持 `aurora-*` 不变**，因为它们承载用户数据或应用身份，改了会丢数据或变成另一个应用：
->
-> | 标识 | 位置 | 不改的原因 |
-> | --- | --- | --- |
-> | `aurora.*` localStorage 键（25 个） | 主题、收藏、播放历史、歌词偏移、AI 配置等 | 改键名 = 用户设置与收藏全部清空 |
-> | `aurora-local` / `aurora-analysis` 等 IndexedDB 库名 | 本地导入的音乐、音频特征索引 | 改库名 = 本地曲库丢失 |
-> | `com.flyme.music` | Tauri / Android 包名 | 与品牌一致，无需改动 |
-> | `aurora-music` | `package.json` name | 构建产物与包管理标识 |
-> | `aurora-music` / `aurora-backup-*` | 备份文件标记（`src/utils/backup.ts`） | 改标记 = 旧备份无法导入；两种标记目前都能导入 |
-> | `--am-*` / `.am-*` | 设计系统令牌与类名 | 全站内部命名，改了无用户可见收益 |
->
-> 若将来确实要一并改这些，需要**同时写数据迁移**（读旧键→写新键→删旧键），不能只改字符串。
->
-> **部署**：Cloudflare Pages 项目名 `flyme-music`（访问域名 `flyme-music.pages.dev`）—— 与产品名一致，无需改动。
+[**下载 APK**](https://github.com/XTH-LOVE/flyme-music/releases/latest) · [**在线试听**](https://flyme-music.pages.dev) · [**功能建议**](https://github.com/XTH-LOVE/flyme-music/issues)
 
-## 快速开始
+</div>
 
-```bash
-npm install
-npm run dev      # 本地开发
-npm run build    # 生产构建
-npm run preview  # 预览构建产物
-```
+---
 
-## 打包成独立应用
+## 这是什么
 
-```bash
-npm install
-npm run tauri:build            # Windows 安装包（NSIS），产物在 src-tauri/target/release/bundle/nsis
-npm run tauri:build:android    # Android apk/aab，需要 Android SDK/NDK 与 JAVA_HOME
-```
+Flyme Music 是一个**从设计出发**的音乐播放器。
 
-打包后的应用不依赖 vite dev server，也不依赖任何线上后端：
+它不试图做一个功能最全的播放器，而是想回答一个问题：**一个播放器能不能看起来不像工具，而像一件东西？**
 
-- 音乐源请求经 Tauri 的 Rust 层直连（绕过 CORS）
-- AI 的 endpoint/key/model 在编译期从 `.env.local` 内嵌进 Rust，前端拿不到 key
-- 下载由 Rust 直接写盘：桌面弹另存为，Android 存到应用的 Download/FlymeMusic 目录
+所以它有自己的取色系统、自己的动效语言、自己的玻璃材质 —— 而不是套一层 Material 主题。它同时跑在 **Android / Windows / Web** 上，共用一套代码。
 
-纯浏览器开发（`npm run dev`）仍然可用：vite 中间件提供 /api/netease/weapi、/api/proxy、/api/img、/api/media-proxy、/api/ai。
+<table>
+<tr>
+<td width="50%">
 
-> **⚠️ 分发安装包前必读：AI key 会被明文烤进二进制**
->
-> `src-tauri/build.rs` 会把 `.env.local` 里的 `AURORA_AI_API_KEY` 编译进程序，构建时会打印：
-> `Embedding AURORA_AI_API_KEY into the binary (extractable)`
->
-> "前端拿不到 key" 只意味着页面 JS 读不到，**不代表外人读不到**。实测可以直接从
-> `app.exe` 里 grep 出这个 key —— 任何拿到安装包的人都能提取。
->
-> 若要对外分发，二选一：
-> 1. 给这个 key 设严格的消费上限（推荐，桌面端 AI 仍可用）
-> 2. 清空 `.env.local` 里的 key 再重新构建（桌面端 AI 失效）
+### 🎨 视觉
 
-### 在 Git Bash 里构建（Windows）
+- **封面取色** —— 整个应用的强调色跟着当前歌曲的封面走，每首歌都有自己的样子
+- **动态环境色** —— 封面颜色铺成会呼吸的背景
+- **液态玻璃** —— 底部导航、迷你播放器、弹层都是真的玻璃：模糊 + 饱和 + 高光
+- **开屏动画** —— 字标 + 渐入，不拖时间
 
-`tauri build` 需要 MSVC 环境，Git Bash 默认没有，会依次报三种错。构建前先补环境：
+</td>
+<td width="50%">
 
-```bash
-mv dist .dsh/tmp-dist 2>/dev/null   # dist 已存在时 vite 清空目录会被拦截，先移走
+### 🎧 播放
 
-export PATH="/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64:$PATH"
-export LIB="C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\lib\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0\\ucrt\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0\\um\\x64"
+- **沉浸式歌词** —— 逐行高亮、点击跳转、桌面歌词悬浮窗
+- **通知栏播放器** —— MediaStyle + 封面 + 独立播放/暂停
+- **均衡器与响度均衡** —— 带限幅器，不会削波
+- **A-B 循环** —— 标记两点反复播放，练歌扒谱用
+- **音频书签** —— 在歌里任意位置打标记
 
-npm run tauri:build
-```
+</td>
+</tr>
+<tr>
+<td width="50%">
 
-三个坑分别对应：`/usr/bin/link`（GNU coreutils）抢在 MSVC 的 `link.exe` 前面；
-Windows SDK 的 `kernel32.lib` / `OleAut32.lib` 找不到（缺 `LIB`，且必须用反斜杠）；
-以及上面那条 `dist` 已存在的问题。有 Visual Studio 的“x64 Native Tools 命令提示符”时可直接构建，无需这些。
+### 🤖 AI 伴听
 
-### 已知限制
+- **一起听** —— AI 陪你听，知道你在听什么、听了多少遍
+- **歌词解读** —— 讲清一句歌词的背景和典故
+- **一句话生成歌单** —— 「放点适合下雨天的歌」→ 直接建好
 
-- Android 下载写入应用专属目录（作用域存储），文件管理器路径为 Android/data/com.flyme.music/files/Download/FlymeMusic；写入公共 Download 需要 MediaStore，属后续增强
-- 打包应用内取消 AI 请求只会停止前端渲染，Rust 侧的上游请求会自然结束
-- 应用图标源图固定为 src-tauri/icons/app-icon.png，换图标必须重跑 npx tauri icon
-- 打包应用内经 plugin-http 发出的请求会带上 Origin: http://tauri.localhost（Windows）或 tauri://localhost（macOS/Linux/Android），这是 Rust 侧强制注入的，无法移除；线上 /api 端点已把这两个 Origin 加入白名单
+</td>
+<td width="50%">
 
-## 部署网页版到 Cloudflare Pages（flyme-music.pages.dev）
+### 📊 时间维度
 
-线上网页版部署在 Cloudflare Pages。后端由 `functions/api/` 下的 Pages Functions 提供（Workers 运行时，逻辑与 `server/auroraApi.ts` 同源）：`/api/proxy`、`/api/img`、`/api/media-proxy`、`/api/netease/weapi`、`/api/ai/*`，在线功能与 `npm run dev` 一致。
+- **音乐时光机** —— 去年的今天你在听什么
+- **音乐日记** —— 最近两周每天听了什么
+- **听歌统计** —— 日历热力图、听歌时长、最常听
+- **年度报告** —— 可分享成图
 
-### 更新部署（dashboard 拖拽上传，无需 CLI 登录）
+</td>
+</tr>
+</table>
 
-1. `npm run build` 构建最新前端
-2. `npm run release:cf` 组装上传包（写入 `release-cf/`）
+---
 
-   脚本会拷三份内容：`dist/` 的静态产物、`functions/`，以及 `src/lib/apiGuard.ts`。
-   最后一项是**必需**的：`functions/api/_shared.ts` 里有 `import ... from '../../src/lib/apiGuard'`，
-   只拷 `dist` + `functions` 会让 Cloudflare 构建报模块无法解析（已实测确认）。
-   脚本还会在 `dist/` 落后于 `src/` 或 `functions/` 时直接报错退出，避免把过期后端拖上去。
+## 下载
 
-3. 打开 https://dash.cloudflare.com → Workers & Pages → flyme-music → **Create new deployment**，把 `release-cf` 整个文件夹拖进去上传
-4. 部署完成后访问 https://flyme-music.pages.dev 验证
-
-> 手动组装（不推荐，容易漏文件）：
-> ```powershell
-> Remove-Item release-cf -Recurse -Force -ErrorAction SilentlyContinue
-> Copy-Item dist release-cf -Recurse
-> Copy-Item functions release-cf\functions -Recurse
-> New-Item release-cf\src\lib -ItemType Directory -Force | Out-Null
-> Copy-Item src\lib\apiGuard.ts release-cf\src\lib\apiGuard.ts
-> ```
-
-### 环境变量（dashboard → flyme-music → Settings → Variables and Secrets）
-
-| 变量 | 必填 | 说明 |
+| 平台 | 方式 | 说明 |
 | --- | --- | --- |
-| `AURORA_AI_API_KEY` | ✅ | 智谱 API key，只在函数运行时存在，前端永远拿不到 |
-| `AURORA_AI_ENDPOINT` | 可选 | 默认已是 `https://open.bigmodel.cn/api/paas/v4` |
-| `AURORA_AI_MODEL` | 可选 | 默认已是 `glm-4-flash` |
+| **Android** | [Releases](https://github.com/XTH-LOVE/flyme-music/releases/latest) | 通用 APK，Android 9+ |
+| **Windows** | [Releases](https://github.com/XTH-LOVE/flyme-music/releases/latest) | 安装包 / 免安装 |
+| **Web** | [flyme-music.pages.dev](https://flyme-music.pages.dev) | PWA，可加到主屏 |
 
-修改环境变量后需重新触发一次部署才会生效。本地验证 Functions：`npx wrangler pages dev dist`（配合 `.dev.vars`，已被 gitignore）。
+> 首次打开会有一份协议同意书。**不登录也能用** —— 本地音乐和其他音源都不受影响。
 
-### 备注
-
-- SPA 回退：Pages 对未命中静态文件的路径自动回退 `index.html`（BrowserRouter 深链刷新不会 404）
-- 仓库中另有一套 Vercel 版实现（`api/` + `server/auroraApi.ts` + `vercel.json`，见下节），两者逻辑同源，可任选其一作为线上部署
-
-## 部署网页版到 Vercel（备选方案）
-
-网页版把 dev 专用的 `/api/*` 中间件移植成了 Vercel Serverless Functions（逻辑在 `server/auroraApi.ts`，薄封装在 `api/`，路由配置在 `vercel.json`），在线功能与 `npm run dev` 一致：网易 weapi 转发、QQ 系代理、封面图代理、媒体下载代理、AI 透传。前端零改动（浏览器分支本来就打相对路径 `/api/*`）。
-
-### 环境变量（Vercel Dashboard → Settings → Environment Variables）
-
-| 变量 | 作用 | 时机 |
-| --- | --- | --- |
-| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Supabase 账号登录 | Build（构建期内嵌） |
-| `AURORA_AI_ENDPOINT` | AI 上游，默认 `https://open.bigmodel.cn/api/paas/v4` | Runtime（函数运行时读取） |
-| `AURORA_AI_API_KEY` | AI 密钥，**只在函数运行时存在，前端永远拿不到** | Runtime |
-| `AURORA_AI_MODEL` | AI 模型名，如 `glm-4-flash` | Runtime |
-
-### 本地验证与部署
-
-```bash
-npm run build          # 先本地构建确认无错
-npx vercel dev         # 本地模拟 Vercel（含 /api 函数）
-npx vercel             # 预览环境部署
-npx vercel --prod      # 生产部署
-```
-
-`vercel.json` 已配置 SPA 回退 rewrite（`/api/` 与静态资源不受影响，未命中深链回退 `index.html`），浏览器端使用 `BrowserRouter`，刷新深链不会 404。
-
-### 网页功能预期
-
-- 与开发模式完全一致：搜索/榜单/网易歌单/封面/下载/AI 对话均经同源 `/api/*` 函数转发，无 CORS 问题
-- AI 密钥仅存于 Vercel 运行时环境变量，浏览器请求不携带、也读不到；`GET /api/ai/status` 只返回 `configured/endpoint/model`
-- Supabase 账号登录在网页版直接可用（同源，无需额外配置）
-
-## 更换应用图标
-
-1. 用 1024x1024 的 PNG 覆盖 `src-tauri/icons/app-icon.png`
-2. 运行 `npx tauri icon src-tauri/icons/app-icon.png`
-3. 重新打包。桌面图标写入 `src-tauri/icons/`，Android 图标写入 `src-tauri/gen/android/app/src/main/res/mipmap-*`
-
-> **PWA 图标**：网页版走的是 `public/favicon.svg`（`sizes: any`）与 `public/flyme-mark.jpg`（1254×1254），
-> manifest 里如实声明了这两个文件，没有伪造 192/512 PNG。Chrome / Edge / Android 能正常安装；
-> iOS 加到主屏的图标质量一般——放两个真正的 `192x192` 与 `512x512` PNG 到 `public/`，
-> 再加进 `vite.config.ts` 的 `manifest.icons` 即可改善。
-
-## 官网落地页
-
-项目采用 Vite 双入口：主应用（`index.html`）与官网落地页（`official.html`）完全隔离、可单独部署。
-
-- 开发访问：`http://localhost:5173/official.html`
-- 构建产物：`dist/official.html`（无 React runtime，gzip 后约 5 kB）
-- 样式复用 `src/styles/global.css` 的 `--am-*` 设计令牌，源码位于 `src/official/`
-
-## 安全与第三方依赖说明
-
-### AI 密钥
-
-- **网页版**：key 只存在于函数运行时环境变量（`AURORA_AI_API_KEY`），前端拿不到。
-- **打包版**：`src-tauri/build.rs` 会把 key 以明文字符串编译进二进制。前端确实看不到，但**拿到安装包的人可以用 `strings` 提取**。因此请把内嵌的 key 当作公开值对待：给它设置消费额度/预算上限，并在安装包流出到你信任范围之外时轮换。彻底的做法是让桌面端也走自建中转服务，而不是下发 key。
-- 构建时会输出 `cargo:warning` 提醒这一点。
-
-### `/api` 的同源防护
-
-`src/lib/apiGuard.ts` 的 Origin/Referer 校验是**廉价过滤器，不是鉴权边界**——浏览器之外这两个头完全由客户端控制。因此：
-
-- 回环地址（`localhost` / `127.0.0.1`）只在「请求本身也是从回环地址提供」时才被信任，公网部署不会因为 `Origin: http://localhost` 放行；
-- Tauri 客户端来源（`http://tauri.localhost`、`tauri://localhost`）始终放行；
-- 额外来源用 `AURORA_ALLOWED_ORIGINS`（逗号分隔）配置；
-- **务必在 Cloudflare / Vercel 控制台为 `/api/ai` 配置平台级 Rate Limiting**，代码里的限流只在单个 isolate 内存中生效，多实例下不构成硬保证。
-
-### 第三方音源
-
-在线播放/搜索默认走第三方聚合接口 `https://music-api.gdstudio.xyz/api.php`（见 `src/music/source/api-config.ts`）。它不是官方接口，存在**可用性单点、隐私（查询经第三方）、版权**三重风险，并且用户可在设置页自行替换。生产使用前建议替换为自建或官方授权音源。
-
-此外还有一个 **Hi歌（higequ.com）** 音源（见 `src/music/higequ/`）。它同样不是官方接口：站点没有 JSON API，全部靠抓取 PHP 渲染的 HTML 解析（搜索页 `.result-item[data-rid]`、播放页内联 base64 直链与 `.lyric-line` 歌词），**站点改版会直接导致解析失效**，且解析出的音频直链来自第三方 CDN。该音源默认只在搜索页出现，不参与自动化的多源聚合（见下方说明），需用户在搜索页手动选择。
-
-- 打包端经 plugin-http 直连（需伪装浏览器 UA，站点会断开非浏览器 UA 的请求）；浏览器端走同源 `/api/proxy`。
-- 若要让它参与每日推荐与 AI 找歌的自动多源聚合，需自行改动两处：`src/hooks/useDailyPick.ts` 的源列表，以及 `src/ai/musicSearch.ts` 的并发搜索列表。默认未开启，避免每次启动都自动请求该站点。
-
-### Supabase Edge Function
-
-`account-auth` 持有 service_role key 且能创建账号，CORS 已改为白名单（默认仅允许线上域名、本地开发地址与 Tauri 来源）。如使用自定义域名或预览环境，请设置 `ALLOWED_ORIGINS` 密钥（逗号分隔）。注意非浏览器客户端不受 CORS 约束，真正的兜底是函数内的单 IP 注册节流 + Supabase Dashboard 的 Auth Rate Limits。
+---
 
 ## 技术栈
 
-- React 18 + TypeScript
-- Vite 6
-- Zustand（状态管理）
-- React Router 6
-- 原生 CSS（设计令牌驱动，无大型 UI 框架）
-
-## 特性
-
-- 🎨 完整 Design System：色彩 / 字体 / 间距 / 圆角 / 阴影 / 动效 统一 Token
-- 🌓 从第一天支持的 Light / Dark / 跟随系统 三种主题
-- 📱 响应式：移动端底部导航 + 桌面端玻璃 Sidebar
-- 🎵 独立 Player Core（Engine / Queue / Controller），与 UI 完全解耦
-- 🖼️ 本地渐变封面系统：零网络依赖、零版权风险
-- 🎤 沉浸式歌词：高亮、自动滚动、点击跳转
-- 🎧 Full Player 动态环境色（根据专辑色调生成背景）
-- 🔌 Provider 架构：一行代码切换未来真实音乐服务
-- 🔍 五个可搜索音源：网易云 / QQ / 酷我 / Joox / Hi歌（+ 本地曲库）
-- 🕘 播放历史：按天分组，可整组重播或清空
-- 🧹 存储管理：查看并清理离线音频缓存与封面缓存
-- 📲 PWA：可安装到桌面 / 主屏，离线可打开（Service Worker 预缓存应用外壳）
-- 🔐 网易云登录 cookie 以 AES-GCM 加密后落盘，不再明文存 localStorage
-
-## 目录结构
-
 ```
-src/
-├── app/              # 应用入口与路由
-├── components/       # 应用级组件（卡片/列表/播放器）
-├── design-system/    # 设计令牌与基础组件
-├── hooks/            # 通用 hooks
-├── layouts/          # 应用布局（Sidebar 等）
-├── music/            # 音乐数据层（类型/Provider/Service/Mock）
-├── pages/            # 页面
-├── player/           # 播放器核心（不依赖 UI）
-├── store/            # Zustand stores
-├── styles/           # 全局主题样式
-└── utils/            # 工具函数
+桌面与移动外壳   Tauri 2                    (Rust)
+界面             React 18 + TypeScript strict
+构建             Vite 6
+状态             Zustand
+路由             React Router 6
+测试             Vitest · 707 个测试 / 60 个文件
+部署             Cloudflare Pages Functions
 ```
 
-## 说明
+**没有 UI 框架。** 样式是手写的 CSS 变量体系 —— 这套视觉的核心是取色、玻璃和动效，套框架反而要跟框架打架。
 
-第一阶段使用本地 Mock 数据：歌曲、专辑、艺术家、歌单、歌词均为原创虚构内容；
-封面为程序生成的渐变图形；未使用任何受版权保护的音频、图片与品牌资源。
-播放引擎在无真实音频源时以模拟时钟推进进度，保证离线完整可交互。
+---
 
-详见 `docs/` 目录：`DESIGN.md`（设计规范）、`ARCHITECTURE.md`（架构）、`ROADMAP.md`（路线图）。
+## 架构要点
+
+<details>
+<summary><b>双运行时：WebView ≠ 浏览器</b></summary>
+
+<br />
+
+打包版跑在系统 WebView 里，行为和浏览器**不同，而且往往静默失效**。已经踩出来的坑：
+
+| 症状 | 根因 |
+| --- | --- |
+| 检查更新失败 | 相对路径 `/api/…` 在 `tauri.localhost` 下打不到后端 |
+| 下载按钮无反应 | WebView 丢弃 `<a download>`，必须交给系统打开 |
+| AI 不可用 | 密钥在构建时烤进二进制，CI 没有 |
+| 顶部压状态栏 | 主题写「退出 edge-to-edge」而 Activity 又开启它，安全区为 0 |
+| 均衡器无效 | Web Audio 无法接入打包版的音频元素 |
+| 通知栏插件不工作 | 插件命令从 JS 调用要过 Tauri ACL |
+
+**引入新功能前，先确认它在两个运行时下都成立。**
+
+</details>
+
+<details>
+<summary><b>音频链路</b></summary>
+
+<br />
+
+```
+source → levelGain(响度均衡) → EQ → 限幅器 → analyser → destination
+```
+
+几个不显然的结论：
+
+- **限幅器不是可选项。** 响度均衡最多放大 11dB，EQ 再叠加上去，**没有天花板就一定会削波** —— 听起来像「炸麦」，实际是信号被削平。
+- **响度均衡必须非对称**（降快升慢）+ 死区 + 长测量窗口，否则会跟着音乐泵动。
+- **EQ 必须在 AGC 之后**，否则会被抵消。
+- **在线歌曲直连音源**，不经过音频处理链 —— 一个音效不值得拿播放流畅度去换。
+
+</details>
+
+<details>
+<summary><b>性能：瓶颈几乎总在「数量」和「顺序」上</b></summary>
+
+<br />
+
+真实踩过的例子：
+
+| 现象 | 真因 |
+| --- | --- |
+| 歌单加载 5 秒 | 歌曲分批请求**串行** `await`，300 首 = 3 次往返 |
+| 手机卡顿 | 列表封面显示 56px，却向 CDN 请求 **300×300** |
+| 歌词闪烁 | 每行按索引 `key`，**旧行被卸载**而不是滑出 |
+| 播放卡顿 | 100+ 个 DOM 节点每秒重渲数次 |
+
+**单个操作有多快不重要，做多少次、按什么顺序做才重要。**
+
+</details>
+
+<details>
+<summary><b>服务端</b></summary>
+
+<br />
+
+Cloudflare Pages Functions 承担三件事：
+
+- **网易云 weapi 转发** —— 浏览器无法直接 POST（CORS + `Set-Cookie` 不可读）
+- **图片与音频代理** —— 绕过防盗链，支持 Range 请求（`206` + `Content-Range`），让 `<audio>` 能分块缓冲和拖动
+- **更新分发** —— 签名校验后放行
+
+**不存储任何用户数据。** 收藏、歌单、播放记录都在本机。
+
+</details>
+
+<details>
+<summary><b>命名：为什么代码里还留着 <code>aurora-*</code></b></summary>
+
+<br />
+
+产品名是 **Flyme Music**，项目历史上曾改名为 Aurora Music，现已改回。**显示文案已全部改回**，但下列标识符**故意保持不变** —— 它们承载用户数据或应用身份，改了会丢数据或变成另一个应用：
+
+| 标识 | 位置 | 不改的原因 |
+| --- | --- | --- |
+| `aurora.*` 存储键 | localStorage | 改了用户收藏、歌单、历史全部丢失 |
+| `aurora-cache` | Cache Storage | 改了要重新下载所有缓存 |
+| 应用 ID | `tauri.conf.json` | 改了系统认为是另一个应用，无法覆盖安装 |
+
+</details>
+
+---
+
+## 本地开发
+
+```bash
+git clone https://github.com/XTH-LOVE/flyme-music.git
+cd flyme-music
+npm install
+
+npm run dev                  # 网页版（含 dev 代理）
+npm run tauri dev            # 桌面版
+npm run tauri android dev    # Android
+
+npm test                     # 707 个测试
+npm run lint
+```
+
+**打包发版**见 [`Release_Guide.md`](Release_Guide.md)。
+
+> **注意**：CI 跑测试用的是 UTC 时区。涉及日期的改动请用 `TZ=UTC npm test`
+> 再验一次 —— 这个差异已经让 CI 红过好几次。
+
+---
+
+## 文档
+
+| 文件 | 内容 |
+| --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 整体架构 |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | 设计语言与取色系统 |
+| [`docs/UPDATE-SYSTEM.md`](docs/UPDATE-SYSTEM.md) | 版本更新机制 |
+| [`docs/UI-PLAN.md`](docs/UI-PLAN.md) | 移动端 UI 改造方案 |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | 路线图 |
+| [`Release_Guide.md`](Release_Guide.md) | 发版手册 |
+
+---
+
+## 路线图
+
+- [x] 沉浸式歌词与动态环境色
+- [x] Android 通知栏播放器
+- [x] 均衡器与响度均衡（带限幅）
+- [x] 桌面歌词悬浮窗
+- [x] 音乐时光机 · 音乐日记
+- [x] AI 伴听 · 一句话生成歌单
+- [ ] **跨设备同步** —— 收藏、歌单、历史现在只存本机
+- [ ] 车载模式
+- [ ] 音乐闹钟
+- [ ] 自定义主题编辑器
+
+---
+
+## 参与
+
+**欢迎提 Issue。** 尤其是这几类：
+
+- **打包版和网页版表现不一致** —— 这是本项目最容易出错的地方，也最难自查
+- **某个界面在窄屏上挤了** —— 请附设备型号和截图
+- **某个音源播不了** —— 请附歌曲链接
+
+**提 PR 前请确保 `npm test` 和 `TZ=UTC npm test` 都通过。**
+
+---
+
+<div align="center">
+
+## 关于
+
+**作者**：缐廷华 · [@XTH-LOVE](https://github.com/XTH-LOVE) · **当前版本**：v0.7.0
+
+这个项目没有赞助、没有广告、不上传任何听歌数据。
+
+如果它让你觉得音乐播放器还能更好看一点 —— 那就够了。
+
+<br />
+
+**如果喜欢，点个 ⭐ 吧。**
+
+</div>

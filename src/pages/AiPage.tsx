@@ -27,6 +27,7 @@ import { loadMemories, memoryBlock, scheduleMemoryExtraction } from '@/ai/memory
 import { MemoryPanel } from '@/ai/memoryUi';
 import type { MusicTrack } from '@/music/source/types';
 import './ai-page.css';
+import { AiPlaylistBuilder } from '@/components/AiPlaylistBuilder';
 
 const QUICK = [
   { label: '开心电台', text: '我现在心情很开心，开个心情电台' },
@@ -565,6 +566,13 @@ export function AiPage() {
   return (
     <div className="page ai-page">
       <div className="ai-page__main">
+        {/*
+          Above the conversation on purpose. It is a tool, not a chat message:
+          the user has something specific to make, and burying it behind a
+          sentence they have to phrase correctly would hide it.
+        */}
+        <AiPlaylistBuilder />
+
         <div className="ai-page__head">
           <div className="ai-avatar">
             <img src="/flyme-mark.jpg" width="38" height="38" alt="Flyme" />

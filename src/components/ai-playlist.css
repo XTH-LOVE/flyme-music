@@ -1,0 +1,141 @@
+/*
+ * The AI playlist builder.
+ *
+ * A field, a button, and then an honest account of what happened. The result
+ * block is the part that matters: a short playlist with no explanation reads as
+ * a failure, and the same playlist with "没找到 3 首" reads as a working feature
+ * with limits.
+ */
+.aip {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  border-radius: var(--am-radius-lg, 18px);
+  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+}
+
+.aip--off {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  color: var(--am-text-3);
+}
+
+.aip__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aip__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--am-text-1);
+}
+
+.aip__sub {
+  font-size: 12.5px;
+  color: var(--am-text-3);
+  line-height: 1.5;
+}
+
+.aip__row {
+  display: flex;
+  gap: 8px;
+}
+
+.aip__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.2));
+  border-radius: 12px;
+  background: var(--am-surface-1, rgba(255, 255, 255, 0.04));
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--am-text-1);
+}
+
+.aip__go {
+  flex-shrink: 0;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--am-accent, #3482ff);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+
+.aip__go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.aip__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aip__preset {
+  padding: 6px 11px;
+  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.18));
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--am-text-2);
+  cursor: pointer;
+}
+
+.aip__size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--am-text-3);
+}
+
+.aip__size input {
+  flex: 1 1 auto;
+}
+
+.aip__result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+}
+
+.aip__result-line {
+  font-size: 13px;
+  color: var(--am-text-2);
+}
+
+.aip__result-line strong {
+  color: var(--am-accent, #3482ff);
+  font-size: 16px;
+}
+
+.aip__tracks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  font-size: 12.5px;
+  color: var(--am-text-2);
+}
+
+.aip__more,
+.aip__missing {
+  font-size: 12px;
+  color: var(--am-text-3);
+}

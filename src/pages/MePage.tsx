@@ -225,6 +225,7 @@ export function MePage() {
       <div className="me-links">
         {(
           [
+            ['/albums', 'album', '专辑墙'],
             ['/stats', 'flame', '听歌统计'],
             ['/ai', 'music', '一起听'],
             ['/playlists', 'queue', '歌单广场'],

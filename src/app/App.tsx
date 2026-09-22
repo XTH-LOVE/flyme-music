@@ -9,7 +9,6 @@ import { lazyRetry } from '@/lib/lazyRetry';
 // Pages use named exports, so each lazy call maps it to a default.
 const HomePage = lazyRetry(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
 const LibraryPage = lazyRetry(() => import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })));
-const AlbumsPage = lazyRetry(() => import('@/pages/AlbumsPage').then((m) => ({ default: m.AlbumsPage })));
 const DiscoverPage = lazyRetry(() => import('@/pages/DiscoverPage').then((m) => ({ default: m.DiscoverPage })));
 const SearchPage = lazyRetry(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })));
 const PlaylistSquarePage = lazyRetry(() => import('@/pages/PlaylistSquarePage').then((m) => ({ default: m.PlaylistSquarePage })));
@@ -94,7 +93,6 @@ export function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/me" element={<MePage />} />
             <Route path="/stats" element={<StatsPage />} />
-            <Route path="/albums" element={<AlbumsPage />} />
             <Route path="/ai" element={<AiPage />} />
             <Route path="/local" element={<LocalMusicPage />} />
             <Route path="/history" element={<HistoryPage />} />

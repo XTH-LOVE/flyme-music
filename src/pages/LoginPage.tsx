@@ -23,6 +23,36 @@ import './login-page.css';
  * is harder to use at the exact moment it matters.
  */
 
+
+/**
+ * Hands the login URL to the Netease app.
+ *
+ * The code's payload is an ordinary https URL, and the Netease app registers
+ * that host - so opening it wakes the app and asks the user to confirm, with no
+ * second device and no camera involved.
+ *
+ * The packaged app cannot navigate to it: assigning to location would replace
+ * the app itself with a web page and there would be no way back. So the OS is
+ * asked to open it, through the same opener plugin the update flow uses. In a
+ * browser a new tab is the equivalent, and if nothing handles the URL the page
+ * simply opens and the QR is still there to scan.
+ */
+async function openInNeteaseApp(url: string): Promise<void> {
+  const { isTauri } = await import('@/lib/apiTransport');
+  if (isTauri()) {
+    const { openUrl } = await import('@tauri-apps/plugin-opener');
+    await openUrl(url);
+    return;
+  }
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.target = '_blank';
+  anchor.rel = 'noopener noreferrer';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
 /** The line under the code, which is the only thing that changes during a scan. */
 function statusText(state: QrState): string {
   switch (state) {
@@ -162,7 +192,15 @@ export function LoginPage() {
               <button className="signin__primary" onClick={() => navigate('/')}>
                 开始听歌
               </button>
-            ) : null}
+            ) : (
+              <button
+                className="signin__primary"
+                disabled={!qr.qrValue}
+                onClick={() => void openInNeteaseApp(qr.qrValue)}
+              >
+                在网易云 App 中打开
+              </button>
+            )}
             <button className="signin__ghost" onClick={() => navigate('/')}>
               {signedIn ? '返回' : '先不登录，直接使用'}
             </button>

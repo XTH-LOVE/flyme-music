@@ -283,6 +283,14 @@
   transform: scale(0.978);
 }
 
+/* Nothing to open until the code's URL exists, so the button waits rather than
+   opening a blank page. */
+.signin__primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
 .signin__ghost {
   width: 100%;
   padding: 10px 0;

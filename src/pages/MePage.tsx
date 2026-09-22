@@ -23,6 +23,7 @@ import { getNeteaseCloudSongs, getNeteaseLikedSongs, getNeteaseUserPlaylists, ty
 import { exportBackup, readBackupFile, restoreBackupToStorage } from '@/utils/backup';
 import { notify } from '@/utils/notify';
 import './pages.css';
+import { NeteaseMark } from '@/components/NeteaseMark';
 
 type Tab = 'recent' | 'favorite' | 'mine' | 'songs' | 'playlists' | 'netease';
 
@@ -182,7 +183,7 @@ export function MePage() {
           title={localAuth.user ? '点击更换头像' : '登录后可设置头像'}
         >
           {localAuth.user?.avatarUrl ? <img className="me-hero__avatar me-hero__avatar--image" src={localAuth.user.avatarUrl} alt="" style={avatarUploading ? { opacity: 0.55 } : undefined} /> : <Icon name="user" size={30} />}
-          {localAuth.user ? <span className="me-hero__avatar-cam"><Icon name="music" size={12} /></span> : null}
+          {localAuth.user ? <span className="me-hero__avatar-cam"><NeteaseMark size={13} /></span> : null}
         </button>
         <input ref={heroAvatarRef} type="file" accept="image/*" hidden onChange={onHeroAvatarPick} />
         <button className="me-profile-button" onClick={() => (localAuth.user ? setNickOpen(true) : navigate('/login'))} aria-label="修改昵称">
@@ -225,7 +226,6 @@ export function MePage() {
       <div className="me-links">
         {(
           [
-            ['/albums', 'album', '专辑墙'],
             ['/stats', 'flame', '听歌统计'],
             ['/ai', 'music', '一起听'],
             ['/playlists', 'queue', '歌单广场'],

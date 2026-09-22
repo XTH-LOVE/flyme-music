@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Icon } from '@/components/Icon';
@@ -8,15 +7,20 @@ import { useNeteaseQrLogin, type QrState } from '@/hooks/useNeteaseQrLogin';
 import './login-page.css';
 
 /**
- * Signing in, without leaving the page.
+ * The sign-in page.
  *
- * This used to be a card that told you to go to Settings and scan a code there,
- * which was two navigations and a lost place for a single step. The scan now
- * happens here.
+ * A full page rather than a card in the middle of one. The app is a music
+ * player and this is its front door; a small floating box reads as an
+ * interruption, and there is no reason for the door to be smaller than the
+ * room.
  *
- * The QR is shown in a sheet rather than inline because it needs the room: a
- * code is unreadable below a certain size, and a card with a readable code in
- * it would be a card with nothing else.
+ * Two columns on a wide screen - what this account is on the left, the act of
+ * signing in on the right - and one column on a phone, where there is only room
+ * for the act and the explanation becomes three short lines above it.
+ *
+ * Nothing slides. The layout is fixed and the states change in place, because a
+ * page that moves while someone is holding a phone up to a code is a page that
+ * is harder to use at the exact moment it matters.
  */
 
 /** The line under the code, which is the only thing that changes during a scan. */
@@ -39,137 +43,132 @@ function statusText(state: QrState): string {
   }
 }
 
+/** What the account gives you. Three lines, the same on both layouts. */
+const POINTS = [
+  { icon: 'music' as const, text: '用网易云 App 扫一扫即可，不用记密码' },
+  { icon: 'user' as const, text: '头像和昵称直接来自网易云，不用另外填写' },
+  { icon: 'check' as const, text: '不登录也能用：本地音乐和其他音源都不受影响' },
+];
+
 export function LoginPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const netease = useNeteaseAuthStore((s) => s.user);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const qr = useNeteaseQrLogin(sheetOpen && !netease);
+  // The code is on the page, so the flow starts with the page. Waiting for a
+  // tap would mean showing an empty square until someone pressed a button that
+  // has nothing left to do.
+  const qr = useNeteaseQrLogin(!netease);
 
   const signedIn = Boolean(netease);
   const nickname = netease?.nickname ?? user?.nickname ?? '';
 
   return (
-    <div className="login-page">
-      <div className="login-page__card">
-        <div className="login-page__brand">
-          <img className="login-page__mark" src="/flyme-mark.jpg" alt="" />
-          <div className="login-page__title">Flyme 账号</div>
-          <div className="login-page__sub">
-            {signedIn ? '已登录 · ' + nickname : '使用网易云账号登录'}
+    <div className="signin">
+      <div className="signin__inner">
+        {/* Left on a wide screen; the header block on a phone. */}
+        <section className="signin__intro">
+          <div className="signin__mark">
+            <img src="/flyme-mark.jpg" alt="" />
           </div>
-        </div>
+          <h1 className="signin__title">Flyme 账号</h1>
+          <p className="signin__lead">
+            {signedIn
+              ? '已登录 · ' + nickname
+              : '登录后收藏、歌单和播放记录会跟着你的账号走。'}
+          </p>
 
-        {signedIn ? (
-          <div className="login-page__hint">
-            <p>
-              <Icon name="check" size={15} />
-              <span>头像和昵称来自你的网易云账号，不需要另外填写。</span>
-            </p>
-            <p>
-              <Icon name="check" size={15} />
-              <span>要更换账号，先退出再重新扫码。</span>
-            </p>
+          <ul className="signin__points">
+            {POINTS.map((point) => (
+              <li key={point.text}>
+                <Icon name={point.icon} size={16} />
+                <span>{point.text}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* Right on a wide screen; below the intro on a phone. */}
+        <section className="signin__panel">
+          <div className="signin__panel-head">
+            <span className="signin__panel-title">{signedIn ? '当前账号' : '扫码登录'}</span>
+            {signedIn ? <span className="signin__badge">已登录</span> : null}
           </div>
-        ) : (
-          <div className="login-page__hint">
-            <p>
-              <Icon name="check" size={15} />
-              <span>用网易云 App 扫一扫即可，不用记密码。</span>
-            </p>
-            <p>
-              <Icon name="check" size={15} />
-              <span>头像和昵称直接来自网易云，不用另外填写。</span>
-            </p>
-            <p>
-              <Icon name="check" size={15} />
-              <span>不登录也能用：本地音乐和其他音源都不受影响。</span>
-            </p>
-          </div>
-        )}
 
-        {signedIn ? (
-          <button className="login-page__ghost" onClick={() => navigate('/')}>
-            返回
-          </button>
-        ) : (
-          <button className="login-page__submit" onClick={() => setSheetOpen(true)}>
-            扫码登录
-          </button>
-        )}
+          {/*
+            The code lives on the page, not behind a button.
 
-        {!signedIn ? (
-          <button className="login-page__ghost" onClick={() => navigate('/')}>
-            先不登录，直接使用
-          </button>
-        ) : null}
-      </div>
-
-      {sheetOpen ? (
-        <div
-          className="login-qr"
-          role="dialog"
-          aria-modal="true"
-          aria-label="扫码登录"
-          onClick={() => setSheetOpen(false)}
-        >
-          <div className="login-qr__panel" onClick={(event) => event.stopPropagation()}>
-            <div className="login-qr__head">
-              <span className="login-qr__title">扫码登录</span>
-              <button
-                className="login-qr__close"
-                onClick={() => setSheetOpen(false)}
-                aria-label="关闭"
-              >
-                <Icon name="close" size={18} />
-              </button>
-            </div>
-
-            {/*
-              The frame keeps its size through every state. Without that the
-              panel jumps as the code arrives and again when it expires, which
-              makes the whole thing feel unstable at the exact moment the user
-              is holding a phone up to it.
-            */}
-            <div className="login-qr__frame">
-              {qr.qrValue && qr.state !== 'expired' && qr.state !== 'error' ? (
-                <QRCodeSVG value={qr.qrValue} size={196} level="M" includeMargin={false} />
-              ) : (
-                <button
-                  className="login-qr__placeholder"
-                  onClick={() => qr.restart()}
-                  disabled={qr.state === 'loading'}
-                >
-                  {qr.state === 'loading' ? '获取二维码…' : '点一下重新获取'}
-                </button>
-              )}
-
-              {/*
-                A veil over the code when it can no longer be used, rather than
-                replacing it - the user can see that the thing they were looking
-                at is the thing that expired.
-              */}
-              {qr.state === 'expired' || qr.state === 'error' ? (
-                <div className="login-qr__veil" onClick={() => qr.restart()}>
-                  <Icon name="refresh" size={22} />
-                  <span>点一下刷新</span>
+            It was a sheet, and a sheet is a good answer to "how do I fit this
+            in" - but the code is the whole point of the page, so hiding it
+            behind one more tap was hiding the feature. The fixed square keeps
+            the layout still while the states change inside it.
+          */}
+          <div className="signin__code">
+            {signedIn ? (
+              <div className="signin__signedin">
+                <div className="signin__avatar">
+                  {netease?.avatarUrl || user?.avatarUrl ? (
+                    <img src={netease?.avatarUrl ?? user?.avatarUrl} alt="" />
+                  ) : (
+                    <Icon name="user" size={30} />
+                  )}
                 </div>
-              ) : null}
+                <div className="signin__signedin-name">{nickname}</div>
+                <div className="signin__signedin-sub">头像和昵称来自网易云账号</div>
+              </div>
+            ) : (
+              <div className="signin__frame">
+                {qr.qrValue && qr.state !== 'expired' && qr.state !== 'error' ? (
+                  <QRCodeSVG value={qr.qrValue} size={188} level="M" includeMargin={false} />
+                ) : (
+                  <button
+                    className="signin__placeholder"
+                    onClick={() => qr.restart()}
+                    disabled={qr.state === 'loading'}
+                  >
+                    {qr.state === 'loading' ? '获取二维码…' : '点一下重新获取'}
+                  </button>
+                )}
 
-              {qr.state === 'success' ? (
-                <div className="login-qr__veil login-qr__veil--ok">
-                  <Icon name="check" size={26} />
-                  <span>登录成功</span>
-                </div>
-              ) : null}
-            </div>
+                {/*
+                  A veil over the code rather than replacing it, so the user can
+                  see that the thing they were looking at is the thing that
+                  expired.
+                */}
+                {qr.state === 'expired' || qr.state === 'error' ? (
+                  <button className="signin__veil" onClick={() => qr.restart()}>
+                    <Icon name="refresh" size={22} />
+                    <span>点一下刷新</span>
+                  </button>
+                ) : null}
 
-            <div className={'login-qr__status login-qr__status--' + qr.state}>
+                {qr.state === 'success' ? (
+                  <div className="signin__veil signin__veil--ok">
+                    <Icon name="check" size={26} />
+                    <span>登录成功</span>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {!signedIn ? (
+            <div className={'signin__status signin__status--' + qr.state}>
               {qr.message || statusText(qr.state)}
             </div>
+          ) : null}
+
+          <div className="signin__actions">
+            {signedIn ? (
+              <button className="signin__primary" onClick={() => navigate('/')}>
+                开始听歌
+              </button>
+            ) : null}
+            <button className="signin__ghost" onClick={() => navigate('/')}>
+              {signedIn ? '返回' : '先不登录，直接使用'}
+            </button>
           </div>
-        </div>
-      ) : null}
+        </section>
+      </div>
     </div>
   );
 }

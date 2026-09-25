@@ -59,6 +59,10 @@ class MediaPlaybackService : Service() {
     private var noisyReceiver: BroadcastReceiver? = null
     /** Set while another app holds focus, so it is not asked for again on resume. */
     private var ducked = false
+    /** Set while paused because the system took focus, cleared when it returns. */
+    private var pausedForFocus = false
+    /** The previous `playing`, so focus is only requested when it changes. */
+    private var wasPlaying = false
     private val main = Handler(Looper.getMainLooper())
 
     companion object {
@@ -131,6 +135,7 @@ class MediaPlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_UPDATE -> {
+                wasPlaying = playing
                 title = intent.getStringExtra(EXTRA_TITLE) ?: title
                 artist = intent.getStringExtra(EXTRA_ARTIST) ?: artist
                 playing = intent.getBooleanExtra(EXTRA_PLAYING, playing)
@@ -149,7 +154,19 @@ class MediaPlaybackService : Service() {
             }
         }
 
-        if (playing) requestFocus() else if (!ducked) abandonFocus()
+        /*
+         * Only when the state actually changed.
+         *
+         * This ran on every update, and the page sends an update on every
+         * snapshot - several a second. Each requestAudioFocus can be answered
+         * with AUDIOFOCUS_LOSS_TRANSIENT, which this service treats as a pause,
+         * so a playing track was asking the system for permission several times
+         * a second and stopping whenever the answer was "not right now". That
+         * is the whole of "I press play and it pauses immediately".
+         */
+        if (playing != wasPlaying) {
+            if (playing) requestFocus() else if (!ducked) abandonFocus()
+        }
 
         syncSession()
         val notification = build()
@@ -257,6 +274,11 @@ class MediaPlaybackService : Service() {
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 ducked = false
+                // Remembered so the gain below can undo it. A transient loss is
+                // the system saying "not now", not the user saying "stop" - and
+                // pausing without ever resuming means a passing notification
+                // sound ends the listening session.
+                pausedForFocus = true
                 forward("pause")
             }
             // Ducking is a request to the app, not something the system does
@@ -269,6 +291,10 @@ class MediaPlaybackService : Service() {
                 if (ducked) {
                     ducked = false
                     forward("unduck")
+                }
+                if (pausedForFocus) {
+                    pausedForFocus = false
+                    forward("play")
                 }
             }
         }

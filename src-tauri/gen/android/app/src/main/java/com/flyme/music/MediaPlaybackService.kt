@@ -177,7 +177,20 @@ class MediaPlaybackService : Service() {
          * - so a track that was still starting up would hand back its focus and
          * then ask for it again a moment later.
          */
-        if (playing && focusRequest == null) requestFocus()
+        /*
+         * No focus request from here.
+         *
+         * The audio is played by an <audio> element inside the WebView, and
+         * Chromium's media stack requests audio focus for it. Asking for focus
+         * again from this service means two claimants inside one app, and
+         * Android answers the older one with AUDIOFOCUS_LOSS - which this
+         * service then treated as a pause, so the app was pausing its own
+         * playback a moment after starting it.
+         *
+         * The WebView already handles focus properly for the element it owns,
+         * including pausing on a real loss. This service only needs to mirror
+         * the state into the notification.
+         */
 
         syncSession()
         val notification = build()
@@ -291,8 +304,10 @@ class MediaPlaybackService : Service() {
     private fun onFocusChange(change: Int) {
         when (change) {
             AudioManager.AUDIOFOCUS_LOSS -> {
+                // Not a pause. The WebView's audio element loses focus too and
+                // stops on its own if that is the right answer; pausing from
+                // here as well is what made the app stop its own playback.
                 ducked = false
-                forward("pause:focus-loss")
                 abandonFocus()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
@@ -301,8 +316,8 @@ class MediaPlaybackService : Service() {
                 // the system saying "not now", not the user saying "stop" - and
                 // pausing without ever resuming means a passing notification
                 // sound ends the listening session.
-                pausedForFocus = true
-                forward("pause:focus")
+                // Same reasoning: the element handles it.
+                pausedForFocus = false
             }
             // Ducking is a request to the app, not something the system does
             // for it - hence telling the page rather than touching the session.

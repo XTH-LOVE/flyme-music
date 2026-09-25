@@ -4,7 +4,17 @@ import { fetchImageBlob } from './imageSource';
 
 export type CoverPalette = [string, string];
 
+/**
+ * Bounded, like the object URL cache next door.
+ *
+ * This held every cover the session had ever seen. Each entry is a promise plus
+ * two colour strings, which is small - but a session that plays for hours
+ * through radio or autoplay sees thousands of distinct covers, and nothing ever
+ * removed one. The oldest is dropped once the limit is reached, which is the
+ * right thing to lose: the covers being looked at are the recent ones.
+ */
 const cache = new Map<string, Promise<CoverPalette | null>>();
+const CACHE_MAX = 200;
 
 function toHex(r: number, g: number, b: number): string {
   const c = (v: number) =>
@@ -91,6 +101,13 @@ export function coverPaletteOf(picUrl: string | null | undefined): Promise<Cover
   let hit = cache.get(picUrl);
   if (!hit) {
     hit = extract(picUrl);
+    // Evict the oldest before inserting, so the map never exceeds the limit.
+    // Only for a key that is actually new: re-setting an existing one does not
+    // grow the map, and evicting for it would throw away a live entry.
+    if (!cache.has(picUrl) && cache.size >= CACHE_MAX) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
     cache.set(picUrl, hit);
   }
   return hit;

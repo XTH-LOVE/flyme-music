@@ -14,6 +14,9 @@
       Android.
     -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- The index bar taps give haptic feedback; without this the call is
+         silently dropped. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -33,7 +36,7 @@
           is the one that matches what this does.
         -->
         <service
-            android:name=".PlaybackService"
+            android:name=".MediaPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback">
             <!-- The transport buttons in the notification arrive as
@@ -103,14 +106,13 @@
             android:resource="@xml/file_paths" />
         </provider>
         <!--
-          Hosts the notification-shade player. foregroundServiceType is required
-          from Android 14: without it the system refuses to start a foreground
-          service and the notification silently never appears.
+          MediaPlaybackService is declared once, above, with its intent filter.
+          It used to be declared twice under two names - once as .PlaybackService
+          with the MEDIA_BUTTON filter, which is not a class that exists, and
+          once here with the real name and no filter. So the filter applied to
+          nothing and the real service had none. One declaration now carries
+          both.
         -->
-        <service
-            android:name=".MediaPlaybackService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
         <!-- Desktop lyrics. Not a foreground service: it has no ongoing work
              of its own and lives only as long as the overlay is on screen. -->
         <service

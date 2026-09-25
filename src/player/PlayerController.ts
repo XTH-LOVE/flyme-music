@@ -310,7 +310,13 @@ class PlayerController {
     if (!this.forcedNextKey) return null;
     const key = this.forcedNextKey;
     this.forcedNextKey = null;
-    const index = this.queue.list.findIndex((t) => t.source + ':' + t.id === key);
+    // Searched from the current position forward, not from the top. A queue can
+    // hold the same track twice, and a plain findIndex returns the first match -
+    // which, when that copy sits earlier in the queue, sends "next" backwards.
+    const from = this.queue.currentIndex + 1;
+    const index = this.queue.list.findIndex(
+      (t, i) => i >= from && t.source + ':' + t.id === key,
+    );
     return index >= 0 ? index : null;
   }
 

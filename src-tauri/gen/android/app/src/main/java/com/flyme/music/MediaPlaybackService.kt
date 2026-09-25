@@ -151,6 +151,7 @@ class MediaPlaybackService : Service() {
             ACTION_PLAY -> forward("play")
             ACTION_PAUSE -> forward("pause:button")
             ACTION_STOP -> {
+                abandonFocus()
                 forward("stop")
                 stopSelf()
                 return START_NOT_STICKY
@@ -167,9 +168,16 @@ class MediaPlaybackService : Service() {
          * a second and stopping whenever the answer was "not right now". That
          * is the whole of "I press play and it pauses immediately".
          */
-        if (playing != wasPlaying) {
-            if (playing) requestFocus() else if (!ducked) abandonFocus()
-        }
+        /*
+         * Focus is taken when playback starts and given up only on an explicit
+         * stop.
+         *
+         * It used to be released whenever an update arrived with playing=false,
+         * which happens during loading and buffering as well as on a real pause
+         * - so a track that was still starting up would hand back its focus and
+         * then ask for it again a moment later.
+         */
+        if (playing && focusRequest == null) requestFocus()
 
         syncSession()
         val notification = build()
@@ -250,6 +258,18 @@ class MediaPlaybackService : Service() {
      *                  stopping, so the listener does not have to restart.
      */
     private fun requestFocus() {
+        /*
+         * Already held: do nothing.
+         *
+         * Each call builds a new AudioFocusRequest with its own listener, and
+         * the previous one is never abandoned - so every repeat leaves an
+         * orphaned request behind, and Android delivers AUDIOFOCUS_LOSS to the
+         * superseded one. The page's playing flag is not steady while a track
+         * loads, so this was being called repeatedly at startup, and the
+         * orphaned requests were answering with a permanent loss - which this
+         * service treats as a pause.
+         */
+        if (focusRequest != null) return
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)

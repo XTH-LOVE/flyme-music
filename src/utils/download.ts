@@ -5,6 +5,7 @@ import { bitrateForQuality } from '@/music/source/quality';
 import { isTauri } from '@/lib/apiTransport';
 import { notify } from '@/utils/notify';
 import { saveFile } from '@/utils/saveBlob';
+import { httpFetch } from '@/lib/apiTransport';
 import {
   SNIFF_BYTES,
   detectAudioFormat,
@@ -21,7 +22,13 @@ import {
  */
 async function sniffFormat(url: string): Promise<AudioFormat | null> {
   try {
-    const res = await fetch(url, { headers: { Range: 'bytes=0-' + (SNIFF_BYTES - 1) } });
+    // httpFetch, not fetch. The packaged app has no origin to be same-site
+    // with, so a bare cross-origin fetch is refused by CORS on the CDNs that do
+    // not send the header - the sniff returns null, the name falls back to the
+    // URL's extension, and a file that is really AAC inside an .mp3 name is
+    // written with the wrong one. That is the failure this function exists to
+    // prevent, so it has to run through the transport that works there.
+    const res = await httpFetch(url, { headers: { Range: 'bytes=0-' + (SNIFF_BYTES - 1) } });
     if (!res.ok) return null;
     const bytes = new Uint8Array(await res.arrayBuffer());
     return detectAudioFormat(bytes) ?? formatFromMime(res.headers.get('content-type') ?? '');

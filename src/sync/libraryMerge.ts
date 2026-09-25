@@ -14,7 +14,23 @@ import type { UserPlaylist } from '@/store/usePlaylistStore';
  */
 
 export interface LibrarySnapshot {
-  favorites: string[];
+  /**
+   * Favourites, as whole tracks where the writer had them.
+   *
+   * This used to be ids only, and ids are not enough: the heart reads an id and
+   * lights up, while the list reads tracks and stays empty - which is exactly
+   * what was reported after restoring on a second device. Whole tracks travel
+   * in the same column, and readers accept either shape so an account that has
+   * been around does not lose anything on the first sync with the new build.
+   */
+  favorites: (string | MusicTrack)[];
+  /** Derived from `favorites`; kept for readers that only want the ids. */
+  favoriteSongIds?: string[];
+  /**
+   * Optional: a snapshot written by an older build carries ids only, and one
+   * written by a newer build carries whole tracks in `favorites`.
+   */
+  favoriteTracks?: MusicTrack[];
   recentTracks: MusicTrack[];
   playLog: PlayLogEntry[];
   playlists: UserPlaylist[];

@@ -76,6 +76,11 @@ export function SearchPage() {
       setHasMore(res.hasMore);
       setPage(pageNo);
     } catch (err) {
+      // A superseded request must not report anything. The guard was on the
+      // finally but not here, so a request that had already been replaced could
+      // still clear the list and show its own error - the new results flashed
+      // and vanished.
+      if (controller.signal.aborted) return;
       // A source that cannot be reached at all is not the same as "no results
       // found": keep the relay's reason so the empty state can say what
       // actually happened instead of blaming the keyword.

@@ -22,6 +22,7 @@ import {
 import './pages.css';
 import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
 import { checkNeteaseQr, getNeteaseQrKey, getNeteaseUser } from '@/music/netease/netease-auth';
+import { isAndroidApp } from '@/lib/nativeMedia';
 import {
   notificationsSupported,
   nowPlayingPermission,
@@ -452,6 +453,10 @@ export function SettingsPage() {
             }}
           />
         </div>
+        {/* Android-only: the accent comes from the wallpaper palette through
+            the Android bridge. Shown elsewhere it is a switch that does
+            nothing. */}
+        {isAndroidApp() ? (
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">跟随系统取色</div>
@@ -461,6 +466,10 @@ export function SettingsPage() {
           </div>
           <Switch checked={materialYou} onChange={(v) => { setMaterialYouState(v); setMaterialYou(v); }} />
         </div>
+        ) : null}
+        {/* Android-only: the overlay is an Android window, and the permission
+            it needs is an Android one. Elsewhere the switch could only fail. */}
+        {isAndroidApp() ? (
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">桌面歌词</div>
@@ -484,6 +493,7 @@ export function SettingsPage() {
             }}
           />
         </div>
+        ) : null}
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">切歌桌面通知</div>

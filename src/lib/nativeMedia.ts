@@ -189,6 +189,23 @@ export function hideDesktopLyric(): void {
   }
 }
 
+/**
+ * Whether this build is the Android one.
+ *
+ * Distinct from `canShowDesktopLyric`, which also reports a missing overlay
+ * permission. Settings needs the platform question on its own: hiding the row
+ * because the permission is not granted would remove the only place that
+ * explains how to grant it.
+ */
+export function isAndroidApp(): boolean {
+  if (!isTauri()) return false;
+  try {
+    return bridge() !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function canShowDesktopLyric(): boolean {
   if (!isTauri()) return false;
   try {

@@ -4,6 +4,7 @@ import { useLibraryStore } from '@/store/useLibraryStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { mergeLibrary, snapshotsEqual, type LibrarySnapshot } from './libraryMerge';
 import { notify } from '@/utils/notify';
+import type { MusicTrack } from '@/music/source/types';
 
 /**
  * Cross-device library sync over the `user_library` snapshot table.
@@ -21,9 +22,16 @@ let pushTimer: number | null = null;
 function localSnapshot(): LibrarySnapshot {
   const lib = useLibraryStore.getState();
   return {
-    favorites: lib.favoriteSongIds,
+    // Whole tracks, not ids: this is the only column the favourites travel in,
+    // and ids alone cannot rebuild the list on another device.
+    favorites: lib.favoriteTracks,
+    favoriteSongIds: lib.favoriteSongIds,
     recentTracks: lib.recentTracks,
     playLog: lib.playLog,
+    // Full tracks, not just ids. Ids alone cannot rebuild the favourites list
+    // on another device - the heart would light up from the id while the list
+    // stayed empty, which is what was reported.
+    favoriteTracks: lib.favoriteTracks,
     playlists: usePlaylistStore.getState().playlists,
   };
 }
@@ -33,7 +41,11 @@ function applySnapshot(snapshot: LibrarySnapshot): void {
   try {
     useLibraryStore.getState().hydrateLibrary({
       recentTracks: snapshot.recentTracks,
-      favoriteSongIds: snapshot.favorites,
+      favoriteTracks: snapshot.favoriteTracks,
+      // Kept as well: the hearts read ids, and a snapshot from an older client
+      // carries only those. Newer snapshots carry tracks in `favorites`, so the
+      // ids are derived from whichever shape arrived.
+      favoriteSongIds: idsFrom(snapshot),
       playLog: snapshot.playLog,
     });
     usePlaylistStore.getState().hydratePlaylists(snapshot.playlists);
@@ -42,10 +54,27 @@ function applySnapshot(snapshot: LibrarySnapshot): void {
   }
 }
 
+/** The ids, whichever shape the snapshot was written in. */
+function idsFrom(snapshot: LibrarySnapshot): string[] {
+  if (snapshot.favoriteSongIds?.length) return snapshot.favoriteSongIds;
+  if (snapshot.favoriteTracks?.length) return snapshot.favoriteTracks.map((t) => t.id);
+  return snapshot.favorites.filter((v): v is string => typeof v === 'string');
+}
+
 function rowToSnapshot(row: Record<string, unknown>): LibrarySnapshot {
   const arr = (v: unknown) => (Array.isArray(v) ? v : []);
+  const favorites = arr(row.favorites);
+  // Rows written before this change hold bare ids; rows written after hold
+  // whole tracks. Both are read, so an account that has been around does not
+  // lose its favourites the first time it syncs with the new build.
+  const ids = favorites.filter((v): v is string => typeof v === 'string');
+  const tracks = favorites.filter(
+    (v): v is MusicTrack => typeof v === 'object' && v !== null,
+  );
   return {
-    favorites: arr(row.favorites) as string[],
+    favorites: ids.length ? ids : tracks.map((t) => t.id),
+    favoriteSongIds: ids.length ? ids : tracks.map((t) => t.id),
+    favoriteTracks: tracks,
     recentTracks: arr(row.recent_tracks) as LibrarySnapshot['recentTracks'],
     playLog: arr(row.play_log) as LibrarySnapshot['playLog'],
     playlists: arr(row.playlists) as LibrarySnapshot['playlists'],

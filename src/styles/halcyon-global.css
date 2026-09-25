@@ -1,10 +1,32 @@
 /* Global Halcyon-inspired surface language. Structural layout stays local to
    each feature; this layer keeps materials, spacing and states consistent. */
 :root {
-  --hc-surface-glass: color-mix(in srgb, var(--am-glass) 86%, transparent);
-  --hc-border: color-mix(in srgb, var(--am-glass-border) 72%, var(--am-divider));
+  /*
+   * Plain rgba first, the mixed value only where it can be understood.
+   *
+   * color-mix() needs WebView 111. Where it is missing the declaration is not
+   * ignored - the custom property becomes invalid at computed-value time, and
+   * every rule that reads it through var() is then dropped too. That is why
+   * these two matter more than the other forty-seven uses: they are the
+   * surfaces of the main cards, so losing them makes the cards transparent
+   * rather than merely unshadowed.
+   *
+   * The @supports guard is required because a var() fallback does not help
+   * here: it covers a property that is unset, not one whose value is invalid.
+   * These two are the plain tokens the mix was derived from, so the appearance
+   * degrades by one step rather than disappearing.
+   */
+  --hc-surface-glass: var(--am-glass);
+  --hc-border: var(--am-glass-border);
   --hc-radius: 22px;
   --hc-radius-sm: 16px;
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  :root {
+    --hc-surface-glass: color-mix(in srgb, var(--am-glass) 86%, transparent);
+    --hc-border: color-mix(in srgb, var(--am-glass-border) 72%, var(--am-divider));
+  }
 }
 
 body {

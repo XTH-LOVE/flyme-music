@@ -228,6 +228,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }
     if (patch.favoriteTracks) {
       save('aurora.favoriteTracks.v1', patch.favoriteTracks);
+      // The missing line. Without it the tracks were written to storage but
+      // never put into the store, so a restore left the list empty until the
+      // next reload - and the hearts, which read the ids, looked correct the
+      // whole time.
+      next.favoriteTracks = patch.favoriteTracks;
     }
     if (patch.favoriteSongIds) {
       save('aurora.favorites', patch.favoriteSongIds);

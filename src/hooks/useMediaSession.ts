@@ -3,6 +3,7 @@ import { playerController } from '@/player';
 import { resolveTrackPic } from '@/music/source/track-resolver';
 import type { MusicTrack } from '@/music/source/types';
 import { isTauri } from '@/lib/apiTransport';
+import { notify } from '@/utils/notify';
 import {
   clearNativeNowPlaying,
   onNativeMediaAction,
@@ -16,6 +17,23 @@ import {
  * MediaSession API. Mounted once from AppLayout next to the other global
  * player hooks.
  */
+
+/**
+ * Where a native pause came from, in words.
+ *
+ * The action string is already the source; this only maps the ones that exist
+ * so a message never reads as an internal identifier.
+ */
+function nativeActionSource(action: string): string {
+  switch (action) {
+    case 'pause':
+      return '通知栏或媒体按键';
+    case 'stop':
+      return '系统停止';
+    default:
+      return action;
+  }
+}
 
 const trackKeyOf = (track: MusicTrack) => track.source + ':' + track.id + ':' + track.url_id;
 
@@ -200,6 +218,15 @@ export function useMediaSession(): void {
           playerController.resume();
           break;
         case 'pause':
+          // Said out loud, with where it came from.
+          //
+          // A pause that the app did not ask for - the audio focus system, a
+          // media key, the notification - is indistinguishable on screen from
+          // the user pressing pause. That is why "it pauses on its own" was
+          // unanswerable: the app acted on the instruction and never mentioned
+          // who gave it. This makes the instruction visible the next time it
+          // happens, instead of leaving the symptom as the only evidence.
+          notify('播放被系统暂停（来源：' + nativeActionSource(action) + '）');
           playerController.pause();
           break;
         case 'next':

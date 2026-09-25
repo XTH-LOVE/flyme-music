@@ -106,7 +106,10 @@ class MediaPlaybackService : Service() {
         noisyReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                    forward("pause")
+                    // Tagged so the page can say which of the four pause sources
+                    // this was. "Paused by the system" is true of all of them and
+                    // narrows nothing down.
+                    forward("pause:noisy")
                 }
             }
         }
@@ -118,7 +121,7 @@ class MediaPlaybackService : Service() {
         session = MediaSession(this, "FlymeMusicSession").apply {
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() = forward("play")
-                override fun onPause() = forward("pause")
+                override fun onPause() = forward("pause:session")
                 override fun onSkipToNext() = forward("next")
                 override fun onSkipToPrevious() = forward("previous")
                 override fun onSeekTo(pos: Long) = forward("seek:" + pos / 1000)
@@ -146,7 +149,7 @@ class MediaPlaybackService : Service() {
             ACTION_PREV -> forward("previous")
             ACTION_NEXT -> forward("next")
             ACTION_PLAY -> forward("play")
-            ACTION_PAUSE -> forward("pause")
+            ACTION_PAUSE -> forward("pause:button")
             ACTION_STOP -> {
                 forward("stop")
                 stopSelf()
@@ -269,7 +272,7 @@ class MediaPlaybackService : Service() {
         when (change) {
             AudioManager.AUDIOFOCUS_LOSS -> {
                 ducked = false
-                forward("pause")
+                forward("pause:focus-loss")
                 abandonFocus()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
@@ -279,7 +282,7 @@ class MediaPlaybackService : Service() {
                 // pausing without ever resuming means a passing notification
                 // sound ends the listening session.
                 pausedForFocus = true
-                forward("pause")
+                forward("pause:focus")
             }
             // Ducking is a request to the app, not something the system does
             // for it - hence telling the page rather than touching the session.

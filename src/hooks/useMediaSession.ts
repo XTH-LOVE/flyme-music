@@ -19,19 +19,26 @@ import {
  */
 
 /**
- * Where a native pause came from, in words.
+ * Which part of the system asked for the pause.
  *
- * The action string is already the source; this only maps the ones that exist
- * so a message never reads as an internal identifier.
+ * "Paused by the system" is true of every one of these and narrows nothing
+ * down. Each of the four has a different cause and a different fix: the route
+ * changed, the system took focus, the framework asked, or a button was pressed.
  */
-function nativeActionSource(action: string): string {
-  switch (action) {
-    case 'pause':
-      return '通知栏或媒体按键';
-    case 'stop':
-      return '系统停止';
+function pauseSource(action: string): string {
+  switch (action.slice('pause:'.length)) {
+    case 'noisy':
+      return '音频输出被切换或耳机被拔出';
+    case 'session':
+      return '系统媒体控制要求暂停';
+    case 'button':
+      return '通知栏按钮被按下';
+    case 'focus':
+      return '音频焦点被暂时占用';
+    case 'focus-loss':
+      return '音频焦点被其他应用占用';
     default:
-      return action;
+      return '未知来源';
   }
 }
 
@@ -213,21 +220,17 @@ export function useMediaSession(): void {
       // notification sends them as distinct events, and collapsing them back
       // into a toggle reintroduces the state-drift problem the split exists to
       // remove.
+      // `pause:<source>` - the source is carried through so a pause the app did
+      // not ask for can be traced to the part of the system that asked for it.
+      if (action.startsWith('pause')) {
+        notify('播放被系统暂停（来源：' + pauseSource(action) + '）');
+        playerController.pause();
+        return;
+      }
+
       switch (action) {
         case 'play':
           playerController.resume();
-          break;
-        case 'pause':
-          // Said out loud, with where it came from.
-          //
-          // A pause that the app did not ask for - the audio focus system, a
-          // media key, the notification - is indistinguishable on screen from
-          // the user pressing pause. That is why "it pauses on its own" was
-          // unanswerable: the app acted on the instruction and never mentioned
-          // who gave it. This makes the instruction visible the next time it
-          // happens, instead of leaving the symptom as the only evidence.
-          notify('播放被系统暂停（来源：' + nativeActionSource(action) + '）');
-          playerController.pause();
           break;
         case 'next':
           playerController.next();

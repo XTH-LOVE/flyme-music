@@ -228,13 +228,18 @@ export function useMediaSession(): void {
 
       if (track && key !== lastKey) {
         lastKey = key;
+        // Remembered here, not inside the artwork callback below. The title is
+        // known now and the cover is not, and `setNativePlaying` runs on every
+        // snapshot carrying whatever title was last remembered - so waiting for
+        // the image meant the notification showed an empty title, or the
+        // previous track's, until it resolved.
+        rememberTrack(track.name, track.artist.join(' / '));
         void artworkFor(track).then((artwork) => {
           if (!alive) return;
           // Artwork resolution is async; a stale result must not overwrite a
           // track the user has already moved past.
           const current = playerController.snapshot().current;
           if (!current || trackKeyOf(current) !== key) return;
-          rememberTrack(track.name, track.artist.join(' / '));
           void updateNativeNowPlaying({
             title: track.name,
             artist: track.artist.join(' / '),

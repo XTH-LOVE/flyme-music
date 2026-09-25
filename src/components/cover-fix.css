@@ -33,3 +33,51 @@
 .user-pl-card {
   min-width: 0;
 }
+
+/*
+ * Squares, on engines that have no aspect-ratio.
+ *
+ * The containers below are sized entirely by `aspect-ratio: 1`. Where that is
+ * unsupported the declaration is dropped, the container has no height, and
+ * every cover in the app disappears - which is what a phone on an old browser
+ * engine (X5, or a stock browser) actually sees.
+ *
+ * The padding-top trick is the pre-aspect-ratio way to do the same thing, and it
+ * works here without touching any markup because the media inside is already
+ * absolutely positioned by the rule at the top of this file: the container is
+ * relative, the image fills it, and the pseudo-element gives it its height.
+ * `padding-top` is a percentage of the *width*, which is exactly the property
+ * being relied on.
+ *
+ * Guarded rather than unconditional, so engines that do understand aspect-ratio
+ * keep using it.
+ */
+@supports not (aspect-ratio: 1 / 1) {
+  .music-card__cover,
+  .user-pl-card__cover,
+  .recent-card__cover,
+  .detail-hero__cover {
+    height: 0;
+    padding-top: 100%;
+  }
+
+  /*
+   * The padding-top trick is the pre-aspect-ratio way to make a square, and it
+   * needs no markup change here: the media inside is already absolutely
+   * positioned by the rule at the top of this file, so the container is relative
+   * and the pseudo-element gives it its height. The percentage is of the width,
+   * which is the property being relied on.
+   *
+   * Deliberately not included: .queue-item__cover, .song-item__cover and
+   * .artist-card__avatar. Those already have explicit heights, so this would not
+   * rescue them - it would override a height that was working and break three
+   * things that were fine.
+   */
+  .music-card__cover::before,
+  .user-pl-card__cover::before,
+  .recent-card__cover::before,
+  .detail-hero__cover::before {
+    content: '';
+    display: block;
+  }
+}

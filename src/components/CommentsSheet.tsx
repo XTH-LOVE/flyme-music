@@ -60,8 +60,12 @@ export function CommentsSheet({ open, trackName, songId, onClose }: CommentsShee
     }
     return (
       <div className="comments-list">
-        {list.map((c, i) => (
-          <div key={i} className="comment-row">
+        {list.map((c) => (
+          // Keyed by when it was posted rather than by position. A comment has
+          // no id in the API response, and a position key means React reuses
+          // the wrong row whenever the list changes - which it does, since
+          // these load a page at a time.
+          <div key={c.time + ':' + c.nickname} className="comment-row">
             {c.avatarUrl ? (
               <img className="comment-avatar" src={c.avatarUrl} alt={c.nickname} loading="lazy" />
             ) : (

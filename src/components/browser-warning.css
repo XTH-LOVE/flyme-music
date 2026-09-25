@@ -1,0 +1,51 @@
+/*
+ * The old-browser notice.
+ *
+ * Written with the plainest CSS in the project on purpose: it has to render on
+ * the very engines it is warning about, so no gap, no aspect-ratio, no custom
+ * properties beyond the ones that already have fallbacks.
+ */
+.browser-warning {
+  display: flex;
+  align-items: flex-start;
+  margin: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(214, 150, 20, 0.35);
+  border-radius: 12px;
+  background: rgba(214, 150, 20, 0.12);
+  color: var(--am-text-2, rgba(0, 0, 0, 0.6));
+}
+
+.browser-warning svg {
+  flex-shrink: 0;
+  margin-right: 8px;
+  margin-top: 2px;
+  color: #d69614;
+}
+
+.browser-warning__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.browser-warning__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--am-text-1, #16181c);
+}
+
+.browser-warning__text {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.browser-warning__close {
+  flex-shrink: 0;
+  margin-left: 6px;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}

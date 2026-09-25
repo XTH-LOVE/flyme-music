@@ -84,13 +84,18 @@
 /* Rows with chip groups (personality / quality): when space is tight the
    label column collapsed to one character per line. Let chips wrap to a
    second line instead of starving the title + description. */
-.page--narrow .settings-row:has(.quality-options) {
+/*
+ * :has() needs Chrome 105, and this is the one place the project relied on it.
+ * A named class does the same job, and the row that holds the chips is the only
+ * one that needs it - so the selector no longer has to ask what is inside.
+ */
+.page--narrow .settings-row--chips {
   flex-wrap: wrap;
 }
-.page--narrow .settings-row:has(.quality-options) .settings-row__body {
+.page--narrow .settings-row--chips .settings-row__body {
   flex: 1 1 190px;
 }
-.page--narrow .settings-row:has(.quality-options) .quality-options {
+.page--narrow .settings-row--chips .quality-options {
   flex-wrap: wrap;
   justify-content: flex-start;
 }

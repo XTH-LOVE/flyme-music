@@ -283,7 +283,7 @@ export function SettingsPage() {
             </div>
           </div>
         </div>
-        <div className="settings-row">
+        <div className="settings-row settings-row--chips">
           <div className="settings-row__body">
             <div className="settings-row__title">Flyme 性格</div>
             <div className="settings-row__desc">决定她陪你听歌时的语气</div>
@@ -395,7 +395,7 @@ export function SettingsPage() {
           </div>
           <Switch checked={settings.autoplayNext} onChange={settings.setAutoplayNext} />
         </div>
-        <div className="settings-row">
+        <div className="settings-row settings-row--chips">
           <div className="settings-row__body">
             <div className="settings-row__title">音质</div>
             <div className="settings-row__desc">更高音质会消耗更多流量</div>

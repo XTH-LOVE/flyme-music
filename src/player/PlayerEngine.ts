@@ -42,10 +42,30 @@ export class PlayerEngine {
         this.stopTimer();
         this.simulated = true;
         this.emit('tick');
+        // And say so. Stopping silently is what makes a track that will not
+        // play on one device indistinguishable from a track that paused.
+        this.reportFailure('stream', this.audio.error);
       });
     }
     this.audio.volume = this.pendingVolume;
     return this.audio;
+  }
+
+  /**
+   * Called when playback fails after a source was resolved.
+   *
+   * These two paths used to end in the same place as a user pressing pause -
+   * silent, with no reason. That is why "it will not play on this phone" was
+   * impossible to act on: the app knew something had failed and told nobody.
+   */
+  onFailure: ((kind: 'play' | 'stream', reason: unknown) => void) | null = null;
+
+  private reportFailure(kind: 'play' | 'stream', reason: unknown): void {
+    try {
+      this.onFailure?.(kind, reason);
+    } catch {
+      /* reporting must never be the thing that breaks playback */
+    }
   }
 
   /** Begin a song in simulated mode (instant UI feedback). */
@@ -93,7 +113,7 @@ export class PlayerEngine {
     ensureWired(el);
     // Respect a pause that happened while the URL was resolving.
     if (this.wanted) {
-      void el.play().catch(() => {
+      void el.play().catch((error: unknown) => {
         // Autoplay policy or a rejected media URL must not leave the player
         // looking active while the clock is stopped.
         this.simulatedTime = el.currentTime || resumeAt;
@@ -101,6 +121,7 @@ export class PlayerEngine {
         this.stopTimer();
         this.simulated = true;
         this.emit('tick');
+        this.reportFailure('play', error);
       });
     }
   }

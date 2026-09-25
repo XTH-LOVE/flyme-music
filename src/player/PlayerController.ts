@@ -19,6 +19,25 @@ import type { PlayerListener, PlayerSnapshot, RepeatMode } from './PlayerState';
 /** Persisted playback session (queue + preferences). */
 const QUEUE_KEY = 'aurora.queue.v1';
 
+/**
+ * Turns a media failure into something a person can act on.
+ *
+ * The names in DOMException are precise and mean nothing to a user; the message
+ * is the difference between "the app is broken" and "this file is a format my
+ * phone cannot decode".
+ */
+function describePlaybackFailure(reason: unknown): string {
+  const name = (reason as { name?: string } | null)?.name ?? '';
+  if (name === 'NotAllowedError') return '无法自动开始播放，请再点一次播放按钮';
+  if (name === 'NotSupportedError') return '音频格式不支持，正在尝试换源…';
+  if (name === 'AbortError') return '播放被中断，请重试';
+  // MediaError codes: 1 aborted, 2 network, 3 decode, 4 src not supported.
+  const code = (reason as { code?: number } | null)?.code;
+  if (code === 3 || code === 4) return '音频格式不支持，正在尝试换源…';
+  if (code === 2) return '网络中断，请检查连接后重试';
+  return '无法播放，可在歌曲菜单里换源重试';
+}
+
 class PlayerController {
   private engine = new PlayerEngine();
   private queue = new PlayerQueue();
@@ -73,6 +92,29 @@ class PlayerController {
       if (event === 'ended') this.handleEnded();
       this.broadcast();
     });
+
+    /*
+     * Playback failed after a source was found.
+     *
+     * This is the case that made "it plays on my phone but not on this one"
+     * impossible to answer: the player stopped, the UI showed paused, and
+     * nothing anywhere said why. A device that cannot decode the format, or
+     * that refuses to start audio, looked exactly like a device where the user
+     * had pressed pause.
+     *
+     * The reason decides what happens next. A refused start is a policy
+     * question that another source cannot answer; a decode or stream failure is
+     * worth trying elsewhere, which is what the no-source path already does.
+     */
+    this.engine.onFailure = (kind, reason) => {
+      const track = this.queue.current;
+      if (!track) return;
+      const detail = describePlaybackFailure(reason);
+      notify('《' + track.name + '》' + detail);
+      if (kind === 'stream' || detail.includes('格式')) {
+        void this.switchToAlternateSource(track, this.playbackRequestId);
+      }
+    };
   }
 
   /* ---- commands ---- */

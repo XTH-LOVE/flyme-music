@@ -23,6 +23,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Fallback for WebViews without dvh (Android < 108): the whole rule is dropped otherwise. */
+  min-height: 100vh;
   min-height: 100dvh;
   padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
 }

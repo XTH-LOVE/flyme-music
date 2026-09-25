@@ -64,7 +64,8 @@ class MediaPlaybackService : Service() {
     companion object {
         const val ACTION_UPDATE = "com.flyme.music.UPDATE"
         const val ACTION_PREV = "com.flyme.music.PREV"
-        const val ACTION_TOGGLE = "com.flyme.music.TOGGLE"
+        const val ACTION_PLAY = "com.flyme.music.PLAY"
+        const val ACTION_PAUSE = "com.flyme.music.PAUSE"
         const val ACTION_NEXT = "com.flyme.music.NEXT"
         const val ACTION_STOP = "com.flyme.music.STOP"
 
@@ -139,7 +140,8 @@ class MediaPlaybackService : Service() {
             }
             ACTION_PREV -> forward("previous")
             ACTION_NEXT -> forward("next")
-            ACTION_TOGGLE -> forward(if (playing) "pause" else "play")
+            ACTION_PLAY -> forward("play")
+            ACTION_PAUSE -> forward("pause")
             ACTION_STOP -> {
                 forward("stop")
                 stopSelf()
@@ -315,14 +317,24 @@ class MediaPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // One toggle button rather than separate play and pause, because the
-        // icon is redrawn with each state - unlike the system's fixed pair,
-        // there is nothing to keep in sync, and the label always matches what
-        // the button will do.
+        /*
+         * The action is chosen here, next to the icon, from the same value.
+         *
+         * It used to be a single TOGGLE whose direction was decided when the
+         * button was pressed, from whatever `playing` happened to be by then.
+         * The icon was drawn from `playing` at build time. Between those two
+         * moments the state can change - the app pauses, the update is late or
+         * lost - and then the button says "play" and sends "pause", which is
+         * exactly the report of a tap that immediately pauses.
+         *
+         * Fixed here, the two cannot disagree: the same read of `playing` picks
+         * both what the button looks like and what it does. If the state is
+         * stale, the button is consistently stale rather than self-contradicting.
+         */
         val toggle = Notification.Action.Builder(
             Icon.createWithResource(this, if (playing) R.drawable.ic_pause else R.drawable.ic_play),
             if (playing) "暂停" else "播放",
-            action(ACTION_TOGGLE, 2)
+            action(if (playing) ACTION_PAUSE else ACTION_PLAY, 2)
         ).build()
 
         return Notification.Builder(this, CHANNEL_ID)

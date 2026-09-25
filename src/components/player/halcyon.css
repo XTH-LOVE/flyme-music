@@ -577,6 +577,8 @@
 /* ---------- Mobile portrait ---------- */
 .hc--p .hc-p-body {
   height: 100%;
+  /* Fallback for WebViews without dvh (Android < 108): the whole rule is dropped otherwise. */
+  height: 100vh;
   height: 100dvh;
   display: flex;
   flex-direction: column;

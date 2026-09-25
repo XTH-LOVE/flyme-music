@@ -851,6 +851,8 @@
   .me-hero > .am-btn--secondary { order: 3; }
   .me-hero > .am-btn--primary { order: 4; }
   .am-dialog-root { align-items: center; padding: 14px; }
+  /* Fallback for WebViews without dvh (Android < 108): the whole rule is dropped otherwise. */
+  .am-dialog { width: 100%; max-width: 460px; max-height: calc(100vh - 20px); overflow-y: auto; border-radius: 24px; padding: 20px 16px; }
   .am-dialog { width: 100%; max-width: 460px; max-height: calc(100dvh - 20px); overflow-y: auto; border-radius: 24px; padding: 20px 16px; }
 }
 .me-hero__name {

@@ -59,10 +59,23 @@ export function useMediaSession(): void {
     if (!('mediaSession' in navigator)) return;
     const media = navigator.mediaSession;
 
-    // 'play'/'pause' only fire in the matching OS state, so toggle() is exact.
+    /*
+     * Resume and pause, not a toggle.
+     *
+     * The comment here used to say that 'play' and 'pause' only fire in the
+     * matching OS state and that toggle() was therefore exact. That is the
+     * assumption that fails: the OS decides which action to send from the
+     * position it last heard about, and that can be out of step with the
+     * player - a track that ended on its own, a play() the autoplay policy
+     * rejected, an update that arrived late. When it is, pressing play pauses,
+     * which is the reported "I tap play and it stops".
+     *
+     * The native path below already sends them as separate events and says why.
+     * This is the same fix, in the other half of the same file.
+     */
     const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
-      ['play', () => playerController.toggle()],
-      ['pause', () => playerController.toggle()],
+      ['play', () => playerController.resume()],
+      ['pause', () => playerController.pause()],
       ['previoustrack', () => playerController.previous()],
       ['nexttrack', () => playerController.next()],
       [

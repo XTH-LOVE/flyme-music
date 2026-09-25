@@ -1,7 +1,7 @@
 import type { MusicTrack } from '@/music/source/types';
 import type { UserPlaylist } from '@/store/usePlaylistStore';
 import type { PlayLogEntry } from '@/store/useLibraryStore';
-import { saveBlobInBrowser } from '@/utils/saveBlob';
+import { saveFile } from '@/utils/saveBlob';
 
 /**
  * Local data backup/restore — favorites, recent tracks, play log, dislikes
@@ -93,7 +93,7 @@ export async function exportBackup(payload: BackupPayload): Promise<void> {
   const backup = buildBackup(payload);
   const json = JSON.stringify(backup, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
-  await saveBlobInBrowser(blob, backupFileName());
+  await saveFile(blob, backupFileName());
 }
 
 /**

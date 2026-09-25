@@ -2,7 +2,7 @@ import { fetchLyricLines, lyricLineAt } from './currentLyric';
 import { fetchImageBlob } from './imageSource';
 import { isTauri } from '@/lib/apiTransport';
 import { notify } from './notify';
-import { saveBlobInBrowser } from './saveBlob';
+import { saveFile } from './saveBlob';
 import { resolveTrackPic } from '@/music/source/track-resolver';
 import { fallbackPalette } from '@/utils/palette';
 import type { MusicTrack } from '@/music/source/types';
@@ -117,6 +117,6 @@ export async function shareLyricCard(track: MusicTrack, currentTime: number): Pr
   }
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) return false;
-  await saveBlobInBrowser(blob, fileName);
+  await saveFile(blob, fileName);
   return true;
 }

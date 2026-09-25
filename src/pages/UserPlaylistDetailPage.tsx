@@ -10,7 +10,7 @@ import { EmptyState } from '@/design-system/components/EmptyState';
 import { playerController } from '@/player';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { notify } from '@/utils/notify';
-import { saveBlobInBrowser } from '@/utils/saveBlob';
+import { saveFile } from '@/utils/saveBlob';
 import {
   dedupeTracks,
   EXPORT_FORMATS,
@@ -80,7 +80,7 @@ export function UserPlaylistDetailPage() {
   const doExport = (format: ExportFormat) => {
     const text = exportPlaylist(visible, format, playlist.name);
     const type = format === 'json' ? 'application/json' : 'text/plain';
-    void saveBlobInBrowser(new Blob([text], { type: `${type};charset=utf-8` }), exportFileName(playlist.name, format));
+    void saveFile(new Blob([text], { type: `${type};charset=utf-8` }), exportFileName(playlist.name, format));
   };
 
   return (

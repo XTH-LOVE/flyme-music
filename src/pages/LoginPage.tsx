@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
 import { useNeteaseQrLogin, type QrState } from '@/hooks/useNeteaseQrLogin';
 import './login-page.css';
+import { notify } from '@/utils/notify';
 
 /**
  * The sign-in page.
@@ -50,8 +51,13 @@ async function openNeteaseApp(): Promise<void> {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
     try {
       await openUrl(target);
-    } catch {
-      // No Netease app installed. Nothing useful to say about that.
+    } catch (error) {
+      // Swallowing this silently was a mistake: the first version of this
+      // button did nothing at all, and the empty catch made it look like the
+      // app simply was not installed when the real cause was the permission
+      // scope. A failure the user can see is worth more than a clean console.
+      console.warn('[login] 打开网易云 App 失败', error);
+      notify('没能打开网易云 App，请手动打开后从相册扫码');
     }
     return;
   }

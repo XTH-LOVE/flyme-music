@@ -4,7 +4,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { bitrateForQuality } from '@/music/source/quality';
 import { isTauri } from '@/lib/apiTransport';
 import { notify } from '@/utils/notify';
-import { saveBlobInBrowser } from '@/utils/saveBlob';
+import { saveFile } from '@/utils/saveBlob';
 import {
   SNIFF_BYTES,
   detectAudioFormat,
@@ -88,5 +88,5 @@ export async function downloadTrack(track: MusicTrack): Promise<void> {
   const head = new Uint8Array(await blob.slice(0, SNIFF_BYTES).arrayBuffer());
   const format =
     detectAudioFormat(head) ?? formatFromMime(blob.type) ?? formatFromUrl(url);
-  await saveBlobInBrowser(blob, base + '.' + format);
+  await saveFile(blob, base + '.' + format);
 }

@@ -1,5 +1,5 @@
 import { buildListeningReport, formatReportDuration, rangeLabel, type ListeningReport } from './listeningReport';
-import { saveBlobInBrowser } from './saveBlob';
+import { saveFile } from './saveBlob';
 import { isTauri } from '@/lib/apiTransport';
 import { notify } from './notify';
 import type { PlayLogEntry } from '@/store/useLibraryStore';
@@ -130,6 +130,6 @@ export async function shareListeningReport(
   }
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) return false;
-  await saveBlobInBrowser(blob, fileName);
+  await saveFile(blob, fileName);
   return true;
 }

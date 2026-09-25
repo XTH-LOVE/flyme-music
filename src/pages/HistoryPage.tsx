@@ -7,7 +7,7 @@ import { playerController } from '@/player';
 import { useLibraryStore, type PlayLogEntry } from '@/store/useLibraryStore';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { notify } from '@/utils/notify';
-import { saveBlobInBrowser } from '@/utils/saveBlob';
+import { saveFile } from '@/utils/saveBlob';
 import { playLogFileName, toPlayLogCsv, toPlayLogJson } from '@/utils/playLogExport';
 import './history.css';
 
@@ -117,7 +117,7 @@ export function HistoryPage() {
     try {
       const text = format === 'csv' ? toPlayLogCsv(ordered) : toPlayLogJson(ordered);
       const type = format === 'csv' ? 'text/csv' : 'application/json';
-      await saveBlobInBrowser(
+      await saveFile(
         new Blob([text], { type: type + ';charset=utf-8' }),
         playLogFileName(format),
       );

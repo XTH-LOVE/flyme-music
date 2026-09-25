@@ -23,7 +23,6 @@ import { useEffect } from 'react';
 import { UpdateCapsule } from '@/components/UpdateCapsule';
 import { AiCapsule } from '@/components/AiCapsule';
 import { useMaterialYou } from '@/hooks/useMaterialYou';
-import { BrowserWarning } from '@/components/BrowserWarning';
 
 export function AppLayout() {
   useMaterialYou();
@@ -81,11 +80,6 @@ export function AppLayout() {
     <div className="app-shell">
       <UpdateCapsule />
       <AiCapsule />
-      {/*
-        First thing inside the layout, so it is read before the broken layout
-        below it is blamed on the app.
-      */}
-      <BrowserWarning />
       <MonetAccent />
       <Sidebar />
       <main className="app-main">

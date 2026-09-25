@@ -92,14 +92,29 @@
   border-radius: 3px;
   background: var(--am-surface-3, rgba(120, 120, 140, 0.14));
 }
+/*
+ * The four intensity levels, as the accent at four opacities.
+ *
+ * `color-mix(in srgb, C N%, transparent)` is exactly "C with alpha N", and
+ * `opacity` says the same thing without needing color-mix - which matters here
+ * more than anywhere else it is used, because the tint *is* the information:
+ * an engine without color-mix draws every day the same flat colour and the
+ * calendar stops saying anything.
+ *
+ * Safe to put opacity on the cell because a cell has no children; on a chip it
+ * would fade the label too.
+ */
 .cal__cell--l1 {
-  background: color-mix(in srgb, var(--am-accent, #3d7bff) 26%, transparent);
+  background: var(--am-accent, #3d7bff);
+  opacity: 0.26;
 }
 .cal__cell--l2 {
-  background: color-mix(in srgb, var(--am-accent, #3d7bff) 48%, transparent);
+  background: var(--am-accent, #3d7bff);
+  opacity: 0.48;
 }
 .cal__cell--l3 {
-  background: color-mix(in srgb, var(--am-accent, #3d7bff) 72%, transparent);
+  background: var(--am-accent, #3d7bff);
+  opacity: 0.72;
 }
 .cal__cell--l4 {
   background: var(--am-accent, #3d7bff);

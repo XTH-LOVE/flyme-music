@@ -22,6 +22,33 @@
   --am-glass-border: rgba(255, 255, 255, 0.58);
   --am-glass-blur: 30px;
   --am-glass-saturate: 1.5;
+/*
+ * WHY THE ACCENT TINTS HAVE NO FALLBACK
+ *
+ * About thirty rules in this app are written as
+ * `color-mix(in srgb, var(--am-accent) N%, transparent)` - "the accent at N%
+ * alpha". On an engine without color-mix those declarations are dropped and the
+ * element simply has no fill.
+ *
+ * That is left as it is, deliberately, and this note is here so the next person
+ * does not spend an afternoon on it.
+ *
+ * There is no pre-color-mix equivalent, because the accent is not a fixed
+ * colour - it follows the current cover. `rgba(var(--am-accent-rgb), 0.12)`
+ * would work only if the accent were also maintained as bare components, and
+ * the relative colour syntax that would let you do this without that
+ * (`rgb(from var(--am-accent) r g b / 12%)`) is newer than color-mix itself.
+ *
+ * The one real alternative is a pseudo-element carrying the accent at a set
+ * opacity, which does work everywhere - but it means restructuring every chip,
+ * badge and row that uses a tint, and the result of not doing it is a control
+ * with no background rather than a broken layout. Readable either way.
+ *
+ * The exception was the listening calendar, where the tint *is* the data - four
+ * intensities of one colour, and a flat calendar says nothing. It uses opacity
+ * now, which is exact there because a cell has no children to fade.
+ */
+
   --am-glass-highlight: rgba(255, 255, 255, 0.36);
   --am-glass-shadow: 0 12px 40px rgba(16, 16, 20, 0.14);
   /* Tint for the finger-following press glow. Light surfaces need a dark wash

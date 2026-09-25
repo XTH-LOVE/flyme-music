@@ -15,6 +15,7 @@ import { clearOfflineCache, formatBytes, offlineStats, type OfflineStats } from 
 import { warmupAnalysis } from '@/audio/analysis';
 import { notify } from '@/utils/notify';
 import './pages.css';
+import { pickFiles } from '@/utils/pickFiles';
 
 /** Below this the bar is more clutter than shortcut. */
 const INDEX_BAR_MIN_TRACKS = 20;
@@ -28,7 +29,6 @@ export function LocalMusicPage() {
   const loading = useLocalLibraryStore((s) => s.loading);
   const importFiles = useLocalLibraryStore((s) => s.importFiles);
   const remove = useLocalLibraryStore((s) => s.remove);
-  const fileRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [importing, setImporting] = useState(false);
   const [stats, setStats] = useState<OfflineStats | null>(null);
@@ -66,11 +66,24 @@ export function LocalMusicPage() {
   // Count/size are cheap; refresh whenever the page re-renders a new mount.
   if (stats === null) refreshStats();
 
-  const handlePick = async (files: FileList | null) => {
-    if (!files || !files.length) return;
+  /**
+   * The picker is asked here rather than through a hidden <input type="file">.
+   *
+   * That input is the reason this page could not import anything in the
+   * packaged app: the Android WebView only opens a picker if the host
+   * implements onShowFileChooser, and this one does not. See `pickFiles` for
+   * what happens instead.
+   */
+  const handlePick = async () => {
+    const files = await pickFiles({
+      accept: 'audio/*,.mp3,.flac,.m4a,.aac,.ogg,.opus,.wav',
+      multiple: true,
+      title: '选择音频文件',
+    });
+    if (!files.length) return;
     setImporting(true);
     try {
-      const { imported, skipped } = await importFiles(Array.from(files));
+      const { imported, skipped } = await importFiles(files);
       notify('已导入 ' + imported + ' 首' + (skipped ? '，跳过 ' + skipped + ' 个非音频文件' : ''));
       refreshStats();
       // The scan is over and the user is not waiting on anything, which is the
@@ -82,7 +95,6 @@ export function LocalMusicPage() {
       notify(e instanceof Error ? e.message : '导入失败');
     } finally {
       setImporting(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
@@ -101,18 +113,10 @@ export function LocalMusicPage() {
           <button
             className="am-btn am-btn--primary am-btn--sm"
             disabled={importing}
-            onClick={() => fileRef.current?.click()}
+            onClick={() => void handlePick()}
           >
             {importing ? '导入中…' : '选择文件'}
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="audio/*,.mp3,.flac,.m4a,.aac,.ogg,.opus,.wav"
-            multiple
-            hidden
-            onChange={(e) => void handlePick(e.target.files)}
-          />
         </div>
         <div className="settings-row">
           <div className="settings-row__body">

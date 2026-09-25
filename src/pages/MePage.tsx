@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { SongListItem } from '@/components/SongListItem';
@@ -24,6 +24,7 @@ import { exportBackup, readBackupFile, restoreBackupToStorage } from '@/utils/ba
 import { notify } from '@/utils/notify';
 import './pages.css';
 import { NeteaseMark } from '@/components/NeteaseMark';
+import { pickFiles } from '@/utils/pickFiles';
 
 type Tab = 'recent' | 'favorite' | 'mine' | 'songs' | 'playlists' | 'netease';
 
@@ -42,7 +43,6 @@ export function MePage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [profileNickname, setProfileNickname] = useState('');
-  const heroAvatarRef = useRef<HTMLInputElement>(null);
   const [nickOpen, setNickOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
@@ -66,7 +66,6 @@ export function MePage() {
 
 
   const [backupMsg, setBackupMsg] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
     setBackupMsg('');
@@ -100,8 +99,22 @@ export function MePage() {
       setBackupMsg(error instanceof Error ? error.message : '导入失败');
     }
   };
-  const onHeroAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  /**
+   * Import a backup file.
+   *
+   * Was a hidden <input type="file"> - and two of them shared one ref, so only
+   * the last was ever reachable even in a browser. Neither worked in the
+   * packaged app. See `pickFiles`.
+   */
+  const onImportBackup = async () => {
+    const [file] = await pickFiles({ accept: '.json,application/json', title: '选择备份文件' });
+    if (file) await handleImport(file);
+  };
+
+  const onHeroAvatarPick = async () => {
+    // Same reason as the music import: a hidden <input type="file"> does
+    // nothing in the packaged Android app.
+    const [file] = await pickFiles({ accept: 'image/*', title: '选择头像' });
     if (!file) return;
     setAvatarUploading(true);
     notify('正在上传头像…');
@@ -116,7 +129,6 @@ export function MePage() {
         setAvatarUploading(false);
       }
     })();
-    e.target.value = '';
   };
 
   const [accountPlaylists, setAccountPlaylists] = useState<NetPlaylistSummary[]>([]);
@@ -178,14 +190,14 @@ export function MePage() {
       <div className="me-hero">
         <button
           className="me-hero__avatar me-hero__avatar--edit"
-          onClick={() => (localAuth.user ? heroAvatarRef.current?.click() : navigate('/login'))}
+          onClick={() => (localAuth.user ? void onHeroAvatarPick() : navigate('/login'))}
           aria-label="更换头像"
           title={localAuth.user ? '点击更换头像' : '登录后可设置头像'}
         >
           {localAuth.user?.avatarUrl ? <img className="me-hero__avatar me-hero__avatar--image" src={localAuth.user.avatarUrl} alt="" style={avatarUploading ? { opacity: 0.55 } : undefined} /> : <Icon name="user" size={30} />}
           {localAuth.user ? <span className="me-hero__avatar-cam"><NeteaseMark size={13} /></span> : null}
         </button>
-        <input ref={heroAvatarRef} type="file" accept="image/*" hidden onChange={onHeroAvatarPick} />
+
         <button className="me-profile-button" onClick={() => (localAuth.user ? setNickOpen(true) : navigate('/login'))} aria-label="修改昵称">
           <h1 className="me-hero__name">{localAuth.user?.nickname || '登录'}</h1>
           {localAuth.user ? <p className="me-hero__sub">@{localAuth.user.username}</p> : null}
@@ -289,27 +301,17 @@ export function MePage() {
                     <Icon name="download" size={14} />
                     导出备份
                   </button>
-                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => fileInputRef.current?.click()}>
+                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => void onImportBackup()}>
                     <Icon name="arrowRight" size={14} />
                     导入备份
                   </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      void handleImport(e.target.files?.[0]);
-                      e.target.value = '';
-                    }}
-                  />
                 </div>
               </div>
               {backupMsg ? <div className="settings-account-note">{backupMsg}</div> : null}
               <div className="song-list">
                 {(favoriteTracks.length ? favoriteTracks : []).map((track, index) => (
                   <TrackListItem
-                    key={track.id}
+                    key={track.source + ':' + track.id}
                     track={track}
                     index={index}
                     context={favoriteTracks}
@@ -326,20 +328,10 @@ export function MePage() {
                     <Icon name="download" size={14} />
                     导出备份
                   </button>
-                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => fileInputRef.current?.click()}>
+                  <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => void onImportBackup()}>
                     <Icon name="arrowRight" size={14} />
                     导入备份
                   </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      void handleImport(e.target.files?.[0]);
-                      e.target.value = '';
-                    }}
-                  />
                 </div>
               </div>
               {backupMsg ? <div className="settings-account-note">{backupMsg}</div> : null}

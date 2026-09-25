@@ -120,6 +120,7 @@ pub fn run() {
   #[cfg(desktop)]
   {
     builder = builder.plugin(tauri_plugin_dialog::init());
+    builder = builder.plugin(tauri_plugin_fs::init());
   }
 
   // Opens external URLs through the OS. Without it a Tauri webview swallows

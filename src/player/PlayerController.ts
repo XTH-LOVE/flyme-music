@@ -538,8 +538,11 @@ class PlayerController {
           volume: this.volume,
         }),
       );
-    } catch {
-      /* ignore */
+    } catch (error) {
+      // Not silent. Losing the queue on every launch in private mode, or after
+      // the storage quota fills, is the kind of failure that looks like a
+      // different bug each time it is reported.
+      console.warn('[player] 队列持久化失败', error);
     }
   }
 
@@ -568,8 +571,11 @@ class PlayerController {
       // Restored session starts paused; the engine idles in simulated mode.
       this.engine.load(this.queue.current?.duration || 200);
       this.engine.setVolume(this.volume);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      // Not silent. Losing the queue on every launch in private mode, or after
+      // the storage quota fills, is the kind of failure that looks like a
+      // different bug each time it is reported.
+      console.warn('[player] 队列持久化失败', error);
     }
   }
 }

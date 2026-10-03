@@ -15,7 +15,6 @@ import { getAiStatus } from '@/ai/aiClient';
 import { useAiStore } from '@/store/useAiStore';
 import './layout.css';
 import { registerAppNavigation } from '@/app/navigation';
-import { startLibrarySync } from '@/sync/librarySync';
 import { useListenRoom } from '@/hooks/useListenRoom';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useBackgroundAnalysis } from '@/hooks/useBackgroundAnalysis';
@@ -34,7 +33,15 @@ export function AppLayout() {
   useKeyboardShortcuts();
   useBackgroundAnalysis();
   useEffect(() => {
-    startLibrarySync();
+    /*
+     * Imported when the layout mounts, not at module scope.
+     *
+     * `librarySync` pulls in the Supabase client, which is about 58KB gzipped
+     * and was being preloaded for every visitor - including the ones who never
+     * sign in and therefore never reach a line of it. Nothing here needs it
+     * before the first paint, so the import waits until after.
+     */
+    void import('@/sync/librarySync').then((m) => m.startLibrarySync());
     let unlistenMedia: (() => void) | null = null;
     let unlistenBack: (() => void) | null = null;
     // Guards against the async mount resolving *after* cleanup already ran

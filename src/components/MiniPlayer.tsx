@@ -105,9 +105,20 @@ export function MiniPlayer() {
         playerController.setVolume(Math.min(1, Math.max(0, volume + (e.deltaY < 0 ? 0.05 : -0.05))));
       }}
     >
+      {/* The whole bar opens the player, and it was a plain div - so it could
+          not be reached or activated from a keyboard at all. */}
       <div
         className="mini-glass"
+        role="button"
+        tabIndex={0}
+        aria-label="打开播放器"
         onClick={openFullPlayer}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openFullPlayer();
+          }
+        }}
         style={dragX ? { transform: 'translateX(' + dragX + 'px)' } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -126,7 +137,7 @@ export function MiniPlayer() {
           </div>
         </div>
         <div className="mini-glass__text">
-          <div className="mini-glass__title">
+          <div className="mini-glass__title" title={current?.name}>
             {current.name}
             {playing && simulated && current.source === 'mock' ? <span className="am-sim-badge">离线试听</span> : null}
           </div>

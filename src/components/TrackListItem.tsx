@@ -96,7 +96,9 @@ export const TrackListItem = memo(function TrackListItem({ track, context, index
           ) : null}
         </div>
         <div className="song-item__body">
-          <div className="song-item__title">
+          {/* The title is clipped to one line; the attribute is the only way to
+              read the whole of a long one. */}
+          <div className="song-item__title" title={track.name}>
             {track.name}
             <SourceBadge source={track.source} />
           </div>

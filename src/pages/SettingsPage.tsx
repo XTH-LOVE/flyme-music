@@ -568,8 +568,10 @@ export function SettingsPage() {
         ) : null}
         <div className="settings-row">
           <div className="settings-row__body">
-            <div className="settings-row__title">音源架构说明</div>
-            <div className="settings-row__desc">音源架构参考 Otter Music 的 Provider 工厂设计：网易云 / QQ / 酷我 / Joox 走各自的官方或聚合接口，Hi歌 为 HTML 抓取源；QQ 与 Hi歌 的播放统一由 Joox 匹配兜底</div>
+            <div className="settings-row__title">关于音源</div>
+            <div className="settings-row__desc">
+              每个音源各自独立，某首歌在一个音源上找不到时会自动到其他音源再找一次。QQ 和 Hi歌 的播放由 Joox 兜底，所以偶尔会看到来源和实际不同。
+            </div>
           </div>
         </div>
       </div>

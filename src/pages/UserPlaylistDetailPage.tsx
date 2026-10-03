@@ -105,7 +105,14 @@ export function UserPlaylistDetailPage() {
             <button className="am-btn am-btn--secondary am-btn--md" onClick={() => { setNewName(playlist.name); setRenameOpen(true); }}>
               重命名
             </button>
-            <button className="am-btn am-btn--ghost am-btn--md" onClick={() => setDeleteOpen(true)}>
+            {/* An icon-only button has no text, so without this it reaches a
+                screen reader as "button". */}
+            <button
+              className="am-btn am-btn--ghost am-btn--md"
+              onClick={() => setDeleteOpen(true)}
+              aria-label="删除歌单"
+              title="删除歌单"
+            >
               <Icon name="trash" size={15} />
             </button>
           </div>

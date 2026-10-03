@@ -42,7 +42,32 @@ export const PLAY_LOG_CAP = 500;
 const trackKey = (t: MusicTrack) => t.source + ':' + t.id;
 
 export function mergeLibrary(local: LibrarySnapshot, cloud: LibrarySnapshot): LibrarySnapshot {
-  const favorites = [...new Set([...local.favorites, ...cloud.favorites])];
+  const localFavoriteTracks = local.favoriteTracks ?? local.favorites.filter(
+    (v): v is MusicTrack => typeof v === 'object' && v !== null,
+  );
+  const cloudFavoriteTracks = cloud.favoriteTracks ?? cloud.favorites.filter(
+    (v): v is MusicTrack => typeof v === 'object' && v !== null,
+  );
+  const localFavoriteIds = local.favoriteSongIds ?? local.favorites.filter(
+    (v): v is string => typeof v === 'string',
+  );
+  const cloudFavoriteIds = cloud.favoriteSongIds ?? cloud.favorites.filter(
+    (v): v is string => typeof v === 'string',
+  );
+  const favoriteByKey = new Map<string, MusicTrack>();
+  for (const track of [...localFavoriteTracks, ...cloudFavoriteTracks]) {
+    favoriteByKey.set(trackKey(track), track);
+  }
+  const favoriteKeys = [...localFavoriteTracks, ...cloudFavoriteTracks]
+    .map(trackKey)
+    .filter((key, index, all) => all.indexOf(key) === index);
+  const favoriteTracks = favoriteKeys.map((key) => favoriteByKey.get(key)!);
+  const trackIds = new Set(favoriteTracks.map((t) => t.id));
+  const legacyFavoriteIds = [...localFavoriteIds, ...cloudFavoriteIds]
+    .filter((id) => !trackIds.has(id))
+    .filter((id, index, all) => all.indexOf(id) === index);
+  const favoriteIds = [...new Set([...favoriteTracks.map((t) => t.id), ...legacyFavoriteIds])];
+  const favorites: (string | MusicTrack)[] = [...favoriteTracks, ...legacyFavoriteIds];
 
   const seenTracks = new Set(local.recentTracks.map(trackKey));
   const recentTracks = [...local.recentTracks, ...cloud.recentTracks.filter((t) => !seenTracks.has(trackKey(t)))]
@@ -63,7 +88,14 @@ export function mergeLibrary(local: LibrarySnapshot, cloud: LibrarySnapshot): Li
   const cloudOnly = cloud.playlists.filter((p) => !local.playlists.some((lp) => lp.id === p.id));
   const playlists = [...local.playlists.map((p) => byId.get(p.id)!), ...cloudOnly];
 
-  return { favorites, recentTracks, playLog, playlists };
+  return {
+    favorites,
+    favoriteSongIds: favoriteIds,
+    favoriteTracks,
+    recentTracks,
+    playLog,
+    playlists,
+  };
 }
 
 /** True when two snapshots differ in any tracked field. */
@@ -72,6 +104,8 @@ export function snapshotsEqual(a: LibrarySnapshot, b: LibrarySnapshot): boolean 
     x.length === y.length && x.every((v, i) => JSON.stringify(v) === JSON.stringify(y[i]));
   return (
     sameLists(a.favorites, b.favorites) &&
+    sameLists(a.favoriteTracks ?? [], b.favoriteTracks ?? []) &&
+    sameLists(a.favoriteSongIds ?? [], b.favoriteSongIds ?? []) &&
     sameLists(a.recentTracks, b.recentTracks) &&
     sameLists(a.playLog, b.playLog) &&
     sameLists(a.playlists, b.playlists)

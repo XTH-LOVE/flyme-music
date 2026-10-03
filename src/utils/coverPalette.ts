@@ -28,7 +28,35 @@ function lighten(hex: string, amount = 0.45): string {
   return toHex(mix((n >> 16) & 255), mix((n >> 8) & 255), mix(n & 255));
 }
 
-/** Dominant-color extraction: weighted hue buckets + a lighter companion. */
+/** Keep ambient colours expressive without allowing near-black swatches to
+ * become a hard vignette. Color Thief's role-based swatches do the same job:
+ * the artwork supplies hue, while the surface chooses a usable tone. */
+function ambientTone(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  if (luma < 42) return lighten(hex, 0.28);
+  if (luma > 236) {
+    const mix = (v: number) => Math.round(v * 0.9 + 18);
+    return toHex(mix(r), mix(g), mix(b));
+  }
+  return hex;
+}
+
+interface ColorCluster {
+  r: number;
+  g: number;
+  b: number;
+  weight: number;
+}
+
+function colorDistance(a: ColorCluster, b: ColorCluster): number {
+  return Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
+}
+
+/** Dominant-color extraction: spatially weighted quantization with a tonal companion. */
 async function extract(picUrl: string): Promise<CoverPalette | null> {
   try {
     const src = withPicSize(picUrl, '300y300') || picUrl;
@@ -37,7 +65,7 @@ async function extract(picUrl: string): Promise<CoverPalette | null> {
     const blob = await fetchImageBlob(src);
     if (!blob) return null;
     const bmp = await createImageBitmap(blob);
-    const N = 24;
+    const N = 32;
     const canvas = document.createElement('canvas');
     canvas.width = N;
     canvas.height = N;
@@ -46,11 +74,7 @@ async function extract(picUrl: string): Promise<CoverPalette | null> {
     ctx.drawImage(bmp, 0, 0, N, N);
     bmp.close?.();
     const d = ctx.getImageData(0, 0, N, N).data;
-    const BINS = 12;
-    const wsum = new Array<number>(BINS).fill(0);
-    const rsum = new Array<number>(BINS).fill(0);
-    const gsum = new Array<number>(BINS).fill(0);
-    const bsum = new Array<number>(BINS).fill(0);
+    const clusters = new Map<string, ColorCluster>();
     let ar = 0, ag = 0, ab = 0, any = 0;
     for (let i = 0; i < d.length; i += 4) {
       const r = d[i], g = d[i + 1], b = d[i + 2];
@@ -60,35 +84,41 @@ async function extract(picUrl: string): Promise<CoverPalette | null> {
       const sat = mx === 0 ? 0 : (mx - mn) / mx;
       const lum = (r * 2 + g * 3 + b) / 6;
       if (lum < 16 || lum > 248) continue;
-      const w = sat * sat * (1 - Math.abs(lum - 128) / 170);
+      const pixel = i / 4;
+      const x = pixel % N;
+      const y = Math.floor(pixel / N);
+      const distanceFromCenter = Math.hypot(x - N / 2, y - N / 2) / (N / 2);
+      const centerWeight = 1 + Math.max(0, 1 - distanceFromCenter) * 0.55;
+      const w = Math.max(0.08, sat * sat * (1 - Math.abs(lum - 128) / 170)) * centerWeight;
       if (w <= 0.02) continue;
-      let h = 0;
-      const df = mx - mn;
-      if (df > 0) {
-        if (mx === r) h = ((g - b) / df) % 6;
-        else if (mx === g) h = (b - r) / df + 2;
-        else h = (r - g) / df + 4;
-        h = (h * 60 + 360) % 360;
-      }
-      const bi = Math.floor(h / 30) % BINS;
-      wsum[bi] += w; rsum[bi] += r * w; gsum[bi] += g * w; bsum[bi] += b * w;
+      const key = [Math.round(r / 24), Math.round(g / 24), Math.round(b / 24)].join(',');
+      const cluster = clusters.get(key) ?? { r: 0, g: 0, b: 0, weight: 0 };
+      cluster.r += r * w;
+      cluster.g += g * w;
+      cluster.b += b * w;
+      cluster.weight += w;
+      clusters.set(key, cluster);
     }
     if (!any) return null;
-    let best = -1, second = -1;
-    for (let i = 0; i < BINS; i++) {
-      if (best < 0 || wsum[i] > wsum[best]) { second = best; best = i; }
-      else if (second < 0 || wsum[i] > wsum[second]) second = i;
-    }
-    if (best >= 0 && wsum[best] > 0) {
-      const a = toHex(rsum[best] / wsum[best], gsum[best] / wsum[best], bsum[best] / wsum[best]);
-      const b =
-        second >= 0 && wsum[second] > wsum[best] * 0.3
-          ? toHex(rsum[second] / wsum[second], gsum[second] / wsum[second], bsum[second] / wsum[second])
-          : lighten(a);
+    const ranked = [...clusters.values()]
+      .map((cluster) => ({
+        ...cluster,
+        r: cluster.r / cluster.weight,
+        g: cluster.g / cluster.weight,
+        b: cluster.b / cluster.weight,
+      }))
+      .sort((a, b) => b.weight - a.weight);
+    const best = ranked[0];
+    if (best) {
+      const secondary = ranked.find((candidate) => colorDistance(best, candidate) > 55 && candidate.weight > best.weight * 0.16);
+      const a = ambientTone(toHex(best.r, best.g, best.b));
+      const b = secondary
+        ? ambientTone(toHex(secondary.r, secondary.g, secondary.b))
+        : lighten(a, 0.38);
       return [a, b];
     }
     // Fully desaturated artwork: use the raw average instead.
-    const avg = toHex(ar / any, ag / any, ab / any);
+    const avg = ambientTone(toHex(ar / any, ag / any, ab / any));
     return [avg, lighten(avg, 0.3)];
   } catch {
     return null;

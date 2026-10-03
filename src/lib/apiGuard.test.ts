@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hostOf, isAllowedRequest, rateLimit } from './apiGuard';
+import { hostOf, isAllowedProxyTarget, isAllowedRequest, rateLimit } from './apiGuard';
 
 describe('hostOf', () => {
   it('extracts a lowercased host and keeps explicit ports', () => {
@@ -50,6 +50,19 @@ describe('isAllowedRequest', () => {
     expect(isAllowedRequest({ ...base, origin: 'https://partner.example.org', referer: null, extraAllowed: extra })).toBe(true);
     expect(isAllowedRequest({ ...base, origin: 'https://mirror.example.net', referer: null, extraAllowed: extra })).toBe(true);
     expect(isAllowedRequest({ ...base, origin: 'https://other.example.org', referer: null, extraAllowed: extra })).toBe(false);
+  });
+});
+
+describe('isAllowedProxyTarget', () => {
+  it('rejects IPv4-mapped IPv6 targets, including alternate URL spellings', () => {
+    expect(isAllowedProxyTarget('http://[::ffff:127.0.0.1]/')).toBe(false);
+    expect(isAllowedProxyTarget('http://[::ffff:7f00:1]/')).toBe(false);
+    expect(isAllowedProxyTarget('http://[::ffff:192.168.1.10]/')).toBe(false);
+  });
+
+  it('continues to allow public HTTP(S) targets on standard ports', () => {
+    expect(isAllowedProxyTarget('https://music.example.com/api')).toBe(true);
+    expect(isAllowedProxyTarget('http://203.0.113.10/')).toBe(true);
   });
 });
 

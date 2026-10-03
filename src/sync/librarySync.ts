@@ -17,7 +17,10 @@ const PUSH_DEBOUNCE_MS = 4000;
 let started = false;
 let applyingRemote = false;
 let pushing = false;
+let pushPending = false;
 let pushTimer: number | null = null;
+let storesBound = false;
+let lastSyncedUserId: string | null = null;
 
 function localSnapshot(): LibrarySnapshot {
   const lib = useLibraryStore.getState();
@@ -72,8 +75,8 @@ function rowToSnapshot(row: Record<string, unknown>): LibrarySnapshot {
     (v): v is MusicTrack => typeof v === 'object' && v !== null,
   );
   return {
-    favorites: ids.length ? ids : tracks.map((t) => t.id),
-    favoriteSongIds: ids.length ? ids : tracks.map((t) => t.id),
+    favorites: [...tracks, ...ids],
+    favoriteSongIds: [...new Set([...tracks.map((t) => t.id), ...ids])],
     favoriteTracks: tracks,
     recentTracks: arr(row.recent_tracks) as LibrarySnapshot['recentTracks'],
     playLog: arr(row.play_log) as LibrarySnapshot['playLog'],
@@ -85,18 +88,22 @@ async function hasSession(): Promise<boolean> {
   if (!supabaseConfigured || !supabase) return false;
   try {
     const { data } = await supabase.auth.getSession();
-    return Boolean(data.session);
+    const appUserId = useAuthStore.getState().user?.id;
+    // NetEase login and Supabase Auth are separate identities. Never send a
+    // library snapshot unless the RLS principal matches the app account id.
+    return Boolean(data.session && appUserId && data.session.user.id === appUserId);
   } catch {
     return false;
   }
 }
 
 async function pushSnapshot(snapshot: LibrarySnapshot): Promise<void> {
+  if (!(await hasSession())) return;
   const userId = useAuthStore.getState().user?.id;
   if (!userId || !supabase) return;
   pushing = true;
   try {
-    await supabase.from('user_library').upsert({
+    const { error } = await supabase.from('user_library').upsert({
       user_id: userId,
       favorites: snapshot.favorites,
       recent_tracks: snapshot.recentTracks,
@@ -104,10 +111,17 @@ async function pushSnapshot(snapshot: LibrarySnapshot): Promise<void> {
       playlists: snapshot.playlists,
       updated_at: new Date().toISOString(),
     });
+    if (error) {
+      notify('云端同步失败，数据仍保存在本机');
+    }
   } catch {
-    /* sync is best-effort; local data stays authoritative */
+    notify('云端同步失败，数据仍保存在本机');
   } finally {
     pushing = false;
+    if (pushPending) {
+      pushPending = false;
+      schedulePush();
+    }
   }
 }
 
@@ -145,7 +159,8 @@ function schedulePush(): void {
   if (pushTimer !== null) window.clearTimeout(pushTimer);
   pushTimer = window.setTimeout(() => {
     pushTimer = null;
-    if (!pushing) void pushSnapshot(localSnapshot());
+    if (pushing) pushPending = true;
+    else void pushSnapshot(localSnapshot());
   }, PUSH_DEBOUNCE_MS);
 }
 
@@ -158,14 +173,27 @@ export function startLibrarySync(): void {
   started = true;
 
   const beginIfLoggedIn = () => {
-    if (!useAuthStore.getState().user) return false;
+    const userId = useAuthStore.getState().user?.id ?? null;
+    if (!userId) {
+      lastSyncedUserId = null;
+      if (pushTimer !== null) {
+        window.clearTimeout(pushTimer);
+        pushTimer = null;
+      }
+      return false;
+    }
+    if (lastSyncedUserId === userId) return true;
+    lastSyncedUserId = userId;
     void syncLibraryNow();
-    useLibraryStore.subscribe(() => {
-      if (!applyingRemote) schedulePush();
-    });
-    usePlaylistStore.subscribe(() => {
-      if (!applyingRemote) schedulePush();
-    });
+    if (!storesBound) {
+      storesBound = true;
+      useLibraryStore.subscribe(() => {
+        if (!applyingRemote) schedulePush();
+      });
+      usePlaylistStore.subscribe(() => {
+        if (!applyingRemote) schedulePush();
+      });
+    }
     return true;
   };
 

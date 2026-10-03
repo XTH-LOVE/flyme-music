@@ -60,14 +60,16 @@
 - [x] Deployed backend: Vercel (`api/`) + Cloudflare Pages (`functions/`)
       sharing pure handlers (`server/auroraApi.ts`), same-origin guard +
       per-IP rate limits (`src/lib/apiGuard.ts`)
-- [x] Supabase accounts (username login via `account-auth` edge function,
-      strong-password policy), avatar storage
-- [x] AI long-term memories synced per-account (RLS-isolated `ai_memories`)
-- [x] Library cloud sync across devices (RLS-isolated `user_library`
-      snapshot + pure merge in `sync/libraryMerge.ts`)
-- [x] Listen rooms: create/join by 6-char code, host mirrors the player
-      snapshot, guest follows via realtime (Supabase Realtime +
-      `listen/listenRoom.ts`, pure calibration in `listen/sync.ts`)
+- [ ] Supabase Auth integration with the current NetEase QR identity; the
+      account-auth edge function exists, but the visible client login does not
+      establish a Supabase session
+- [ ] AI long-term memory cloud sync (RLS-isolated table and local fallback
+      exist; Supabase Auth is not connected to the visible client login)
+- [ ] Library cloud sync across devices (RLS-isolated `user_library`
+      snapshot + pure merge exist; identity mapping and end-to-end login flow
+      still need completion)
+- [ ] Listen rooms: realtime implementation exists, but requires a Supabase
+      Auth session that the current client login does not establish
 - [x] Local music library: user audio files in IndexedDB exposed as the
       `local` music source (`library/localLibrary.ts`), mixed into the
       online queue

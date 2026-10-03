@@ -12,7 +12,7 @@
 [![Windows](https://img.shields.io/badge/Windows-10%2B-0078d4?style=flat-square&logo=windows&logoColor=white)](https://github.com/XTH-LOVE/flyme-music/releases/latest)
 [![Web](https://img.shields.io/badge/Web-PWA-4285f4?style=flat-square&logo=pwa&logoColor=white)](https://flyme-music.pages.dev)
 
-[![Tests](https://img.shields.io/badge/tests-707%20passing-3fb950?style=flat-square&logo=vitest&logoColor=white)](https://github.com/XTH-LOVE/flyme-music/actions)
+[![Tests](https://img.shields.io/badge/tests-738%20passing-3fb950?style=flat-square&logo=vitest&logoColor=white)](https://github.com/XTH-LOVE/flyme-music/actions)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
@@ -100,7 +100,7 @@ Flyme Music 是一个**从设计出发**的音乐播放器。
 构建             Vite 6
 状态             Zustand
 路由             React Router 6
-测试             Vitest · 707 个测试 / 60 个文件
+测试             Vitest · 738 个测试 / 61 个文件
 部署             Cloudflare Pages Functions
 ```
 
@@ -177,7 +177,7 @@ Cloudflare Pages Functions 承担三件事：
 - **图片与音频代理** —— 绕过防盗链，支持 Range 请求（`206` + `Content-Range`），让 `<audio>` 能分块缓冲和拖动
 - **更新分发** —— 签名校验后放行
 
-**不存储任何用户数据。** 收藏、歌单、播放记录都在本机。
+这些 Functions 本身不保存用户数据。收藏、歌单和播放记录默认保存在本机。当前可见的网易云扫码登录只用于网易云音源；Supabase 云端存储代码尚未与应用登录身份打通，因此暂不提供可依赖的跨设备曲库同步。
 
 </details>
 
@@ -209,7 +209,7 @@ npm run dev                  # 网页版（含 dev 代理）
 npm run tauri dev            # 桌面版
 npm run tauri android dev    # Android
 
-npm test                     # 707 个测试
+npm test                     # 738 个测试
 npm run lint
 ```
 
@@ -241,7 +241,7 @@ npm run lint
 - [x] 桌面歌词悬浮窗
 - [x] 音乐时光机 · 音乐日记
 - [x] AI 伴听 · 一句话生成歌单
-- [ ] **跨设备同步** —— 收藏、歌单、历史现在只存本机
+- [ ] **跨设备同步** —— Supabase 存储代码已存在，账号身份接入与端到端验证待完成
 - [ ] 车载模式
 - [ ] 音乐闹钟
 - [ ] 自定义主题编辑器
@@ -264,9 +264,9 @@ npm run lint
 
 ## 关于
 
-**作者**：缐廷华 · [@XTH-LOVE](https://github.com/XTH-LOVE) · **当前版本**：v0.7.0
+**作者**：缐廷华 · [@XTH-LOVE](https://github.com/XTH-LOVE) · **当前版本**：v0.8.4
 
-这个项目没有赞助、没有广告、不上传任何听歌数据。
+这个项目没有赞助、没有广告、没有第三方统计埋点。
 
 如果它让你觉得音乐播放器还能更好看一点 —— 那就够了。
 

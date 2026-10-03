@@ -10,7 +10,7 @@ import { saveFile } from '@/utils/saveBlob';
  * rehydrates them on import.
  */
 
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 /** Marker written into every new backup file. */
 export const BACKUP_APP = 'flyme-music';
@@ -28,7 +28,9 @@ export interface FlymeBackup {
   app: typeof BACKUP_APP;
   schema: number;
   exportedAt: number;
+  /** Legacy id index retained for old readers and old source-less records. */
   favorites: string[];
+  favoriteTracks?: MusicTrack[];
   recentTracks: MusicTrack[];
   playLog: PlayLogEntry[];
   dislikes: string[];
@@ -37,6 +39,7 @@ export interface FlymeBackup {
 
 export interface BackupPayload {
   favorites?: string[];
+  favoriteTracks?: MusicTrack[];
   recentTracks?: MusicTrack[];
   playLog?: PlayLogEntry[];
   dislikes?: string[];
@@ -49,6 +52,7 @@ export function buildBackup(payload: BackupPayload): FlymeBackup {
     schema: BACKUP_VERSION,
     exportedAt: Date.now(),
     favorites: payload.favorites ?? [],
+    favoriteTracks: payload.favoriteTracks ?? [],
     recentTracks: payload.recentTracks ?? [],
     playLog: payload.playLog ?? [],
     dislikes: payload.dislikes ?? [],
@@ -81,6 +85,9 @@ export function parseBackup(raw: unknown): FlymeBackup | null {
     schema: typeof o.schema === 'number' ? o.schema : 0,
     exportedAt: typeof o.exportedAt === 'number' ? o.exportedAt : Date.now(),
     favorites: arr(o.favorites).map(String),
+    ...(Array.isArray(o.favoriteTracks)
+      ? { favoriteTracks: o.favoriteTracks as MusicTrack[] }
+      : {}),
     recentTracks: arr(o.recentTracks) as MusicTrack[],
     playLog: arr(o.playLog) as PlayLogEntry[],
     dislikes: arr(o.dislikes).map(String),
@@ -102,6 +109,7 @@ export async function exportBackup(payload: BackupPayload): Promise<void> {
  */
 const STORAGE_KEYS = {
   favorites: 'aurora.favorites',
+  favoriteTracks: 'aurora.favoriteTracks.v1',
   recentTracks: 'aurora.recentTracks.v1',
   playLog: 'aurora.playLog.v1',
   dislikes: 'aurora.ai.dislikes',
@@ -111,6 +119,9 @@ const STORAGE_KEYS = {
 /** Write a parsed backup into the canonical localStorage keys (no reload). */
 export function restoreBackupToStorage(backup: FlymeBackup): void {
   localStorage.setItem(STORAGE_KEYS.favorites, JSON.stringify(backup.favorites));
+  if (backup.favoriteTracks) {
+    localStorage.setItem(STORAGE_KEYS.favoriteTracks, JSON.stringify(backup.favoriteTracks));
+  }
   localStorage.setItem(STORAGE_KEYS.recentTracks, JSON.stringify(backup.recentTracks));
   localStorage.setItem(STORAGE_KEYS.playLog, JSON.stringify(backup.playLog));
   localStorage.setItem(STORAGE_KEYS.dislikes, JSON.stringify(backup.dislikes));

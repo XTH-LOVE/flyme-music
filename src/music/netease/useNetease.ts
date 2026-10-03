@@ -11,7 +11,9 @@ import {
 } from './netease-api';
 
 const RECOMMEND_CACHE_KEY = 'aurora.netease.recommend';
-const RECOMMEND_TTL_MS = 60 * 60 * 1000;
+// APKs can stay open for days. Keeping this at an hour made the home page
+// look frozen even though the service had newer recommendations available.
+const RECOMMEND_TTL_MS = 10 * 60 * 1000;
 
 interface CachedRecommend {
   at: number;

@@ -21,11 +21,15 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   }
   try {
     const upstream = await fetch(target, {
+      redirect: 'manual',
       headers: {
         'User-Agent': PC_USER_AGENT,
         ...(referer ? { Referer: referer } : {}),
       },
     });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      return new Response('redirects are not supported', { status: 502 });
+    }
     const text = await upstream.text();
     return new Response(text, {
       status: upstream.status,

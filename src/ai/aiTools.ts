@@ -73,7 +73,6 @@ export function buildPageContext(pathname: string, snapshot: ReturnType<typeof u
   const routePath = pathname.split('?')[0];
   const actions = ['get_app_state', 'navigate', 'open_player', 'toggle_lyrics', 'control'];
   if (routePath === '/search') actions.push('search_tracks');
-  if (routePath === '/me' || routePath.startsWith('/my-playlist/')) actions.push('create_playlist');
   if (routePath === '/settings') actions.push('set_theme');
   return JSON.stringify({
     route: pathname,
@@ -95,8 +94,8 @@ export function buildPageContext(pathname: string, snapshot: ReturnType<typeof u
   });
 }
 
-export function requiresAgentConfirmation(call: Record<string, unknown>): boolean {
-  return String(call.tool ?? '') === 'create_playlist';
+export function requiresAgentConfirmation(_call: Record<string, unknown>): boolean {
+  return false;
 }
 
 /* ---------------- Personas ---------------- */
@@ -185,7 +184,6 @@ export function buildSystemPrompt(
     '\n工具清单：' +
     '\n· search_tracks {"query":"关键词","count":8,"artist":"可选"} —— 双音源搜索，结果进入候选池并按序号返回' +
     '\n· play {"indices":[0,2]} —— 播放候选池里的歌（缺省播第一首）；也可 {"query":"歌名"} 现搜现放' +
-    '\n· create_playlist {"title":"歌单名","indices":[..]} —— 用候选池里挑好的歌建歌单；也可 {"title":"..","query":"主题"} 直接建' +
     '\n· queue_similar {} · control {"action":"toggle|next|previous|volume_up|volume_down|lyrics|seek","seconds":可选} · radio {"mood":"心情"}' +
     '\n· control 的 seek 用 {"action":"seek","seconds":58} 跳到指定秒数——analyze_song 给出结构边界后，用户说「跳到副歌」就用它；seconds 必须来自实测边界，不要凭感觉给数字' +
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
@@ -194,8 +192,6 @@ export function buildSystemPrompt(
     '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · describe_moment {} —— **实时**读取当前播放位置的频谱（仅在音频已接入 Web Audio 时可用，不可用时会返回原因） · taste_profile {} —— 已分析歌曲聚合出的听感画像 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
     '\n\n行动准则：' +
     '\n· 你有多轮行动能力：每次工具结果会以「[工具结果]」消息返回给你，看完可以继续调用下一个工具（最多连续 6 次），都做完再答复用户。' +
-    '\n· 创建歌单属于需要用户确认的操作；先说明歌单名称和预计歌曲数量，等待确认后再执行。' +
-    '\n· 建歌单不要拿主题词原样去搜（会搜出一堆歌名里带这个词的歌）：先拆成 2~3 组不同角度的关键词（场景/风格/语种）各搜一次，再从候选池挑风格搭配多样的歌，用序号建单。' +
     '\n· 分析歌必须先调 analyze_song。它返回的是**本地信号分析出的实测数据**（BPM/调性/动态曲线/频谱/结构边界），不是听感结论。' +
     '\n  写分析时：能引用的数字就用数字（「副歌不是靠音量，是靠 1:12 起的动态抬升」远好过「编曲层层递进」）；' +
     '**绝不描述你没测到的东西**（具体乐器、编制、制作手法、混音细节）——那会变成编造；标了「不确定」的项要么不提要么说明没把握。' +
@@ -382,6 +378,13 @@ export async function executeTool(
 ): Promise<ToolResult> {
   const tool = String(call.tool ?? '');
   const dislikes = useAiStore.getState().dislikes;
+
+  if (tool === 'create_playlist') {
+    return {
+      reply: '歌单生成功能已移除，请到「歌单广场」手动创建歌单。',
+      fact: { action: 'create_playlist', disabled: true },
+    };
+  }
 
   if (tool === 'get_app_state') {
     const snap = usePlayerStore.getState();
@@ -889,10 +892,8 @@ export async function localAssistant(text: string): Promise<ToolResult> {
     }
   }
 
-  const playlistMatch = t.match(PLAYLIST_NAME_RE);
-  if (playlistMatch) {
-    const theme = playlistMatch[1].trim() || '灵感';
-    return executeTool({ tool: 'create_playlist', title: theme + ' 歌单', query: theme, count: 12 });
+  if (PLAYLIST_NAME_RE.test(t)) {
+    return { reply: '现在先专注于陪你找歌、播放和聊歌；歌单请到「歌单广场」手动创建。' };
   }
 
   const kw = matchMoodKeyword(t);
@@ -905,6 +906,6 @@ export async function localAssistant(text: string): Promise<ToolResult> {
 
   return {
     reply:
-      '我（本地模式）能做的：\n· 「播放周杰伦 晴天」→ 双音源找原版直接放\n· 「建个雨天歌单」→ 真的帮你建好保存\n· 「暂停 / 下一首 / 1.5倍速」→ 播控\n· 「不喜欢 xxx」→ 以后避开\n填上 AI Key 后，还能陪你聊歌、解读歌词、按心情开电台。',
+      '我（本地模式）能做的：\n· 「播放周杰伦 晴天」→ 双音源找原版直接放\n· 「暂停 / 下一首 / 1.5倍速」→ 播控\n· 「不喜欢 xxx」→ 以后避开\n· 「分析这首歌 / 开个深夜电台」→ 给你音乐解读或开始播放\n填上 AI Key 后，还能陪你聊歌、解读歌词、按心情开电台。',
   };
 }

@@ -4,12 +4,11 @@ import { useLibraryStore, type DayLog } from '@/store/useLibraryStore';
 import './time-machine.css';
 
 /**
- * A year ago today, as it sounded.
+ * A useful listening memory: the user's strongest listening day.
  *
- * The point is not statistics - the stats page already has those. It is that a
- * date is a memory in a way a total never is: "you played 412 songs this month"
- * means nothing, and "on this day last year you were listening to this" means
- * something. So this shows one day, not a range.
+ * Instead of waiting a full year for an exact date, this shows the best recorded
+ * day immediately. That makes the card useful from the first week of using the
+ * app and gives the user something actionable to remember.
  *
  * When there is no entry for the exact date it falls back to the nearest one
  * before it rather than showing nothing. The first year of use has no "a year
@@ -23,15 +22,6 @@ const pad = (value: number) => String(value).padStart(2, '0');
 function today(): string {
   const now = new Date();
   return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
-}
-
-/** `YYYY-MM-DD` shifted back a year, handling the 29th of February. */
-function sameDayLastYear(date: string): string {
-  const [year, month, day] = date.split('-').map(Number);
-  const lastYear = year - 1;
-  // 2024-02-29 has no counterpart in 2023; the 28th is the honest neighbour.
-  if (month === 2 && day === 29) return lastYear + '-02-28';
-  return lastYear + '-' + pad(month) + '-' + pad(day);
 }
 
 function describe(date: string): string {
@@ -50,20 +40,17 @@ export function TimeMachine() {
 
   const memory = useMemo<DayLog | null>(() => {
     if (!dayLog.length) return null;
-    const target = sameDayLastYear(today());
-    // Exact date first, then the nearest earlier one. Later days are not
-    // considered: "a year ago" that turns out to be last week is a lie.
-    return dayLog.find((d) => d.date === target) ?? dayLog.find((d) => d.date < target) ?? null;
+    return [...dayLog].sort((a, b) => b.plays - a.plays || (a.date < b.date ? 1 : -1))[0] ?? null;
   }, [dayLog]);
 
   if (!memory) {
     return (
       <div className="tm-card tm-card--empty">
-        <Icon name="clock" size={20} />
+        <Icon name="flame" size={20} />
         <div>
-          <div className="tm-card__title">音乐时光机</div>
+          <div className="tm-card__title">听歌高光</div>
           <div className="tm-card__sub">
-            从今天开始记录。明年今天，这里会告诉你当时在听什么。
+            再听几首歌，这里会记录你播放最多的一天。
           </div>
         </div>
       </div>
@@ -77,8 +64,8 @@ export function TimeMachine() {
   return (
     <div className="tm-card">
       <div className="tm-card__head">
-        <Icon name="clock" size={18} />
-        <span className="tm-card__title">{label}</span>
+        <Icon name="flame" size={18} />
+        <span className="tm-card__title">你的听歌高光</span>
         <span className="tm-card__date">{describe(memory.date)}</span>
       </div>
 
@@ -95,11 +82,7 @@ export function TimeMachine() {
         ))}
       </ul>
 
-      {ago < 365 ? (
-        // Being honest about the fallback rather than letting the user believe
-        // this is a year ago when it is not.
-        <div className="tm-card__note">还没有满一年的记录，这是能找到的最早一天</div>
-      ) : null}
+      <div className="tm-card__note">{label} · 播放最多的一天</div>
     </div>
   );
 }

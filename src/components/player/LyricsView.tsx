@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
+import { parseTimedLyricFile } from '@/utils/timedLyrics';
 import { analyseLyricVoices, voiceSide } from '@/utils/lyricVoices';
 import type { MusicTrack } from '@/music/source/types';
 import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
@@ -24,8 +25,13 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   const [lines, setLines] = useState<MiniLyricLine[]>([]);
   /** Whether the fetch has settled - an empty list means "none", not "wait". */
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [request, setRequest] = useState(0);
+  const [importError, setImportError] = useState('');
+  const manualLyricsRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrubIdx, setScrubIdx] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const touching = useRef(false);
   const hideTimer = useRef<number | null>(null);
   // Subscribed (not read via getState) so nudging the offset re-renders and the
@@ -68,13 +74,23 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
 
   useEffect(() => {
     let alive = true;
-    // Keep the previous track's lines visible until new lyrics arrive (no flash).
-    void fetchLyricLines(track).then((result) => {
-      if (alive) {
+    manualLyricsRef.current = false;
+    setLines([]);
+    setLoaded(false);
+    setLoadError('');
+    setImportError('');
+    void fetchLyricLines(track)
+      .then((result) => {
+        if (!alive || manualLyricsRef.current) return;
         setLines(result);
         setLoaded(true);
-      }
-    });
+      })
+      .catch(() => {
+        if (!alive || manualLyricsRef.current) return;
+        setLines([]);
+        setLoaded(true);
+        setLoadError('歌词加载失败，请重试或导入本地歌词');
+      });
     return () => {
       alive = false;
     };
@@ -82,7 +98,24 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     // every player-store update, so depending on it would refetch lyrics on
     // each position tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-  }, [track.id, track.source]);
+  }, [track.id, track.source, request]);
+
+  const importLyrics = async (file?: File) => {
+    if (!file) return;
+    manualLyricsRef.current = true;
+    try {
+      const content = await file.text();
+      const parsed = parseTimedLyricFile(content);
+      if (!parsed.length) throw new Error('文件中没有可识别的歌词或时间戳');
+      setLines(parsed);
+      setLoaded(true);
+      setLoadError('');
+      setImportError('');
+    } catch (error) {
+      setLoaded(true);
+      setImportError(error instanceof Error ? error.message : '无法读取这个歌词文件');
+    }
+  };
 
   // Duet voices and backing vocals, read from the sheet's own conventions.
   const voices = useMemo(() => analyseLyricVoices(lines.map((line) => line.text)), [lines]);
@@ -225,8 +258,46 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
      */
     if (!lines.length) {
       return (
-        <div className="lyrics__line">
-          {loaded ? '这首歌暂时没有歌词' : '歌词加载中…'}
+        <div className="lyrics__empty">
+          <div className="lyrics__empty-title">
+            {loadError || (loaded ? '这首歌暂时没有歌词' : '歌词加载中…')}
+          </div>
+          {loaded ? (
+            <div className="lyrics__empty-actions">
+              <button
+                type="button"
+                className="lyrics__empty-action"
+                onClick={() => {
+                  setLines([]);
+                  setLoaded(false);
+                  setLoadError('');
+                  setRequest((value) => value + 1);
+                }}
+              >
+                重新获取
+              </button>
+              <button
+                type="button"
+                className="lyrics__empty-action"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                导入本地歌词
+              </button>
+            </div>
+          ) : null}
+          {importError ? <div className="lyrics__empty-error">{importError}</div> : null}
+          <input
+            ref={fileInputRef}
+            className="lyrics__file-input"
+            type="file"
+            accept=".lrc,.ttml,.xml,text/plain,application/xml,text/xml"
+            aria-label="选择本地 LRC 或 TTML 歌词文件"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              void importLyrics(file);
+              event.currentTarget.value = '';
+            }}
+          />
         </div>
       );
     }
@@ -265,7 +336,25 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
           }
         >
           <span className="lyrics__text">
-            {parsed.runs.length
+            {line.words?.length && i === activeIndex && !voices.duet && !parsed.allBackground
+              ? line.words.map((word, wordIndex) => {
+                  const wordTime = currentTime - offset;
+                  const progress = wordTime <= word.start
+                    ? 0
+                    : wordTime >= word.end
+                      ? 1
+                      : (wordTime - word.start) / (word.end - word.start);
+                  return (
+                    <span
+                      key={wordIndex}
+                      className="lyrics__word"
+                      style={{ '--word-progress': `${Math.round(progress * 100)}%` } as CSSProperties}
+                    >
+                      {word.text}
+                    </span>
+                  );
+                })
+              : parsed.runs.length
               ? parsed.runs.map((run, r) => (
                   <span
                     key={r}

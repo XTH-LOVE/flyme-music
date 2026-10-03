@@ -440,6 +440,15 @@ export function SettingsPage() {
         </div>
         <div className="settings-row">
           <div className="settings-row__body">
+            <div className="settings-row__title">歌词渐隐模糊</div>
+            <div className="settings-row__desc">
+              播放页中，远离当前句的歌词会轻微模糊；关闭后所有歌词保持清晰。默认开启
+            </div>
+          </div>
+          <Switch checked={settings.lyricBlur} onChange={settings.setLyricBlur} />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
             <div className="settings-row__title">自动音量均衡</div>
             <div className="settings-row__desc">
               不同音源母带响度不同，统一到同一电平，切歌时音量更平稳

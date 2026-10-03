@@ -74,7 +74,7 @@ export async function getRecommendPlaylists(
 ): Promise<NetPlaylistSummary[]> {
   const r = await callWeapi<{ code: number; result?: RawRecommendItem[] }>(
     '/weapi/personalized/playlist',
-    { limit: 30, total: true, n: 1000 },
+    { limit: 30, total: true, n: 1000, timestamp: Date.now() },
     signal,
   );
   if (!r.result) throw codeError('netease recommend', r.code);
@@ -496,7 +496,7 @@ interface RawNewSong {
 export async function getNewSongs(signal?: AbortSignal): Promise<MusicTrack[]> {
   const r = await callWeapi<{ code: number; data?: RawNewSong[] }>(
     '/weapi/v1/discovery/new/songs',
-    { areaId: 0, total: true },
+    { areaId: 0, total: true, timestamp: Date.now() },
     signal,
   );
   if (r.code !== 200 || !r.data) throw codeError('netease new songs', r.code);
@@ -740,4 +740,3 @@ interface ArtistPayload {
   artist?: { id: number; name: string; img1v1Url?: string };
   hotSongs?: RawSong[];
 }
-

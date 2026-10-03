@@ -67,8 +67,8 @@ export function App() {
   // whole point of the gate, and a gate that lets the requests through is
   // decoration.
   const showSplash = mobileLayout && !splashDone;
-  const showConsent = mobileLayout && splashDone && !agreed;
-  const ready = !mobileLayout || (splashDone && agreed);
+  const showConsent = !agreed && (!mobileLayout || splashDone);
+  const ready = agreed && (!mobileLayout || splashDone);
 
   return (
     <ErrorBoundary>

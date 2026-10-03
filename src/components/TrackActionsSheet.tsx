@@ -13,7 +13,7 @@ import type { MusicTrack } from '@/music/source/types';
 import { sourceLabels } from '@/music/source/types';
 import { CommentsSheet } from './CommentsSheet';
 import './actions.css';
-import { useLibraryStore } from '@/store/useLibraryStore';
+import { isTrackFavorite, useLibraryStore } from '@/store/useLibraryStore';
 
 interface TrackActionsSheetProps {
   open: boolean;
@@ -38,11 +38,10 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
   const [cached, setCached] = useState<boolean | null>(null);
   // Subscribed rather than read once, so the row flips to "取消喜欢" the moment
   // it is tapped instead of waiting for the sheet to reopen.
+  const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
-  // Bare id, matching how the store keeps this list - see the note on
-  // favoriteTracks for why the whole track is stored alongside it.
-  const favorited = Boolean(track && favorites.includes(track.id));
+  const favorited = Boolean(track && isTrackFavorite(track, favoriteTracks, favorites));
   const [switching, setSwitching] = useState(false);
   const [failureTick, setFailureTick] = useState(0);
 

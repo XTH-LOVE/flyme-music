@@ -3,12 +3,9 @@ import { getTrackProvider } from '@/music/source/factory';
 import type { MusicTrack } from '@/music/source/types';
 import { neteaseWeapi } from '@/music/netease/neteaseWeapi';
 import { lyricOffset } from '@/store/useLyricStore';
+import { parseTimedLrc, type TimedLyricLine } from './timedLyrics';
 
-export interface MiniLyricLine {
-  time: number;
-  text: string;
-  trans?: string;
-}
+export type MiniLyricLine = TimedLyricLine;
 
 const cache = new Map<string, MiniLyricLine[]>();
 const inflight = new Map<string, Promise<MiniLyricLine[]>>();
@@ -40,7 +37,7 @@ async function neteaseWeapiLyric(id: string): Promise<MiniLyricLine[]> {
     );
     const lrc = json?.lrc?.lyric;
     if (!lrc) return [];
-    return mergeLines(parseLrc(lrc), json?.tlyric?.lyric ? parseLrc(json.tlyric.lyric) : []);
+    return mergeLines(parseTimedLrc(lrc), json?.tlyric?.lyric ? parseLrc(json.tlyric.lyric) : []);
   } catch {
     return [];
   }
@@ -48,7 +45,7 @@ async function neteaseWeapiLyric(id: string): Promise<MiniLyricLine[]> {
 
 async function providerLyric(track: MusicTrack): Promise<MiniLyricLine[]> {
   const sl = await getTrackProvider(track.source).getLyric(track);
-  const main = sl ? parseLrc(sl.lyric) : [];
+  const main = sl ? parseTimedLrc(sl.lyric) : [];
   const trans = sl?.tlyric ? parseLrc(sl.tlyric) : [];
   return mergeLines(main, trans);
 }

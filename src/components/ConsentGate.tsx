@@ -20,7 +20,7 @@ import './consent.css';
 const CONSENT_KEY = 'aurora.consent';
 
 /** Bump when the policy text changes materially; a typo is not a new version. */
-const POLICY_VERSION = '2026-09-21';
+const POLICY_VERSION = '2026-10-03';
 
 export function hasConsented(): boolean {
   try {
@@ -68,7 +68,7 @@ export function ConsentGate({ onAgree }: { onAgree: () => void }) {
           <p className="consent__key-line">
             <Icon name="check" size={15} />
             <span>
-              <strong>我们不会上传你的歌单、收藏和播放记录</strong>，它们只存在这台设备上。
+              <strong>歌单、收藏和播放记录默认保存在本机</strong>；网易云扫码只用于网易云音源登录。
             </span>
           </p>
           <p className="consent__key-line">
@@ -83,7 +83,19 @@ export function ConsentGate({ onAgree }: { onAgree: () => void }) {
           </p>
         </div>
 
-        <button className="consent__check" onClick={() => setChecked((v) => !v)}>
+        <div
+          className="consent__check"
+          role="checkbox"
+          tabIndex={0}
+          aria-checked={checked}
+          onClick={() => setChecked((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              setChecked((v) => !v);
+            }
+          }}
+        >
           <span className={'consent__dot' + (checked ? ' consent__dot--on' : '')}>
             {checked ? <Icon name="check" size={12} /> : null}
           </span>
@@ -109,7 +121,7 @@ export function ConsentGate({ onAgree }: { onAgree: () => void }) {
               《隐私政策》
             </button>
           </span>
-        </button>
+        </div>
       </div>
 
       {/* Disabled rather than absent: a greyed button tells the user there is

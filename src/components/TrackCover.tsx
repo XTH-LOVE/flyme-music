@@ -69,7 +69,9 @@ export function TrackCover({ track, radius, bare = false, title, priority = fals
   const style: React.CSSProperties = {
     background:
       'radial-gradient(120% 90% at 15% 10%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 46%),' +
-      'radial-gradient(140% 120% at 90% 95%, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0) 55%),' +
+      'radial-gradient(140% 120% at 90% 95%, color-mix(in srgb, ' +
+      palette[0] +
+      ' 20%, transparent) 0%, transparent 58%),' +
       'linear-gradient(135deg, ' + palette[0] + ' 0%, ' + palette[1] + ' 100%)',
   };
   // Artwork loaded: drop the palette backdrop so the rounded corners stop

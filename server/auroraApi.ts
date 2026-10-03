@@ -47,11 +47,20 @@ function parseQuery(req: IncomingMessage): URLSearchParams {
   return new URL(req.url ?? '', 'http://localhost').searchParams;
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
+function readBody(req: IncomingMessage, maxBytes = 2 * 1024 * 1024): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk: Buffer) => { body += chunk; });
-    req.on('end', () => resolve(body));
+    let size = 0;
+    let oversized = false;
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > maxBytes) oversized = true;
+      else if (!oversized) body += chunk;
+    });
+    req.on('end', () => {
+      if (oversized) reject(new Error('request body too large'));
+      else resolve(body);
+    });
     req.on('error', reject);
   });
 }
@@ -127,11 +136,17 @@ export async function handleProxy(req: IncomingMessage, res: ServerResponse): Pr
   }
   try {
     const upstream = await fetch(target, {
+      redirect: 'manual',
       headers: {
         'User-Agent': PC_USER_AGENT,
         ...(referer ? { Referer: referer } : {}),
       },
     });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      res.statusCode = 502;
+      res.end('redirects are not supported');
+      return;
+    }
     const text = await upstream.text();
     res.statusCode = upstream.status;
     // Never echo an HTML-ish type back from our own origin - see
@@ -155,11 +170,17 @@ export async function handleImg(req: IncomingMessage, res: ServerResponse): Prom
   }
   try {
     const upstream = await fetch(target, {
+      redirect: 'manual',
       headers: {
         'User-Agent': PC_USER_AGENT,
         Referer: new URL(target).origin + '/',
       },
     });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      res.statusCode = 502;
+      res.end('redirects are not supported');
+      return;
+    }
     if (!upstream.ok || !upstream.body) {
       res.statusCode = upstream.status || 502;
       res.end('upstream error');
@@ -194,12 +215,18 @@ export async function handleMediaProxy(req: IncomingMessage, res: ServerResponse
   try {
     const range = req.headers.range;
     const upstream = await fetch(target, {
+      redirect: 'manual',
       headers: {
         'User-Agent': PC_USER_AGENT,
         Referer: new URL(target).origin + '/',
         ...(range ? { Range: range } : {}),
       },
     });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      res.statusCode = 502;
+      res.end('redirects are not supported');
+      return;
+    }
     // 206 Partial Content is a success for Range requests.
     if ((upstream.status !== 206 && !upstream.ok) || !upstream.body) {
       res.statusCode = upstream.status || 502;
@@ -272,8 +299,8 @@ export async function handleNeteaseWeapi(req: IncomingMessage, res: ServerRespon
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ body: text, cookies: joined ? joined.split('; ') : [] }));
   } catch (e) {
-    res.statusCode = 502;
-    res.end(JSON.stringify({ error: String(e) }));
+    res.statusCode = e instanceof Error && e.message === 'request body too large' ? 413 : 502;
+    res.end(JSON.stringify({ error: res.statusCode === 413 ? 'request body too large' : String(e) }));
   }
 }
 
@@ -431,6 +458,11 @@ export async function handleAi(req: IncomingMessage, res: ServerResponse): Promi
     // Byte-by-byte streaming so SSE chunks reach the browser as they arrive.
     await streamUpstreamBody(res, upstream.body);
   } catch (e) {
-    upstreamFailure(res, e);
+    if (e instanceof Error && e.message === 'request body too large') {
+      res.statusCode = 413;
+      res.end(JSON.stringify({ error: 'request body too large' }));
+    } else {
+      upstreamFailure(res, e);
+    }
   }
 }

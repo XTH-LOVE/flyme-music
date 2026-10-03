@@ -72,6 +72,7 @@ export function MePage() {
     try {
       await exportBackup({
         favorites: favoriteIds,
+        favoriteTracks,
         recentTracks,
         playLog,
         dislikes,
@@ -295,7 +296,7 @@ export function MePage() {
           (favoriteTracks.length ? (
             <>
               <div className="backup-bar">
-                <span className="backup-bar__hint">收藏、歌单与听歌记录仅保存在本机</span>
+                <span className="backup-bar__hint">收藏、歌单与听歌记录可导出为本地备份</span>
                 <div className="backup-bar__actions">
                   <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => void handleExport()}>
                     <Icon name="download" size={14} />
@@ -309,7 +310,10 @@ export function MePage() {
               </div>
               {backupMsg ? <div className="settings-account-note">{backupMsg}</div> : null}
               <div className="song-list">
-                {(favoriteTracks.length ? favoriteTracks : []).map((track, index) => (
+              {(favoriteTracks.length
+                ? favoriteTracks
+                : (favoriteSongs ?? []).map((song) => songToTrack(song))
+              ).map((track, index) => (
                   <TrackListItem
                     key={track.source + ':' + track.id}
                     track={track}
@@ -322,7 +326,7 @@ export function MePage() {
           ) : (
             <>
               <div className="backup-bar">
-                <span className="backup-bar__hint">收藏、歌单与听歌记录仅保存在本机</span>
+                <span className="backup-bar__hint">收藏、歌单与听歌记录可导出为本地备份</span>
                 <div className="backup-bar__actions">
                   <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => void handleExport()}>
                     <Icon name="download" size={14} />

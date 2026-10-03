@@ -21,6 +21,12 @@ import { fallbackPalette } from '@/utils/palette';
 import { withAlpha } from '@/utils/color';
 import './pages.css';
 
+function rotateForSession<T>(items: T[], seed: number): T[] {
+  if (items.length < 2) return items;
+  const offset = Math.abs(seed) % items.length;
+  return items.slice(offset).concat(items.slice(0, offset));
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const { data: netPlaylists, loading: netLoading, error: netError, reload: reloadRecommend } = useNeteaseRecommend();
@@ -41,6 +47,7 @@ export function HomePage() {
   const [newSongs, setNewSongs] = useState<MusicTrack[] | null>(null);
   const [newSongsError, setNewSongsError] = useState<string | null>(null);
   const [newSongsAttempt, setNewSongsAttempt] = useState(0);
+  const [rotationSeed] = useState(() => Date.now());
 
   useEffect(() => {
     let alive = true;
@@ -73,8 +80,17 @@ export function HomePage() {
     return null;
   }, [memories]);
 
-  const hotPlaylists = netPlaylists
-    ? [...netPlaylists].sort((a, b) => b.playCount - a.playCount).slice(0, 4)
+  const rotatedPlaylists = netPlaylists
+    ? rotateForSession([...netPlaylists], Math.floor(rotationSeed / (10 * 60 * 1000)))
+    : [];
+  const hotPlaylists = rotatedPlaylists
+    ? [...rotatedPlaylists].sort((a, b) => b.playCount - a.playCount).slice(0, 4)
+    : [];
+  const visiblePlaylists = netPlaylists
+    ? rotateForSession(netPlaylists, Math.floor(rotationSeed / (10 * 60 * 1000))).slice(0, 6)
+    : [];
+  const visibleNewSongs = newSongs
+    ? rotateForSession(newSongs, Math.floor(rotationSeed / (10 * 60 * 1000))).slice(0, 10)
     : [];
 
   // Very subtle ambient tint from the latest listening history.
@@ -184,7 +200,7 @@ export function HomePage() {
           <EmptyState icon="compass" title="在线歌单加载失败" description="请检查网络后重试" action={{ label: '重试', onClick: reloadRecommend }} />
         ) : netPlaylists?.length ? (
           <div className="grid-cards">
-            {netPlaylists.slice(0, 6).map((pl) => (
+            {visiblePlaylists.map((pl) => (
               <NetPlaylistCard key={pl.id} playlist={pl} />
             ))}
           </div>
@@ -223,7 +239,7 @@ export function HomePage() {
           <EmptyState icon="music" title="新歌加载失败" description={newSongsError} action={{ label: '重试', onClick: () => setNewSongsAttempt((n) => n + 1) }} />
         ) : (
           <div className="song-list">
-            {(newSongs ?? []).slice(0, 10).map((track) => (
+            {visibleNewSongs.map((track) => (
               <TrackListItem key={track.id} track={track} context={newSongs ?? []} />
             ))}
           </div>

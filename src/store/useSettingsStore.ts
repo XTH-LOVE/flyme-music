@@ -16,6 +16,8 @@ interface SettingsState {
    * hardware who would rather have the frames back.
    */
   ambientMotion: boolean;
+  /** Apply the soft focus falloff to non-active lyric lines in the full player. */
+  lyricBlur: boolean;
   /**
    * Index tracks in the background so sound-based similarity and the listening
    * profile have something to work on.
@@ -30,6 +32,7 @@ interface SettingsState {
   setDynamicAccent: (v: boolean) => void;
   setRealSpectrum: (v: boolean) => void;
   setAmbientMotion: (v: boolean) => void;
+  setLyricBlur: (v: boolean) => void;
   setBackgroundAnalysis: (v: boolean) => void;
 }
 
@@ -43,6 +46,7 @@ interface PersistedSettings {
   dynamicAccent?: boolean;
   realSpectrum?: boolean;
   ambientMotion?: boolean;
+  lyricBlur?: boolean;
   backgroundAnalysis?: boolean;
 }
 
@@ -74,6 +78,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   // users can opt in from Settings if their network handles the proxy well.
   realSpectrum: persisted.realSpectrum ?? false,
   ambientMotion: persisted.ambientMotion ?? true,
+  lyricBlur: persisted.lyricBlur ?? true,
   backgroundAnalysis: persisted.backgroundAnalysis ?? true,
   setBackgroundAnalysis: (backgroundAnalysis) => {
     saveSettings({ backgroundAnalysis });
@@ -82,6 +87,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setAmbientMotion: (ambientMotion) => {
     saveSettings({ ambientMotion });
     set({ ambientMotion });
+  },
+  setLyricBlur: (lyricBlur) => {
+    saveSettings({ lyricBlur });
+    set({ lyricBlur });
   },
   setDynamicAccent: (dynamicAccent) => {
     saveSettings({ dynamicAccent });

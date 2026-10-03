@@ -105,6 +105,12 @@
   max-width: 30em;
 }
 
+.consent__check:focus-visible {
+  outline: 2px solid var(--am-accent, #3d7bff);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
 .consent__dot {
   flex: 0 0 auto;
   width: 18px;

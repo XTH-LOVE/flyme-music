@@ -63,6 +63,41 @@ describe('mergeLibrary', () => {
     );
     expect(merged.playlists[0].name).toBe('本地改名');
   });
+
+  it('merges object favorites by source:id and preserves track payloads', () => {
+    const merged = mergeLibrary(
+      {
+        favorites: [tr('1', 'netease')],
+        favoriteTracks: [tr('1', 'netease')],
+        recentTracks: [],
+        playLog: [],
+        playlists: [],
+      },
+      {
+        favorites: [tr('1', 'qq'), tr('2', 'netease')],
+        favoriteTracks: [tr('1', 'qq'), tr('2', 'netease')],
+        recentTracks: [],
+        playLog: [],
+        playlists: [],
+      },
+    );
+    expect(merged.favoriteTracks?.map((t) => t.source + ':' + t.id)).toEqual([
+      'netease:1',
+      'qq:1',
+      'netease:2',
+    ]);
+    expect(merged.favoriteSongIds).toEqual(['1', '2']);
+  });
+
+  it('preserves legacy id-only favorites alongside newer track snapshots', () => {
+    const merged = mergeLibrary(
+      { favorites: [tr('1', 'netease')], favoriteTracks: [tr('1', 'netease')], favoriteSongIds: ['1'], recentTracks: [], playLog: [], playlists: [] },
+      { favorites: ['legacy-2'], favoriteSongIds: ['legacy-2'], recentTracks: [], playLog: [], playlists: [] },
+    );
+    expect(merged.favoriteTracks?.map((t) => t.source + ':' + t.id)).toEqual(['netease:1']);
+    expect(merged.favoriteSongIds).toEqual(['1', 'legacy-2']);
+    expect(merged.favorites).toEqual([tr('1', 'netease'), 'legacy-2']);
+  });
 });
 
 describe('snapshotsEqual', () => {

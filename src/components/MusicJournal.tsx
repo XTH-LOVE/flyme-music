@@ -61,6 +61,18 @@ export function MusicJournal({ limit = 14 }: { limit?: number }) {
     () => [...dayLog].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit),
     [dayLog, limit],
   );
+  const streak = useMemo(() => {
+    if (!days.length) return 0;
+    let count = 0;
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    const keys = new Set(days.map((day) => day.date));
+    while (keys.has(todayKeyFromDate(cursor))) {
+      count += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return count;
+  }, [days]);
 
   if (!days.length) {
     return (
@@ -74,8 +86,11 @@ export function MusicJournal({ limit = 14 }: { limit?: number }) {
   return (
     <div className="journal">
       <div className="journal__head">
-        <Icon name="lyric" size={18} />
-        <span className="journal__title">音乐日记</span>
+        <Icon name="clock" size={18} />
+        <div>
+          <span className="journal__title">最近听歌</span>
+          <span className="journal__sub">连续听歌 {streak} 天</span>
+        </div>
       </div>
 
       <ol className="journal__list">
@@ -97,5 +112,15 @@ export function MusicJournal({ limit = 14 }: { limit?: number }) {
         ))}
       </ol>
     </div>
+  );
+}
+
+function todayKeyFromDate(date: Date): string {
+  return (
+    date.getFullYear() +
+    '-' +
+    pad(date.getMonth() + 1) +
+    '-' +
+    pad(date.getDate())
   );
 }

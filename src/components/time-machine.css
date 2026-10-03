@@ -9,9 +9,10 @@
   flex-direction: column;
   gap: 10px;
   padding: 16px 18px;
-  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  border: 1px solid var(--am-glass-border);
   border-radius: var(--am-radius-lg, 18px);
-  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+  background: var(--am-glass);
+  box-shadow: var(--am-shadow-glass);
 }
 
 .tm-card--empty {
@@ -31,6 +32,9 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--am-text-1);
+}
+.tm-card__head svg {
+  color: var(--am-accent);
 }
 
 .tm-card__date {

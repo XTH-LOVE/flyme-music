@@ -112,6 +112,16 @@ function save(key: string, value: unknown): void {
 
 const trackKey = (t: MusicTrack) => t.source + ':' + t.id;
 
+/** Source-scoped identity with a fallback for favorites imported from v1 backups. */
+export function isTrackFavorite(
+  track: Pick<MusicTrack, 'id' | 'source'>,
+  favoriteTracks: MusicTrack[],
+  favoriteSongIds: string[],
+): boolean {
+  if (favoriteTracks.some((t) => trackKey(t) === track.source + ':' + track.id)) return true;
+  return favoriteSongIds.includes(track.id) && !favoriteTracks.some((t) => t.id === track.id);
+}
+
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   recentSongIds: load('aurora.recent', [] as string[]),
   recentTracks: load('aurora.recentTracks.v1', [] as MusicTrack[]),
@@ -178,9 +188,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   toggleFavorite: (track) => {
     const current = get().favoriteTracks;
-    const liked = current.some((t) => t.id === track.id);
+    const key = track.source + ':' + track.id;
+    const liked = current.some((t) => t.source + ':' + t.id === key);
     // The full track goes in, not just its id - see the field's comment.
-    const nextTracks = liked ? current.filter((t) => t.id !== track.id) : [track, ...current];
+    const nextTracks = liked
+      ? current.filter((t) => t.source + ':' + t.id !== key)
+      : [track, ...current];
     // Kept in sync because the heart state is read as a plain id lookup in
     // several places; deriving it here means there is one source of truth.
     const nextIds = nextTracks.map((t) => t.id);

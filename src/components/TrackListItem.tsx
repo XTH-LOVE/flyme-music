@@ -4,7 +4,7 @@ import { IconButton } from '@/design-system/components/IconButton';
 import { TrackCover } from '@/components/TrackCover';
 import { SourceBadge } from '@/components/SourceBadge';
 import { TrackActionsSheet } from '@/components/TrackActionsSheet';
-import { useLibraryStore } from '@/store/useLibraryStore';
+import { isTrackFavorite, useLibraryStore } from '@/store/useLibraryStore';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { usePressGlow } from '@/hooks/usePressGlow';
 import { playerController } from '@/player';
@@ -36,13 +36,14 @@ interface TrackListItemProps {
 export const TrackListItem = memo(function TrackListItem({ track, context, index, onRemove, dragHandle }: TrackListItemProps) {
   const current = usePlayerStore((s) => s.current);
   const isPlaying = usePlayerStore((s) => s.status === 'playing');
+  const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
   const [actionsOpen, setActionsOpen] = useState(false);
   const pressGlow = usePressGlow();
 
   const active = current?.id === track.id && current?.source === track.source;
-  const fav = favorites.includes(track.id);
+  const fav = isTrackFavorite(track, favoriteTracks, favorites);
 
   // Long-press (mobile habit) opens the actions sheet; the following click
   // that closes the gesture is suppressed so it never also starts playback.

@@ -6,20 +6,22 @@ import './layout.css';
 
 const navItems: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: '首页', icon: 'home' },
-  { to: '/library', label: '排行榜', icon: 'flame' },
   { to: '/discover', label: '发现', icon: 'compass' },
   { to: '/search', label: '搜索', icon: 'search' },
-  { to: '/ai', label: 'AI 伴听', icon: 'mic' },
+  { to: '/library', label: '排行榜', icon: 'flame' },
 ];
 
 const myItems: { to: string; label: string; icon: IconName }[] = [
-  { to: '/me', label: '我的', icon: 'user' },
-  { to: '/history', label: '播放历史', icon: 'clock' },
-  // 'monitor' rather than 'clock': the clock now means history, and 'flame' is
-  // already taken by 排行榜 above.
-  { to: '/stats', label: '统计', icon: 'monitor' },
+  { to: '/me', label: '我的音乐', icon: 'user' },
+  { to: '/history', label: '最近播放', icon: 'clock' },
+  { to: '/stats', label: '听歌统计', icon: 'monitor' },
   { to: '/playlists', label: '歌单广场', icon: 'library' },
-  { to: '/storage', label: '存储管理', icon: 'download' },
+];
+
+const toolItems: { to: string; label: string; icon: IconName }[] = [
+  { to: '/local', label: '本地音乐', icon: 'music' },
+  { to: '/ai', label: 'AI 伴听', icon: 'mic' },
+  { to: '/storage', label: '存储与缓存', icon: 'download' },
   { to: '/settings', label: '设置', icon: 'settings' },
 ];
 
@@ -31,10 +33,17 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
-        <span className="sidebar__brand-name">Flyme Music</span>
+        <div className="sidebar__brand-mark" aria-hidden="true">
+          <Icon name="music" size={18} />
+        </div>
+        <div>
+          <div className="sidebar__brand-name">Flyme Music</div>
+          <div className="sidebar__brand-subtitle">聆听你的每一首歌</div>
+        </div>
       </div>
 
       <nav className="sidebar__nav">
+        <div className="sidebar__section-title">探索</div>
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -50,10 +59,8 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="sidebar__divider" />
-
       <div className="sidebar__playlists">
-        <div className="sidebar__section-title">我的音乐</div>
+        <div className="sidebar__section-title">你的音乐</div>
         {myItems.map((item) => (
           <NavLink
             key={item.to}
@@ -67,10 +74,26 @@ export function Sidebar() {
           </NavLink>
         ))}
 
+        <div className="sidebar__section">
+          <div className="sidebar__section-title">工具</div>
+          {toolItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                'sidebar__item' + (isActive ? ' sidebar__item--active' : '')
+              }
+            >
+              <Icon name={item.icon} size={19} />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+
         {userPlaylists.length ? (
           <>
-            <div className="sidebar__divider" />
-            <div className="sidebar__section-title">自建歌单</div>
+            <div className="sidebar__section sidebar__section--playlists">
+              <div className="sidebar__section-title">我的歌单</div>
             {userPlaylists.slice(0, 4).map((pl) => (
               <NavLink
                 key={pl.id}
@@ -82,6 +105,7 @@ export function Sidebar() {
                 {pl.name}
               </NavLink>
             ))}
+            </div>
           </>
         ) : null}
       </div>

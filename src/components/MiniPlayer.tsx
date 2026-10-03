@@ -4,7 +4,7 @@ import { IconButton } from '@/design-system/components/IconButton';
 import { TrackCover } from '@/components/TrackCover';
 import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
-import { useLibraryStore } from '@/store/useLibraryStore';
+import { isTrackFavorite, useLibraryStore } from '@/store/useLibraryStore';
 import { useCrossfadeStack } from '@/hooks/useCrossfadeStack';
 import { fetchLyricLines, lyricLineAt, type MiniLyricLine } from '@/utils/currentLyric';
 import type { MusicTrack } from '@/music/source/types';
@@ -39,6 +39,7 @@ export function MiniPlayer() {
   const duration = usePlayerStore((s) => s.duration);
   const volume = usePlayerStore((s) => s.volume);
   const openFullPlayer = usePlayerStore((s) => s.openFullPlayer);
+  const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
   const [lyric, setLyric] = useState('');
@@ -72,7 +73,7 @@ export function MiniPlayer() {
 
   const playing = status === 'playing';
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const fav = favorites.includes(current.id);
+  const fav = isTrackFavorite(current, favoriteTracks, favorites);
   const accent = 'var(--am-accent, #3D7BFF)';
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {

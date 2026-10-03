@@ -103,6 +103,9 @@ function isPrivateAddress(host: string): boolean {
 
   // IPv6 unique-local (fc00::/7) and link-local (fe80::/10).
   if (/^f[cd][0-9a-f]{0,2}:/.test(bare) || /^fe[89ab][0-9a-f]?:/.test(bare)) return true;
+  // Reject IPv4-mapped IPv6 entirely so 127/10/192.168 targets cannot bypass
+  // the IPv4 checks through forms such as ::ffff:7f00:1.
+  if (bare.startsWith('::ffff:')) return true;
 
   if (/^\d+$/.test(bare)) return true; // bare integer = alternative IPv4 encoding
 

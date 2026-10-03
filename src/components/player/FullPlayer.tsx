@@ -7,7 +7,7 @@ import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { useLibraryStore } from '@/store/useLibraryStore';
+import { isTrackFavorite, useLibraryStore } from '@/store/useLibraryStore';
 import { useExtrasStore } from '@/store/useExtrasStore';
 import { useLyricStore } from '@/store/useLyricStore';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
@@ -59,9 +59,9 @@ function bgGrad(palette: [string, string]): string {
   const b = palette[1] ?? palette[0];
   return (
     'linear-gradient(180deg, ' +
-    'color-mix(in srgb, ' + b + ' 66%, #0a0a12) 0%, ' +
-    'color-mix(in srgb, ' + a + ' 52%, #0a0a12) 48%, ' +
-    'color-mix(in srgb, ' + a + ' 26%, #050508) 100%)'
+    'color-mix(in srgb, ' + b + ' 72%, #1b1d25) 0%, ' +
+    'color-mix(in srgb, ' + a + ' 58%, #171922) 48%, ' +
+    'color-mix(in srgb, ' + a + ' 48%, #151720) 100%)'
   );
 }
 
@@ -402,8 +402,10 @@ export function FullPlayer() {
   const repeat = usePlayerStore((s) => s.repeat);
   const lyricsMode = usePlayerStore((s) => s.lyricsMode);
   const ambientMotion = useSettingsStore((s) => s.ambientMotion);
+  const lyricBlur = useSettingsStore((s) => s.lyricBlur);
   const close = usePlayerStore((s) => s.closeFullPlayer);
   const toggleLyrics = usePlayerStore((s) => s.toggleLyricsMode);
+  const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
   const speed = useExtrasStore((s) => s.speed);
@@ -488,9 +490,43 @@ export function FullPlayer() {
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !isDesktop || queueOpen || moreOpen || commentsOpen) return;
+
+    const onPlayerKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          'button, a, input, textarea, select, [contenteditable="true"], [role="slider"], .lyrics, .lyrics-wrap',
+        )
+      ) {
+        return;
+      }
+
+      const state = usePlayerStore.getState();
+      if (!state.fullPlayerOpen || !state.current) return;
+
+      if (event.code === 'Space') {
+        event.preventDefault();
+        playerController.toggle();
+      } else if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+        event.preventDefault();
+        const direction = event.code === 'ArrowRight' ? 1 : -1;
+        playerController.seek(Math.max(0, Math.min(state.duration, state.currentTime + direction * 5)));
+      }
+    };
+
+    window.addEventListener('keydown', onPlayerKeyDown);
+    return () => window.removeEventListener('keydown', onPlayerKeyDown);
+  }, [open, isDesktop, queueOpen, moreOpen, commentsOpen]);
+
   if (!open || !current) return null;
 
-  const fav = favorites.includes(current.id);
+  const fav = isTrackFavorite(current, favoriteTracks, favorites);
   const playing = status === 'playing';
   const shown = scrub ?? currentTime;
 
@@ -709,6 +745,8 @@ export function FullPlayer() {
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
       <BottomSheet open={moreOpen} title="更多操作" onClose={() => setMoreOpen(false)}>
         <div className="hc-more">
+          <section className="hc-more__section" aria-label="歌曲操作">
+            <div className="hc-more__section-title">歌曲操作</div>
           {/*
             One control for three states, because that is the gesture: press
             where the part starts, press again where it ends, press once more to
@@ -799,8 +837,10 @@ export function FullPlayer() {
               {pipOpen ? '关闭桌面歌词' : '桌面歌词（画中画）'}
             </button>
           ) : null}
+          </section>
 
-          <div className="hc-more__divider" />
+          <section className="hc-more__section" aria-label="播放设置">
+            <div className="hc-more__section-title">播放设置</div>
           <div className="hc-more__label">播放速度{speed !== 1 ? ' · ' + speed + 'x' : ''}</div>
           <div className="hc-more__chips">
             {SPEEDS.map((v) => (
@@ -889,8 +929,12 @@ export function FullPlayer() {
               归零
             </button>
           </div>
+          </section>
 
-          <div className="hc-more__label">定时关闭{sleepLabel ? ' · ' + sleepLabel : ''}</div>
+          <section className="hc-more__section" aria-label="定时关闭">
+          <div className="hc-more__section-title">
+            定时关闭{sleepLabel ? ' · ' + sleepLabel : ''}
+          </div>
           <div className="hc-more__chips">
             {TIMER_MINUTES.map((m) => (
               <button key={m} className="hc-chip" onClick={() => setSleepMinutes(m)}>
@@ -905,10 +949,17 @@ export function FullPlayer() {
             </button>
             {sleepEndsAt || stopAfterCurrent ? (
               <button className="hc-chip" onClick={() => clearSleep()}>
-                取消
-              </button>
+              取消
+            </button>
             ) : null}
           </div>
+          </section>
+
+          {isDesktop ? (
+            <div className="hc-more__shortcut-hint">
+              <span>空格</span> 播放 / 暂停 <span>← →</span> 快退 / 快进 5 秒
+            </div>
+          ) : null}
         </div>
       </BottomSheet>
       <CommentsSheet
@@ -958,7 +1009,7 @@ export function FullPlayer() {
   /* ---------------- Desktop: Halcyon landscape layout ---------------- */
   if (isDesktop) {
     return (
-      <div className={'full-player hc' + (ambientMotion ? '' : ' hc--still')} {...dismissProps}>
+      <div className={'full-player hc' + (ambientMotion ? '' : ' hc--still') + (lyricBlur ? ' hc--lyrics-blur' : '')} {...dismissProps}>
         <HalcyonBg track={current} live={playing && ambientMotion} />
         <button className="hc-collapse" onClick={close} aria-label="收起">
           <Icon name="chevronLeft" size={22} className="hc-collapse__icon" />
@@ -1073,7 +1124,8 @@ export function FullPlayer() {
       className={
         'full-player hc hc--p' +
         (lyricsMode ? ' hc--p-lyrics' : '') +
-        (ambientMotion ? '' : ' hc--still')
+        (ambientMotion ? '' : ' hc--still') +
+        (lyricBlur ? ' hc--lyrics-blur' : '')
       }
       {...dismissProps}
     >

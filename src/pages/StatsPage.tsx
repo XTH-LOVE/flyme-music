@@ -94,20 +94,41 @@ export function StatsPage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
 
-    return { total: playLog.length, todayCount, songs: songCount.size, topSongs, topArtists };
-  }, [playLog, recentTracks]);
+    const rangeStart = report.start;
+    const rangeEntries = playLog.filter((entry) => entry.ts >= rangeStart);
+    const dayCounts = Array.from({ length: 7 }, (_, offset) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (6 - offset));
+      const key = dayKey(date);
+      return {
+        key,
+        label: new Intl.DateTimeFormat('zh-CN', { weekday: 'short' }).format(date).replace('周', ''),
+        count: playLog.filter((entry) => dayKey(new Date(entry.ts)) === key).length,
+      };
+    });
+    const hourCounts = new Array(24).fill(0) as number[];
+    rangeEntries.forEach((entry) => {
+      hourCounts[new Date(entry.ts).getHours()] += 1;
+    });
+    const peakHour = hourCounts.reduce((best, count, hour) => (count > hourCounts[best] ? hour : best), 0);
+
+    return { total: playLog.length, todayCount, songs: songCount.size, topSongs, topArtists, dayCounts, peakHour };
+  }, [playLog, recentTracks, report]);
 
   return (
     <div className="stats-page">
       <div className="stats-hero">
-        <OS3Wallpaper colors={palette} className="stats-hero__bg" opacity={0.9} />
+        <OS3Wallpaper colors={palette} className="stats-hero__bg" opacity={0} />
         <div className="stats-hero__text">
+          <span className="stats-hero__eyebrow">LISTENING INSIGHTS</span>
           <div className="stats-hero__title">听歌统计</div>
-          <div className="stats-hero__sub">记录每一次与音乐的相遇</div>
+          <div className="stats-hero__sub">记录每一次与音乐相遇的时刻</div>
+          <div className="stats-hero__meta">{rangeLabel(reportRange, Date.now())} · {report.activeDays} 天有播放</div>
         </div>
         <div className="stats-hero__num">
           <span>{stats.total}</span>
-          <em>累计播放</em>
+          <em>累计播放次数</em>
         </div>
       </div>
 
@@ -136,11 +157,45 @@ export function StatsPage() {
           <div className="stats-card__label">喜欢的歌曲</div>
         </div>
         <div className="stats-card">
-          <Icon name="flame" size={20} />
-          <div className="stats-card__num">{stats.topSongs[0]?.[1].count ?? 0}</div>
-          <div className="stats-card__label">单曲最高播放</div>
+          <Icon name="monitor" size={20} />
+          <div className="stats-card__num">{report.activeDays}</div>
+          <div className="stats-card__label">{rangeLabel(reportRange, Date.now())}活跃天数</div>
         </div>
       </div>
+
+      <section className="stats-insights">
+        <div className="stats-panel stats-trend">
+          <div className="stats-panel__head">
+            <div>
+              <div className="stats-panel__title">最近 7 天</div>
+              <div className="stats-panel__hint">每天播放次数</div>
+            </div>
+            <span className="stats-panel__accent">{Math.max(...stats.dayCounts.map((day) => day.count), 0)} 次峰值</span>
+          </div>
+          <div className="stats-trend__bars" aria-label="最近七天播放次数">
+            {stats.dayCounts.map((day) => {
+              const max = Math.max(...stats.dayCounts.map((item) => item.count), 1);
+              return (
+                <div className="stats-trend__day" key={day.key}>
+                  <span className="stats-trend__value">{day.count || ''}</span>
+                  <div className="stats-trend__track">
+                    <div className="stats-trend__bar" style={{ height: `${Math.max(8, (day.count / max) * 100)}%` }} />
+                  </div>
+                  <span className="stats-trend__label">{day.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="stats-panel stats-highlight">
+          <div className="stats-panel__title">你的听歌时段</div>
+          <div className="stats-highlight__hour">{String(stats.peakHour).padStart(2, '0')}:00</div>
+          <div className="stats-highlight__desc">
+            {report.total ? `最近${rangeLabel(reportRange, Date.now())}，你最常在这个时间打开音乐。` : '开始播放几首歌后，这里会显示你的高峰时段。'}
+          </div>
+          <div className="stats-highlight__orb" aria-hidden="true" />
+        </div>
+      </section>
 
       <section className="stats-panel report-section">
         <div className="report-section__head">

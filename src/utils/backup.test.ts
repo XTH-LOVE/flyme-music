@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { BACKUP_APP, BACKUP_VERSION, backupFileName, buildBackup, parseBackup } from './backup';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BACKUP_APP, BACKUP_VERSION, backupFileName, buildBackup, parseBackup, restoreBackupToStorage } from './backup';
 import type { MusicTrack } from '@/music/source/types';
 
 const tr = (id: string): MusicTrack => ({
@@ -17,6 +17,7 @@ describe('buildBackup', () => {
   it('stamps app + schema and copies arrays', () => {
     const b = buildBackup({
       favorites: ['1', '2'],
+      favoriteTracks: [tr('1')],
       recentTracks: [tr('1')],
       playLog: [],
       dislikes: ['周杰伦'],
@@ -25,6 +26,7 @@ describe('buildBackup', () => {
     expect(b.app).toBe(BACKUP_APP);
     expect(b.schema).toBe(BACKUP_VERSION);
     expect(b.favorites).toEqual(['1', '2']);
+    expect(b.favoriteTracks).toEqual([tr('1')]);
     expect(b.dislikes).toEqual(['周杰伦']);
     expect(b.recentTracks).toHaveLength(1);
   });
@@ -32,6 +34,7 @@ describe('buildBackup', () => {
   it('defaults missing arrays to empty', () => {
     const b = buildBackup({});
     expect(b.favorites).toEqual([]);
+    expect(b.favoriteTracks).toEqual([]);
     expect(b.playlists).toEqual([]);
   });
 });
@@ -44,6 +47,7 @@ describe('backupFileName', () => {
 });
 
 describe('parseBackup', () => {
+  afterEach(() => vi.unstubAllGlobals());
   it('rejects foreign payloads', () => {
     expect(parseBackup({ app: 'other' })).toBeNull();
     expect(parseBackup(null)).toBeNull();
@@ -60,6 +64,7 @@ describe('parseBackup', () => {
   it('round-trips a valid backup', () => {
     const b = buildBackup({
       favorites: ['1'],
+      favoriteTracks: [tr('1')],
       recentTracks: [tr('1')],
       playLog: [{ key: 'netease:1', name: 'song 1', artist: 'artist', ts: 1, track: tr('1') }],
       dislikes: ['x'],
@@ -68,6 +73,7 @@ describe('parseBackup', () => {
     const parsed = parseBackup(JSON.parse(JSON.stringify(b)));
     expect(parsed).not.toBeNull();
     expect(parsed!.favorites).toEqual(['1']);
+    expect(parsed!.favoriteTracks).toEqual([tr('1')]);
     expect(parsed!.playlists).toHaveLength(1);
     expect(parsed!.playLog[0].key).toBe('netease:1');
   });
@@ -76,5 +82,17 @@ describe('parseBackup', () => {
     const parsed = parseBackup({ app: 'aurora-music', favorites: 'nope', dislikes: 42 });
     expect(parsed!.favorites).toEqual([]);
     expect(parsed!.dislikes).toEqual([]);
+  });
+
+  it('preserves existing favorite tracks when restoring an id-only legacy backup', () => {
+    const existing = JSON.stringify([tr('existing')]);
+    const values = new Map<string, string>([['aurora.favoriteTracks.v1', existing]]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    });
+    const parsed = parseBackup({ app: 'flyme-music', schema: 1, favorites: ['legacy'] })!;
+    restoreBackupToStorage(parsed);
+    expect(values.get('aurora.favoriteTracks.v1')).toBe(existing);
   });
 });

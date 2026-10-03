@@ -9,11 +9,12 @@
 .aip {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 18px;
-  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  gap: 12px;
+  margin: 0 20px 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--am-glass-border);
   border-radius: var(--am-radius-lg, 18px);
-  background: var(--am-surface-2, rgba(120, 120, 140, 0.07));
+  background: color-mix(in srgb, var(--am-accent) 7%, var(--am-surface-1));
 }
 
 .aip--off {
@@ -49,10 +50,10 @@
 .aip__input {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.2));
-  border-radius: 12px;
-  background: var(--am-surface-1, rgba(255, 255, 255, 0.04));
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--am-surface-2, rgba(255, 255, 255, 0.04));
   font: inherit;
   font-size: 13.5px;
   color: var(--am-text-1);
@@ -60,9 +61,10 @@
 
 .aip__go {
   flex-shrink: 0;
-  padding: 0 18px;
+  min-width: 72px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--am-accent, #3482ff);
   font: inherit;
   font-size: 13.5px;
@@ -84,7 +86,7 @@
 
 .aip__preset {
   padding: 6px 11px;
-  border: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.18));
+  border: 0;
   border-radius: 999px;
   background: none;
   font: inherit;
@@ -110,7 +112,8 @@
   flex-direction: column;
   gap: 6px;
   padding-top: 8px;
-  border-top: 1px solid var(--am-border-soft, rgba(130, 130, 150, 0.14));
+  border-top: 0;
+  margin-top: 2px;
 }
 
 .aip__result-line {

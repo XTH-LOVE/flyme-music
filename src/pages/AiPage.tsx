@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
 import { TrackCover } from '@/components/TrackCover';
 import { playerController } from '@/player';
@@ -27,7 +27,6 @@ import { loadMemories, memoryBlock, scheduleMemoryExtraction } from '@/ai/memory
 import { MemoryPanel } from '@/ai/memoryUi';
 import type { MusicTrack } from '@/music/source/types';
 import './ai-page.css';
-import { AiPlaylistBuilder } from '@/components/AiPlaylistBuilder';
 
 const QUICK = [
   { label: '开心电台', text: '我现在心情很开心，开个心情电台' },
@@ -74,27 +73,12 @@ function SongResults({ tracks }: { tracks: MusicTrack[] }) {
   );
 }
 
-function PlaylistCard({ id, name, tracks }: { id: string; name: string; tracks: MusicTrack[] }) {
-  const navigate = useNavigate();
+function AssistantText({ text }: { text: string }) {
   return (
-    <div className="ai-pl">
-      <div className="ai-pl__collage">
-        {tracks.slice(0, 4).map((t, i) => (
-          <div key={t.source + ':' + t.id + '-' + i} className="ai-pl__cell">
-            <TrackCover track={t} bare radius="0" />
-          </div>
-        ))}
-      </div>
-      <div className="ai-pl__body">
-        <div className="ai-pl__name">{name}</div>
-        <div className="ai-pl__meta">{tracks.length} 首 · Flyme 创建</div>
-      </div>
-      <button className="ai-pl__open" onClick={() => navigate('/my-playlist/' + id)}>
-        打开
-      </button>
-      <button className="ai-song__play" aria-label="播放歌单" onClick={() => playerController.playTracks(tracks, 0)}>
-        <Icon name="play" size={15} />
-      </button>
+    <div className="ai-card__formatted">
+      {text.split(/\n{2,}/).map((paragraph, index) => (
+        <p key={index}>{paragraph.trim()}</p>
+      ))}
     </div>
   );
 }
@@ -193,7 +177,7 @@ function MessageView({ m, onRetry }: { m: AiMessage; onRetry?: () => void }) {
       ) : null}
       {m.text ? (
         <div className="ai-card__text">
-          {m.text}
+          {m.role === 'ai' ? <AssistantText text={m.text} /> : m.text}
           {m.streaming ? <span className="ai-card__cursor" /> : null}
         </div>
       ) : m.streaming ? (
@@ -201,8 +185,13 @@ function MessageView({ m, onRetry }: { m: AiMessage; onRetry?: () => void }) {
           <span className="ai-card__cursor" />
         </div>
       ) : null}
+      {m.error && onRetry ? (
+        <button className="ai-card__retry" type="button" onClick={onRetry}>
+          <Icon name="refresh" size={14} />
+          再试一次
+        </button>
+      ) : null}
       {m.tracks?.length ? <SongResults tracks={m.tracks} /> : null}
-      {m.playlist ? <PlaylistCard id={m.playlist.id} name={m.playlist.name} tracks={m.playlist.tracks} /> : null}
     </div>
   );
 }
@@ -360,7 +349,6 @@ export function AiPage() {
             role: 'ai',
             text: res.reply,
             tracks: res.tracks,
-            playlist: res.playlist,
           });
         } catch (err) {
           pushMessage({
@@ -410,11 +398,10 @@ export function AiPage() {
         { role: 'user' as const, content: text },
       ];
       // Agent loop: tool results go back to the model so it can keep acting
-      // (search -> pick -> play / build playlist) before answering.
+      // (search -> pick -> play) before answering.
       const ctx: ToolCtx = { found: [] };
       const steps: string[] = [];
       let lastTracks: MusicTrack[] | undefined;
-      let lastPlaylist: AiMessage['playlist'];
       let lastReply = '';
       let finalText = '';
       let working = history;
@@ -519,7 +506,6 @@ export function AiPage() {
             ctx.found = res.tracks;
             if (String(call.tool) !== 'search_tracks') lastTracks = res.tracks;
           }
-          if (res.playlist) lastPlaylist = res.playlist;
           facts.push(res.fact ?? { note: res.reply });
           const observed = usePlayerStore.getState();
           facts.push({
@@ -547,7 +533,6 @@ export function AiPage() {
         streaming: false,
         steps: [...steps],
         tracks: lastTracks,
-        playlist: lastPlaylist,
       });
       // Channel A: quiet background extraction from this turn's dialogue.
       void scheduleMemoryExtraction(
@@ -563,22 +548,20 @@ export function AiPage() {
     }
   };
 
+  const retryMessage = (index: number) => {
+    const previous = messages.slice(0, index).reverse().find((message) => message.role === 'user');
+    if (previous) void send(previous.text);
+  };
+
   return (
     <div className="page ai-page">
       <div className="ai-page__main">
-        {/*
-          Above the conversation on purpose. It is a tool, not a chat message:
-          the user has something specific to make, and burying it behind a
-          sentence they have to phrase correctly would hide it.
-        */}
-        <AiPlaylistBuilder />
-
         <div className="ai-page__head">
           <div className="ai-avatar">
             <img src="/flyme-mark.jpg" width="38" height="38" alt="Flyme" />
           </div>
           <div className="ai-page__head-text">
-            <div className="ai-page__title">Flyme · 一起听</div>
+            <div className="ai-page__title">AI 伴听</div>
             <div className="ai-page__sub">
               {configured ? '在线 · ' + model : '本地模式 · 去设置选择模型'}
             </div>
@@ -607,8 +590,18 @@ export function AiPage() {
               </div>
             </div>
           ) : null}
-          {messages.map((m) => (
-            <MessageView key={m.id} m={m} onRetry={m.analysisStatus === 'error' ? retryAnalysis : undefined} />
+          {messages.map((m, index) => (
+            <MessageView
+              key={m.id}
+              m={m}
+              onRetry={
+                m.analysisStatus === 'error'
+                  ? retryAnalysis
+                  : m.error
+                    ? () => retryMessage(index)
+                    : undefined
+              }
+            />
           ))}
         </div>
 

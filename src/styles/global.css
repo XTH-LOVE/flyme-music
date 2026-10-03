@@ -177,6 +177,8 @@ html,
 body,
 #root {
   height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -189,6 +191,8 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   transition: background-color var(--am-motion-page) var(--am-ease-standard),
     color var(--am-motion-page) var(--am-ease-standard);
 }

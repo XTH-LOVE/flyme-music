@@ -394,12 +394,15 @@ export function MePage() {
                 <Skeleton key={i} height={180} radius="var(--am-radius-xl)" />
               ))}
             </div>
-          ) : (
+          ) : netPlaylists?.length ? (
             <div className="grid-cards">
-              {(netPlaylists ?? []).slice(0, 12).map((pl) => (
+              {netPlaylists.slice(0, 12).map((pl) => (
                 <NetPlaylistCard key={pl.id} playlist={pl} />
               ))}
             </div>
+          ) : (
+            /* Loaded and empty - see the note on the home page's version. */
+            <EmptyState icon="compass" title="暂时没有推荐歌单" description="登录后可以根据你的口味推荐" />
           ))}
       </div>
 

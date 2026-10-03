@@ -155,13 +155,17 @@ export function DiscoverPage() {
 
       <section>
         <SectionHeader title="推荐歌单" />
-        {netPlaylists ? (
+        {netPlaylists?.length ? (
           <div className="grid-cards">
             {netPlaylists.slice(6, 12).map((pl) => (
               <NetPlaylistCard key={pl.id} playlist={pl} />
             ))}
           </div>
-        ) : null}
+        ) : (
+          /* Loaded and empty, or not loaded at all - either way the section
+             used to render as a heading with nothing under it. */
+          <EmptyState icon="compass" title="暂时没有推荐歌单" description="稍后下拉刷新试试" />
+        )}
       </section>
     </div>
   );

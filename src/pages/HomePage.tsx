@@ -182,12 +182,19 @@ export function HomePage() {
           </div>
         ) : netError && !netPlaylists ? (
           <EmptyState icon="compass" title="在线歌单加载失败" description="请检查网络后重试" action={{ label: '重试', onClick: reloadRecommend }} />
-        ) : (
+        ) : netPlaylists?.length ? (
           <div className="grid-cards">
-            {(netPlaylists ?? []).slice(0, 6).map((pl) => (
+            {netPlaylists.slice(0, 6).map((pl) => (
               <NetPlaylistCard key={pl.id} playlist={pl} />
             ))}
           </div>
+        ) : (
+          /*
+           * Loaded, and empty. This used to fall through to the grid, which
+           * rendered nothing - a blank rectangle under a heading, which reads
+           * as a broken page rather than as an answer.
+           */
+          <EmptyState icon="compass" title="暂时没有推荐" description="稍后下拉刷新试试" />
         )}
       </section>
 
@@ -199,7 +206,9 @@ export function HomePage() {
               <NetPlaylistCard key={pl.id} playlist={pl} />
             ))}
           </div>
-        ) : null}
+        ) : (
+          <EmptyState icon="compass" title="暂时没有热门歌单" description="去歌单广场看看" />
+        )}
       </section>
 
       <section>

@@ -426,9 +426,34 @@
 }
 .lyrics__line--near {
   color: rgba(255, 255, 255, 0.66);
+  /* Barely smaller. Enough to read as depth, not enough to notice as a size. */
+  transform: scale(0.985);
 }
 .lyrics__line--far {
   color: rgba(255, 255, 255, 0.28);
+  transform: scale(0.97);
+  /*
+   * Depth of field, the way Apple Music does it.
+   *
+   * Only on the far rows: a blur is a full offscreen pass per element, and the
+   * rows beside the active one are the ones the eye is actually on. Capped at
+   * 3px because past that the text stops being readable at a glance, which
+   * defeats the point of showing the coming lines at all.
+   *
+   * Dropped when the reader has asked for less motion. No @supports guard: the
+   * blur is the whole effect here, so an engine without it loses nothing by
+   * skipping the row, and one that applies it on the CPU still draws the right
+   * picture - just slower, which is a fair trade for a handful of rows.
+   */
+  filter: blur(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyrics__line--near,
+  .lyrics__line--far {
+    transform: none;
+    filter: none;
+  }
 }
 .lyrics__line--active {
   color: #fff;

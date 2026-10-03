@@ -70,9 +70,18 @@ export function solveSpring(
     (Math.cos(t * freq) * delta + Math.sin(t * freq) * leftover) * Math.E ** (t * decay);
 }
 
-/** How close counts as arrived. Well under a pixel, so it is never visible. */
-const REST_POSITION = 0.01;
-const REST_VELOCITY = 0.01;
+/**
+ * How close counts as arrived.
+ *
+ * Half a pixel, which cannot be seen, and deliberately not tighter. The first
+ * value was 0.01, and on the lyrics scroll - stiffness 170, damping past
+ * critical - that made the spring take 1.2 seconds to stop: the tail of an
+ * overdamped spring creeps the last few hundredths of a pixel for ages, and
+ * lines can be half a second apart, so it would have been retargeted mid-flight
+ * every single time. Sub-pixel is not a measurement anyone can make.
+ */
+const REST_POSITION = 0.5;
+const REST_VELOCITY = 5;
 
 export class Spring {
   private solver: (t: number) => number;

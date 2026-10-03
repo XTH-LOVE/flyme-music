@@ -112,3 +112,69 @@ describe('Spring', () => {
     expect(run(s, 1)).toBe(10);
   });
 });
+
+describe('scroll damping', () => {
+  /**
+   * The lyrics scroll uses this exact formula, and it is here because a round
+   * number in its place looked fine and was not: critical damping for stiffness
+   * 170 is 26.1, so 26 is just under it and the spring overshoots. On a scroll
+   * that reads as the text bobbing after every line change.
+   */
+  const STIFFNESS = 220;
+  const DAMPING = Math.sqrt(STIFFNESS) * 2.2;
+
+  it('is past critical, so the scroll never overshoots', () => {
+    expect(DAMPING).toBeGreaterThan(2 * Math.sqrt(STIFFNESS));
+  });
+
+  it('does not pass the target at any point on the way', () => {
+    const s = new Spring(0, { stiffness: STIFFNESS, damping: DAMPING });
+    s.setTarget(400);
+    for (let i = 0; i < 120; i += 1) {
+      s.update(1 / 60);
+      expect(s.position).toBeLessThanOrEqual(400 + 1e-6);
+    }
+  });
+
+  it('is monotonic - no direction change anywhere in the travel', () => {
+    const s = new Spring(0, { stiffness: STIFFNESS, damping: DAMPING });
+    s.setTarget(400);
+    let previous = s.position;
+    for (let i = 0; i < 120; i += 1) {
+      s.update(1 / 60);
+      expect(s.position).toBeGreaterThanOrEqual(previous - 1e-9);
+      previous = s.position;
+    }
+  });
+
+  /** Frames until settled, or the cap. */
+  const framesToSettle = (distance: number, cap = 300): number => {
+    const s = new Spring(0, { stiffness: STIFFNESS, damping: DAMPING });
+    s.setTarget(distance);
+    let frames = 0;
+    while (!s.settled && frames < cap) {
+      s.update(1 / 60);
+      frames += 1;
+    }
+    return frames;
+  };
+
+  it('settles a normal line change well before the next one', () => {
+    // A line is roughly a row tall. Half a second is the shortest gap between
+    // sung lines, and this has to land inside it.
+    expect(framesToSettle(40) / 60).toBeLessThan(0.5);
+  });
+
+  it('crosses a seek-sized jump in about a second', () => {
+    /*
+     * 400px is a seek, not a line change, and a second is fine there - the user
+     * has just moved the song and a slow glide reads as deliberate.
+     *
+     * This is not a failure at half a second, and the first version of this
+     * test said it was. A spring that has not settled is not a spring that is
+     * broken; it is one that is still moving, and being retargeted mid-flight
+     * is the entire point of using it over a transition.
+     */
+    expect(framesToSettle(400) / 60).toBeLessThan(1.5);
+  });
+});

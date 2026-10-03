@@ -123,7 +123,24 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     if (!el) return;
 
     const target = el.offsetTop - (container.clientHeight - el.offsetHeight) / 2;
-    if (!scrollSpring.current) scrollSpring.current = new Spring(container.scrollTop);
+    if (!scrollSpring.current) {
+      /*
+       * damping = sqrt(stiffness) * 2.2, which is AMLL's formula and the reason
+       * it uses one.
+       *
+       * Critical damping for stiffness 170 is 2*sqrt(170) = 26.1, so a round 26
+       * is just under it - the spring arrives, overshoots, and comes back. On a
+       * scroll that reads as the text bobbing up and down after every line
+       * change, which is what it did. The multiplier puts it clearly past
+       * critical: no overshoot, and still fast enough to land before the next
+       * line.
+       */
+      const stiffness = 220;
+      scrollSpring.current = new Spring(container.scrollTop, {
+        stiffness,
+        damping: Math.sqrt(stiffness) * 2.2,
+      });
+    }
     scrollSpring.current.setTarget(target);
 
     cancelAnimationFrame(scrollRaf.current);

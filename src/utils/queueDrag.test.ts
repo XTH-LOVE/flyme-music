@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dragShift, dropTarget, gapAt } from './queueDrag';
+import { dragShift, dropTarget, gapAt, moveItem } from './queueDrag';
 
 const ROW = 56;
 const list = (count: number) => ({ top: 100, rowHeight: ROW, count });
@@ -124,5 +124,48 @@ describe('dragShift', () => {
 
   it('handles an empty list', () => {
     expect(dragShift(0, 0, 0, 0)).toEqual([]);
+  });
+});
+
+describe('moveItem', () => {
+  const list = ['a', 'b', 'c', 'd'];
+
+  it('moves downwards to the slot the indicator pointed at', () => {
+    // Dragging 'a' past 'c' drops it between c and d: index 2 in the original.
+    expect(moveItem(list, 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+  });
+
+  it('moves upwards', () => {
+    expect(moveItem(list, 3, 1)).toEqual(['a', 'd', 'b', 'c']);
+  });
+
+  it('moves to the very end', () => {
+    expect(moveItem(list, 0, 3)).toEqual(['b', 'c', 'd', 'a']);
+  });
+
+  it('moves to the very start', () => {
+    expect(moveItem(list, 2, 0)).toEqual(['c', 'a', 'b', 'd']);
+  });
+
+  it('is a no-op for a drop on itself', () => {
+    expect(moveItem(list, 1, 1)).toEqual(list);
+  });
+
+  it('ignores an out-of-range target rather than dropping the item', () => {
+    expect(moveItem(list, 1, 9)).toEqual(list);
+    expect(moveItem(list, 9, 1)).toEqual(list);
+  });
+
+  it('does not mutate the input', () => {
+    const original = [...list];
+    moveItem(list, 0, 2);
+    expect(list).toEqual(original);
+  });
+
+  it('agrees with dropTarget: dropping at a gap lands next to that gap', () => {
+    // gap 3 is below 'c' (rows 0..3, gap n sits above row n). Moving 'a' there
+    // must leave it immediately before 'd'.
+    const to = dropTarget(0, 3, 4);
+    expect(moveItem(list, 0, to)).toEqual(['b', 'c', 'a', 'd']);
   });
 });

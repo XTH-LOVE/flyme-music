@@ -71,3 +71,26 @@ export function dragShift(
     return 0;
   });
 }
+
+/**
+ * Move one item to where the drop indicator says.
+ *
+ * `to` is used as-is. The tempting adjustment - subtracting one when the item
+ * moves downwards, on the grounds that removing it first shifts everything down
+ * - is wrong here: dropTarget already returns the index in the list *after* the
+ * move, so the naive splice is the correct one. I wrote the adjustment first,
+ * with a comment explaining why it was needed, and it put every downward drag
+ * one slot short.
+ *
+ * Kept separate from the drag maths so it could be tested, which is how that
+ * was caught.
+ */
+export function moveItem<T>(items: readonly T[], from: number, to: number): T[] {
+  const next = [...items];
+  if (from < 0 || from >= next.length || to < 0 || to >= next.length || from === to) {
+    return next;
+  }
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}

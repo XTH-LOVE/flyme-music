@@ -10,7 +10,7 @@ import { EmptyState } from '@/design-system/components/EmptyState';
 import { playerController } from '@/player';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { notify } from '@/utils/notify';
-import { dragShift, dropTarget, gapAt, type SlotGeometry } from '@/utils/queueDrag';
+import { dragShift, dropTarget, gapAt, moveItem, type SlotGeometry } from '@/utils/queueDrag';
 import { saveFile } from '@/utils/saveBlob';
 import {
   dedupeTracks,
@@ -108,10 +108,7 @@ export function UserPlaylistDetailPage() {
     dragOrigin.current = null;
     setDrag(null);
     if (to === drag.from || !playlist) return;
-    const next = [...visible];
-    const [moved] = next.splice(drag.from, 1);
-    next.splice(to, 0, moved);
-    reorderTracks(playlist.id, next);
+    reorderTracks(playlist.id, moveItem(visible, drag.from, to));
   };
 
 

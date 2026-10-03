@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { TrackListItem } from '@/components/TrackListItem';
 import { SearchBar } from '@/design-system/components/SearchBar';
@@ -31,8 +31,81 @@ const SEARCH_TABS: { source: SearchTab; label: string }[] = [
   ...searchSourceOptions,
 ];
 
-export function SearchPage() {
+/**
+ * Artist and album matches for whatever is in the box.
+ *
+ * Extracted so the same cards can appear while typing as well as after a
+ * search. The endpoint was already being called on submit; making the user
+ * press Enter before showing the one thing they were about to pick is a round
+ * trip for nothing.
+ */
+function SearchMetaCards({ meta }: { meta: NetSearchMeta | null }) {
+  if (!meta || (!meta.artists.length && !meta.albums.length)) return null;
+  return (
+    <section className="search-meta">
+      {meta.artists.length ? (
+        <>
+          <SectionHeader title="相关歌手" />
+          <div className="search-meta__row">
+            {meta.artists.map((a) => (
+              <SearchMetaCard
+                key={a.id}
+                to={'/ne-artist/' + a.id}
+                cover={a.coverUrl}
+                name={a.name}
+                kind="歌手"
+                fallbackIcon="user"
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+      {meta.albums.length ? (
+        <>
+          <SectionHeader title="相关专辑" />
+          <div className="search-meta__row">
+            {meta.albums.map((al) => (
+              <SearchMetaCard
+                key={al.id}
+                to={'/ne-album/' + al.id}
+                cover={al.coverUrl}
+                name={al.name}
+                kind={al.artist || '专辑'}
+                fallbackIcon="album"
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+/** One artist or album tile. The two were identical and written twice. */
+function SearchMetaCard({
+  to,
+  cover,
+  name,
+  kind,
+  fallbackIcon,
+}: {
+  to: string;
+  cover?: string;
+  name: string;
+  kind: string;
+  fallbackIcon: 'user' | 'album';
+}) {
   const navigate = useNavigate();
+  return (
+    <button className="search-meta__card" onClick={() => navigate(to)}>
+      {cover ? <img src={cover} alt={name} /> : <Icon name={fallbackIcon} size={30} />}
+      <span className="search-meta__name">{name}</span>
+      <span className="search-meta__kind">{kind}</span>
+    </button>
+  );
+}
+
+export function SearchPage() {
   // Defaults to the aggregate tab: searching once and seeing every catalogue
   // beats guessing which of five tabs holds the song.
   const [source, setSource] = useState<SearchTab>('all');
@@ -55,6 +128,32 @@ export function SearchPage() {
   const addKeyword = useLibraryStore((s) => s.addSearchKeyword);
   const removeKeyword = useLibraryStore((s) => s.removeSearchKeyword);
   const clearHistory = useLibraryStore((s) => s.clearSearchHistory);
+
+  /**
+   * Suggestions while typing, not only after Enter.
+   *
+   * The endpoint was already being called on submit and the cards already knew
+   * how to render; the only thing missing was asking earlier. Debounced so a
+   * fast typist makes one request instead of one per keystroke, and skipped
+   * once a search has been submitted, where the results are what matters.
+   */
+  useEffect(() => {
+    const kw = keyword.trim();
+    if (submitted || kw.length < 1) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      metaAbortRef.current?.abort();
+      const mc = new AbortController();
+      metaAbortRef.current = mc;
+      getNeteaseSearchMeta(kw, mc.signal)
+        .then((m) => {
+          if (!mc.signal.aborted) setMeta(m);
+        })
+        .catch(() => undefined);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword, submitted]);
 
   const runSearch = async (kw: string, src: SearchTab, pageNo: number, append: boolean) => {
     abortRef.current?.abort();
@@ -143,6 +242,10 @@ export function SearchPage() {
 
       {!submitted ? (
         <>
+          {/* Live suggestions. Above the history because someone who has
+              started typing is already past the history. */}
+          <SearchMetaCards meta={meta} />
+
           {history.length ? (
             <section>
               <div className="history-header">
@@ -182,39 +285,7 @@ export function SearchPage() {
         </>
       ) : (
         <>
-          {/* 相关歌手 / 专辑：搜名字想听"这个人/这张专辑"的直接入口 */}
-          {meta && (meta.artists.length > 0 || meta.albums.length > 0) ? (
-            <section className="search-meta">
-              {meta.artists.length ? (
-                <>
-                  <SectionHeader title="相关歌手" />
-                  <div className="search-meta__row">
-                    {meta.artists.map((a) => (
-                      <button key={a.id} className="search-meta__card" onClick={() => navigate('/ne-artist/' + a.id)}>
-                        {a.coverUrl ? <img src={a.coverUrl} alt={a.name} /> : <Icon name="user" size={30} />}
-                        <span className="search-meta__name">{a.name}</span>
-                        <span className="search-meta__kind">歌手</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-              {meta.albums.length ? (
-                <>
-                  <SectionHeader title="相关专辑" />
-                  <div className="search-meta__row">
-                    {meta.albums.map((al) => (
-                      <button key={al.id} className="search-meta__card" onClick={() => navigate('/ne-album/' + al.id)}>
-                        {al.coverUrl ? <img src={al.coverUrl} alt={al.name} /> : <Icon name="album" size={30} />}
-                        <span className="search-meta__name">{al.name}</span>
-                        <span className="search-meta__kind">{al.artist || '专辑'}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-            </section>
-          ) : null}
+          <SearchMetaCards meta={meta} />
 
           {loading && !items.length ? (
             <div className="song-list">

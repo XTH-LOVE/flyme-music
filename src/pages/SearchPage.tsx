@@ -42,6 +42,8 @@ export function SearchPage() {
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  /** First tap arms the clear button, the second one performs it. */
+  const [confirmClear, setConfirmClear] = useState(false);
   /** Set when the chosen source itself failed (not "no results"): the relay's
    *  diagnosis, shown instead of the misleading empty state. */
   const [sourceError, setSourceError] = useState<string | null>(null);
@@ -145,9 +147,24 @@ export function SearchPage() {
             <section>
               <div className="history-header">
                 <SectionHeader title="搜索历史" />
-                <button className="history-clear" onClick={clearHistory}>
+                {/*
+                  Two taps, matching how the history page and the storage page
+                  already guard the same kind of action. Clearing a list the
+                  user built up by hand should not be one stray tap away.
+                */}
+                <button
+                  className="history-clear"
+                  onClick={() => {
+                    if (!confirmClear) {
+                      setConfirmClear(true);
+                      return;
+                    }
+                    clearHistory();
+                    setConfirmClear(false);
+                  }}
+                >
                   <Icon name="trash" size={14} />
-                  清空
+                  {confirmClear ? '确认清空？' : '清空'}
                 </button>
               </div>
               <div className="chip-row chip-row--wrap">

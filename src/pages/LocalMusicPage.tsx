@@ -31,6 +31,8 @@ export function LocalMusicPage() {
   const remove = useLocalLibraryStore((s) => s.remove);
   const listRef = useRef<HTMLDivElement>(null);
   const [importing, setImporting] = useState(false);
+  /** First tap arms the clear button, the second one performs it. */
+  const [confirmClear, setConfirmClear] = useState(false);
   const [stats, setStats] = useState<OfflineStats | null>(null);
 
   const titles = useMemo(() => tracks.map((track) => track.name), [tracks]);
@@ -131,13 +133,20 @@ export function LocalMusicPage() {
             <button
               className="am-btn am-btn--secondary am-btn--sm"
               onClick={() => {
+                // Same two-tap guard as the history page: the cache took time
+                // and data to build, and clearing it is not undoable.
+                if (!confirmClear) {
+                  setConfirmClear(true);
+                  return;
+                }
+                setConfirmClear(false);
                 void clearOfflineCache().then(() => {
                   setStats({ count: 0, bytes: 0 });
                   notify('已清空离线缓存');
                 });
               }}
             >
-              清空
+              {confirmClear ? '确认清空？' : '清空'}
             </button>
           ) : null}
         </div>

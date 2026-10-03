@@ -1,0 +1,68 @@
+name: Deploy Web
+
+# Deploys the web build to Cloudflare Pages.
+#
+# This exists because the dashboard's own Git integration stopped firing: pushes
+# to main arrived on GitHub, CI went green, and flyme-music.pages.dev kept
+# serving a build from weeks earlier. Nothing in the repository said whether the
+# site was current, so the only way to find out was to diff the built asset
+# hashes against what the site returned - which is how it was found.
+#
+# With the deploy here, the answer is on the commit: the workflow ran or it did
+# not, and it is visible from GitHub without opening the Cloudflare dashboard.
+#
+# Requires one repository secret, CLOUDFLARE_API_TOKEN, scoped to
+# "Account / Cloudflare Pages / Edit". The dashboard integration can stay
+# connected or be disconnected; this does not depend on it.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one in flight - a half-uploaded bundle
+# is worse than a slightly stale one.
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # The web build reads these at build time. Empty is fine - the app
+          # degrades rather than failing - but set them as secrets if the
+          # deployed site needs them.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: a6fc25eb5bd6e9ee026276d9c876b797
+          command: pages deploy dist --project-name=flyme-music --branch=main
+
+      - name: Report what went live
+        run: |
+          echo "### Deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Entry bundle: \`$(ls dist/assets/main-*.js | xargs -n1 basename)\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "If flyme-music.pages.dev does not serve that filename, the deploy did not take effect." >> "$GITHUB_STEP_SUMMARY"

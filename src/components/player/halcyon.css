@@ -263,6 +263,40 @@
   height: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.2);
+  /*
+   * Thickens under the finger, the way the Apple Music bar does.
+   *
+   * The bar is the smallest target on the page and the one most often aimed at
+   * with a thumb, so it grows to meet the pointer rather than asking the user to
+   * be accurate. Driven by :hover and :active rather than a JS flag - the
+   * gesture already changes the element's state, and a listener that mirrors it
+   * would only add a frame of lag.
+   *
+   * Two transitions rather than one: thickening is quick because it is feedback
+   * and must not lag the touch, thinning is slower because it is the bar
+   * getting out of the way and a snap there reads as a flicker.
+   */
+  transition: height 180ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+.hc-glow:hover .hc-glow__track,
+.hc-glow:active .hc-glow__track,
+.hc-glow--active .hc-glow__track {
+  height: 14px;
+  transition-duration: 110ms;
+}
+
+/* A pointer that cannot hover - a phone - must still get the thick bar while
+   the thumb is down, which :active covers on its own. */
+@media (hover: none) {
+  .hc-glow:hover .hc-glow__track {
+    height: 6px;
+    transition-duration: 180ms;
+  }
+  .hc-glow:active .hc-glow__track,
+  .hc-glow--active .hc-glow__track {
+    height: 14px;
+  }
 }
 .hc-glow__fill {
   position: absolute;

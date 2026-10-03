@@ -12,7 +12,10 @@ export function useCrossfadeStack(track: MusicTrack): MusicTrack[] {
 
   useEffect(() => {
     setStack((prev) => {
-      if (prev.length && prev[prev.length - 1].id === track.id) return prev;
+      const current = prev[prev.length - 1];
+      const currentKey = current ? current.source + ':' + current.id : '';
+      const nextKey = track.source + ':' + track.id;
+      if (currentKey === nextKey) return prev;
       return [...prev, track].slice(-2);
     });
   }, [track.id, track]);

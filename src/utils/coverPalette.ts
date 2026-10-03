@@ -38,9 +38,15 @@ function ambientTone(hex: string): string {
   const b = n & 255;
   const luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
   if (luma < 42) return lighten(hex, 0.28);
-  if (luma > 236) {
-    const mix = (v: number) => Math.round(v * 0.9 + 18);
-    return toHex(mix(r), mix(g), mix(b));
+  /*
+   * The extracted colour is also used as the global Monet accent. A nearly
+   * white cover must not turn --am-accent into white: that makes navigation,
+   * controls and focus states appear to disappear. Compress only the upper
+   * tonal range and preserve the hue/chroma as much as possible.
+   */
+  if (luma > 202) {
+    const scale = 190 / luma;
+    return toHex(r * scale, g * scale, b * scale);
   }
   return hex;
 }
@@ -114,12 +120,12 @@ async function extract(picUrl: string): Promise<CoverPalette | null> {
       const a = ambientTone(toHex(best.r, best.g, best.b));
       const b = secondary
         ? ambientTone(toHex(secondary.r, secondary.g, secondary.b))
-        : lighten(a, 0.38);
+        : ambientTone(lighten(a, 0.38));
       return [a, b];
     }
     // Fully desaturated artwork: use the raw average instead.
     const avg = ambientTone(toHex(ar / any, ag / any, ab / any));
-    return [avg, lighten(avg, 0.3)];
+    return [avg, ambientTone(lighten(avg, 0.3))];
   } catch {
     return null;
   }

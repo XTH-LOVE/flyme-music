@@ -8,6 +8,10 @@
 .hc-imm__layer--top {
   opacity: 1;
 }
+.hc-imm__layer:only-child {
+  /* Keep a single cover visible if a WebView delays the top-layer class. */
+  opacity: 1;
+}
 .hc-imm__layer .am-cover {
   width: 100% !important;
   height: 100% !important;

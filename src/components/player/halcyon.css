@@ -7,8 +7,21 @@
 .hc-bg {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  /*
+   * Keep the backdrop inside the player's stacking context. A negative
+   * z-index works in Chromium desktop, but some Android WebViews place it
+   * behind the isolated parent itself, making the whole player look
+   * transparent for a frame during a track/background swap.
+   */
+  z-index: 0;
   overflow: hidden;
+  background: #07070b;
+}
+.hc:not(.hc--imm) {
+  /* Solid fallback while artwork/palette layers are loading or crossfading. */
+  background: #07070b;
+}
+.hc--imm {
   background: #07070b;
 }
 .hc-bg__layer {
@@ -18,6 +31,11 @@
   transition: opacity 720ms var(--am-ease-standard);
 }
 .hc-bg__layer--top {
+  opacity: 1;
+}
+/* A single layer is always the visible fallback, even if a class update is
+   delayed by a WebView during a player-store render. */
+.hc-bg__layer:only-child {
   opacity: 1;
 }
 .hc-bg__grad {
@@ -160,6 +178,7 @@
 /* ---------- Desktop body ---------- */
 .hc-body {
   position: relative;
+  z-index: 1;
   height: 100%;
   display: grid;
   grid-template-columns: minmax(360px, 0.86fr) minmax(0, 1.14fr);
@@ -654,6 +673,8 @@
 
 /* ---------- Mobile portrait ---------- */
 .hc--p .hc-p-body {
+  position: relative;
+  z-index: 1;
   height: 100%;
   /* Fallback for WebViews without dvh (Android < 108): the whole rule is dropped otherwise. */
   height: 100vh;
@@ -695,7 +716,7 @@
 .hc--p .hc-p-cover .hc-cover {
   /* Fills what it can: capped by width on a narrow phone, by height on a tall
      one, so the cover is never smaller than the space allows. */
-  width: min(72vw, 40vh);
+  width: min(88vw, 52vh);
   height: auto;
   flex: 0 1 auto;
 }
@@ -784,6 +805,16 @@
 }
 .hc-p-lyrics .lyrics__line {
   font-size: calc(16.5px * var(--lyric-scale, 1));
+  /*
+   * Mobile lyric scrolling is already driven by the container spring. The
+   * base line rule also transitions transform/font-size, so changing the
+   * active class makes every row animate while the viewport is moving - the
+   * resulting repaint reads as a flash on Android WebViews. Keep mobile rows
+   * geometrically stable and animate only legibility.
+   */
+  transform: none;
+  transition: color var(--am-motion-normal) var(--am-ease-standard),
+    opacity var(--am-motion-normal) var(--am-ease-standard);
 }
 .hc-p-lyrics .lyrics__line--active {
   font-size: calc(20px * var(--lyric-scale, 1));
@@ -813,6 +844,7 @@
 .hc-p-lyrics .lyrics__line--active {
   opacity: 1;
   font-weight: 700;
+  transform: none;
 }
 .hc-right .lyrics__scrub {
   color: #fff;
@@ -1060,8 +1092,8 @@
    height and the whole player layout shifts. Pin an explicit square size
    (identical result where aspect-ratio is supported). */
 .hc--p .hc-p-cover .hc-cover {
-  width: min(72vw, 40vh);
-  height: min(72vw, 40vh);
+  width: min(88vw, 52vh);
+  height: min(88vw, 52vh);
   max-height: 100%;
 }
 

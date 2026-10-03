@@ -5,6 +5,7 @@ import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
 import { analyseLyricVoices, voiceSide } from '@/utils/lyricVoices';
 import type { MusicTrack } from '@/music/source/types';
 import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
+import { Spring } from '@/utils/spring';
 import './fullplayer.css';
 import './lyrics-trans.css';
 
@@ -94,23 +95,57 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     if (!voices.lines[i].allBackground) activeIndex = i;
   }
 
+  /*
+   * The scroll is spring-driven, which is what lets every line move.
+   *
+   * It used to call scrollTo, and the comment that was here explained the
+   * workaround: two overlapping smooth scrolls fight, the second cancels the
+   * first and restarts from wherever it got to, and that stutter is why a
+   * one-line step was jumped instantly instead of animated. The result was that
+   * the common case - a line changing - had no motion at all, and only a seek
+   * did.
+   *
+   * A spring does not fight itself. Retargeting mid-flight keeps the velocity
+   * and bends toward the new position, so a line arriving before the last one
+   * has settled is smooth rather than a restart.
+   *
+   * scrollTop is still what moves, so native touch scrolling and the existing
+   * drag-to-scrub keep working; the spring only drives it while the user is not
+   * holding it.
+   */
+  const scrollSpring = useRef<Spring | null>(null);
+  const scrollRaf = useRef(0);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const el = container.querySelector<HTMLElement>('[data-active="true"]');
     if (!el) return;
 
-    // Two overlapping smooth scrolls fight: the second cancels the first and
-    // restarts from wherever it had reached, which is what a stutter looks
-    // like on fast lyrics. A small step - the usual case, one line at a time -
-    // is therefore jumped instantly, where the animation was too short to read
-    // anyway. Only a long move, which means a seek, is worth animating.
     const target = el.offsetTop - (container.clientHeight - el.offsetHeight) / 2;
-    const distance = Math.abs(target - container.scrollTop);
-    const smooth = distance > container.clientHeight * 0.8;
+    if (!scrollSpring.current) scrollSpring.current = new Spring(container.scrollTop);
+    scrollSpring.current.setTarget(target);
 
-    container.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'auto' });
+    cancelAnimationFrame(scrollRaf.current);
+    let last = performance.now();
+    const tick = (now: number) => {
+      const spring = scrollSpring.current;
+      if (!spring) return;
+      spring.update((now - last) / 1000);
+      last = now;
+      // Not while a finger is on it: the user's scroll is the authority then,
+      // and writing scrollTop underneath them would fight the gesture.
+      if (!touching.current) container.scrollTop = spring.position;
+      // Stop once it has arrived. A settled spring is frozen, so a loop left
+      // running would burn a frame callback per frame for nothing.
+      if (spring.settled) return;
+      scrollRaf.current = requestAnimationFrame(tick);
+    };
+    scrollRaf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(scrollRaf.current);
   }, [activeIndex, track.id]);
+
+  useEffect(() => () => cancelAnimationFrame(scrollRaf.current), []);
 
   useEffect(
     () => () => {
@@ -230,11 +265,21 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
       onPointerUp={(e) => {
         if (e.pointerType !== 'touch') return;
         touching.current = false;
+        // Realign: the spring still holds the position from before the drag,
+        // and without this the next update would snap the view back to it.
+        if (scrollSpring.current && containerRef.current) {
+          scrollSpring.current.reset(containerRef.current.scrollTop);
+        }
         scheduleHide();
       }}
       onPointerCancel={(e) => {
         if (e.pointerType !== 'touch') return;
         touching.current = false;
+        // Realign: the spring still holds the position from before the drag,
+        // and without this the next update would snap the view back to it.
+        if (scrollSpring.current && containerRef.current) {
+          scrollSpring.current.reset(containerRef.current.scrollTop);
+        }
         scheduleHide();
       }}
     >

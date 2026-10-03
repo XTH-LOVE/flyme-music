@@ -218,7 +218,7 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
                   <div className="action-row__icon">
                     <Icon name="lyric" size={18} />
                   </div>
-                  <span>查看热评</span>
+                  <span>查看评论</span>
                 </button>
               ) : null}
             </div>

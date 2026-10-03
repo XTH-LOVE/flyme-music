@@ -56,7 +56,7 @@ export function CommentsSheet({ open, trackName, songId, onClose }: CommentsShee
     }
     const list = comments ?? [];
     if (!list.length) {
-      return <div className="comments-empty">还没有热评</div>;
+      return <div className="comments-empty">还没有评论</div>;
     }
     return (
       <div className="comments-list">

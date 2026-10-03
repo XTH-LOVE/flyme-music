@@ -9,7 +9,7 @@ const navItems: { to: string; label: string; icon: IconName }[] = [
   { to: '/library', label: '排行榜', icon: 'flame' },
   { to: '/discover', label: '发现', icon: 'compass' },
   { to: '/search', label: '搜索', icon: 'search' },
-  { to: '/ai', label: '一起听', icon: 'mic' },
+  { to: '/ai', label: 'AI 伴听', icon: 'mic' },
 ];
 
 const myItems: { to: string; label: string; icon: IconName }[] = [

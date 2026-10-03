@@ -219,7 +219,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <SectionHeader title="AI 伴侣" />
+      <SectionHeader title="AI 伴听" />
       <div className="settings-card">
         <div className="settings-row">
           <div className="settings-row__body">
@@ -311,7 +311,7 @@ export function SettingsPage() {
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">悬浮入口</div>
-            <div className="settings-row__desc">在页面右下角显示一个 AI 悬浮胶囊，显示最新一句解读，点击进入「一起听」</div>
+            <div className="settings-row__desc">在页面右下角显示一个 AI 悬浮胶囊，显示最新一句解读，点击进入「AI 伴听」</div>
           </div>
           <Switch checked={ai.capsule} onChange={(v) => ai.setConfig({ capsule: v })} />
         </div>

@@ -107,7 +107,7 @@ export function UpdateSection() {
         <div className="settings-row__body">
           <div className="settings-row__title">Flyme Music</div>
           <div className="settings-row__desc">
-            版本 {version || '…'} · HyperOS 风格现代音乐播放器 · Flyme AI 伴侣
+            版本 {version || '…'} · HyperOS 风格现代音乐播放器 · Flyme AI 伴听
           </div>
         </div>
         <button

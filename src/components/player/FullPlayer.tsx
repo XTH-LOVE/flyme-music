@@ -146,7 +146,11 @@ const HalcyonBg = memo(function HalcyonBg({ track, live }: { track: MusicTrack; 
 });
 
 /** Full-bleed immersive cover: artwork fills the whole player, crossfading. */
-function ImmersiveCover({ track }: { track: MusicTrack }) {
+/**
+ * Memoised like HalcyonBg, and for the same reason: it does not read the play
+ * position, so rebuilding it on every tick was work with no effect.
+ */
+const ImmersiveCover = memo(function ImmersiveCover({ track }: { track: MusicTrack }) {
   const stack = useCrossfadeStack(track);
 
   return (
@@ -163,7 +167,7 @@ function ImmersiveCover({ track }: { track: MusicTrack }) {
       ))}
     </>
   );
-}
+});
 
 /** Active lyric line for the immersive mini-lyric strip. */
 function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
@@ -236,7 +240,8 @@ function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime
 }
 
 /** Cover that crossfades between the previous and current track. */
-function CoverSwap({ track }: { track: MusicTrack }) {
+/** Memoised like HalcyonBg: no play position, many ticks. */
+const CoverSwap = memo(function CoverSwap({ track }: { track: MusicTrack }) {
   const stack = useCrossfadeStack(track);
 
   return (
@@ -253,7 +258,7 @@ function CoverSwap({ track }: { track: MusicTrack }) {
       ))}
     </div>
   );
-}
+});
 
 /** Halcyon "Super Island" glow progress bar: capsule track + comet head. */
 function GlowProgress({

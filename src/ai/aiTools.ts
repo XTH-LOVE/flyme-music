@@ -57,7 +57,7 @@ function pageName(pathname: string): string {
   if (pathname === '/me') return '我的';
   if (pathname === '/stats') return '听歌统计';
   if (pathname === '/settings') return '设置';
-  if (pathname === '/ai') return '一起听';
+  if (pathname === '/ai') return 'AI 伴听';
   if (pathname === '/local') return '本地音乐';
   if (pathname === '/login') return '登录';
   if (pathname.startsWith('/ne-album/')) return '专辑详情';
@@ -171,7 +171,7 @@ export function buildSystemPrompt(
 ): string {
   return (
     PERSONA_PROMPTS[persona] +
-    '\n你在 Flyme Music「一起听」页面内，搜歌会并行查网易云与 Joox 双音源，结果自动按原版优先排序（翻唱/现场/伴奏排后）。' +
+    '\n你在 Flyme Music「AI 伴听」页面内，搜歌会并行查网易云与 Joox 双音源，结果自动按原版优先排序（翻唱/现场/伴奏排后）。' +
     '\n当前歌曲：' +
     (current
       ? current.name + ' - ' + current.artist.join('/') + '（已播 ' + Math.round(currentTime) + ' 秒）'

@@ -131,7 +131,7 @@ export function HomePage() {
         </Chip>
         <Chip onClick={() => navigate('/ai')}>
           <span className="chip-inline">
-            <Icon name="mic" size={14} /> 一起听
+            <Icon name="mic" size={14} /> AI 伴听
           </span>
         </Chip>
         <Chip

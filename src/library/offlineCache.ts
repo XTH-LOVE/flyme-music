@@ -1,6 +1,7 @@
 import { isTauri, httpFetch } from '@/lib/apiTransport';
 import { withStore } from '@/lib/idb';
 import type { MusicTrack } from '@/music/source/types';
+import { formatBytes as sharedFormatBytes } from '@/utils/versionCompare';
 
 /**
  * Offline audio cache: resolved stream bytes stored in IndexedDB so tracks
@@ -170,9 +171,16 @@ async function evictOverBudget(): Promise<void> {
   }
 }
 
+/**
+ * Delegates to the shared formatter.
+ *
+ * There were two implementations of this, and they disagreed: one always showed
+ * one decimal (42.0 MB), the other dropped it when it carried nothing (42 MB).
+ * The same file size read differently depending on which screen it was on.
+ *
+ * The shared one returns null for a value it cannot trust, which the storage
+ * screen does not want to render - hence the dash rather than a silent zero.
+ */
 export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  return sharedFormatBytes(bytes) ?? '—';
 }

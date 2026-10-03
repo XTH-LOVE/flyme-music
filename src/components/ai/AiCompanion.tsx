@@ -290,7 +290,7 @@ export function AiCompanion() {
           ]);
           const t = text.text.trim();
           useAiStore.getState().updateMessage(messageId, {
-            text: t || '暂时没整理好这首歌的点评，稍后可以在「一起听」里重试。',
+            text: t || '暂时没整理好这首歌的点评，稍后可以在「AI 伴听」里重试。',
             streaming: false,
             analysisStatus: t ? 'ready' : 'error',
             // Say which basis the commentary had: the two read very differently
@@ -337,7 +337,7 @@ export function AiCompanion() {
                     ? '解读服务出错：' + detail.slice(0, 80)
                     : '解读没能完成';
               useAiStore.getState().updateMessage(messageId, {
-                text: reason + '，稍后可以在「一起听」里重试。',
+                text: reason + '，稍后可以在「AI 伴听」里重试。',
                 streaming: false,
                 analysisStatus: 'error',
               });

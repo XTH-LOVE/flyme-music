@@ -239,7 +239,7 @@ export function MePage() {
         {(
           [
             ['/stats', 'flame', '听歌统计'],
-            ['/ai', 'music', '一起听'],
+            ['/ai', 'music', 'AI 伴听'],
             ['/playlists', 'queue', '歌单广场'],
             ['/storage', 'download', '存储管理'],
           ] as const

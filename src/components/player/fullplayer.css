@@ -356,10 +356,29 @@
   height: 100%;
   overflow-y: auto;
   text-align: center;
-  scroll-behavior: smooth;
+  /*
+   * No scroll-behavior here, deliberately.
+   *
+   * It was `smooth`, which made sense while the scroll was driven by
+   * scrollTo({behavior:'smooth'}). The scroll is spring-driven now, and the
+   * spring writes scrollTop on every frame - so the browser was turning each of
+   * those sixty writes a second into its own smooth animation. They queued and
+   * interrupted each other, which is exactly what "stutters" looked like.
+   *
+   * One animator or the other. The spring is the one that can be retargeted
+   * mid-flight, so it is the one that stays.
+   */
   mask-image: linear-gradient(transparent 0%, #000 16%, #000 84%, transparent 100%);
   -webkit-mask-image: linear-gradient(transparent 0%, #000 16%, #000 84%, transparent 100%);
   scrollbar-width: none;
+  /*
+   * Tells the engine the scroll offset is going to change on most frames, so it
+   * can keep whatever it needs to apply that cheaply instead of re-deriving it.
+   * Paired with contain so the mask and the blur on the rows cannot force work
+   * outside this subtree.
+   */
+  will-change: scroll-position;
+  contain: layout paint;
 }
 .lyrics::-webkit-scrollbar {
   display: none;

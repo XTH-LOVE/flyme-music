@@ -128,14 +128,29 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
 
     cancelAnimationFrame(scrollRaf.current);
     let last = performance.now();
+    // Seeded from the container, not the spring: the two can differ after a
+    // drag, and a stale seed would make the first frame write a large jump.
+    let lastWritten = container.scrollTop;
     const tick = (now: number) => {
       const spring = scrollSpring.current;
       if (!spring) return;
       spring.update((now - last) / 1000);
       last = now;
-      // Not while a finger is on it: the user's scroll is the authority then,
-      // and writing scrollTop underneath them would fight the gesture.
-      if (!touching.current) container.scrollTop = spring.position;
+      /*
+       * Written only when it actually changed, and never while a finger is on
+       * it.
+       *
+       * scrollTop is a layout-affecting property, so every write costs a
+       * layout even when the value is identical - and the spring spends most of
+       * its time within a fraction of a pixel of where it already was. The
+       * finger check is separate: while the user is scrolling, their gesture is
+       * the authority and writing underneath them fights it.
+       */
+      const next = spring.position;
+      if (!touching.current && Math.abs(next - lastWritten) >= 0.5) {
+        container.scrollTop = next;
+        lastWritten = next;
+      }
       // Stop once it has arrived. A settled spring is frozen, so a loop left
       // running would burn a frame callback per frame for nothing.
       if (spring.settled) return;

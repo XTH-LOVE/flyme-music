@@ -10,6 +10,7 @@ import { EmptyState } from '@/design-system/components/EmptyState';
 import { playerController } from '@/player';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { notify } from '@/utils/notify';
+import { dragShift, dropTarget, gapAt, type SlotGeometry } from '@/utils/queueDrag';
 import { saveFile } from '@/utils/saveBlob';
 import {
   dedupeTracks,
@@ -41,6 +42,18 @@ export function UserPlaylistDetailPage() {
   const [sortField, setSortField] = useState<SortField>('added');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
 
+  /*
+   * Reordering is only offered when the list on screen *is* the stored order.
+   *
+   * Filtering and sorting are view-only here by design - the comment on
+   * `visible` says as much - so dragging a row inside a sorted or filtered view
+   * would mean writing an order the user never saw. In the default view the two
+   * are the same list, and dragging is exactly what it looks like.
+   */
+  const canReorder = !query && sortField === 'added' && sortDir === 'asc';
+  const [drag, setDrag] = useState<{ from: number; gap: number; dragged: number; pointerId: number } | null>(null);
+  const dragOrigin = useRef<{ y: number; geometry: SlotGeometry } | null>(null);
+
   const playlist = playlists.find((p) => p.id === id);
 
   const tracks = useMemo(() => playlist?.tracks ?? [], [playlist]);
@@ -51,6 +64,57 @@ export function UserPlaylistDetailPage() {
     [tracks, query, sortField, sortDir],
   );
   const duplicates = useMemo(() => findDuplicates(tracks), [tracks]);
+  const shifts = drag ? dragShift(drag.from, drag.gap, visible.length, drag.dragged) : null;
+  /**
+   * Reorder, measured the same way the queue sheet measures.
+   *
+   * Row height and the list's origin are read once when the drag starts rather
+   * than assumed: the height comes from the cover plus padding, and the page
+   * scrolls, so the origin is not a constant. Nothing moves during the gesture -
+   * the handle has claimed it - so one reading is enough.
+   */
+  const measureRows = (): SlotGeometry | null => {
+    const el = listRef.current;
+    const first = el?.querySelector<HTMLElement>('.song-item');
+    if (!el || !first) return null;
+    const rowHeight = first.getBoundingClientRect().height;
+    if (!(rowHeight > 0)) return null;
+    return { top: el.getBoundingClientRect().top, rowHeight, count: visible.length };
+  };
+
+  const startRowDrag = (e: React.PointerEvent<HTMLElement>, from: number) => {
+    const geometry = measureRows();
+    if (!geometry) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragOrigin.current = { y: e.clientY, geometry };
+    setDrag({ from, gap: from, dragged: 0, pointerId: e.pointerId });
+  };
+
+  const moveRowDrag = (e: React.PointerEvent<HTMLElement>) => {
+    const anchor = dragOrigin.current;
+    if (!drag || !anchor || e.pointerId !== drag.pointerId) return;
+    const dragged = (e.clientY - anchor.y) / anchor.geometry.rowHeight;
+    const gap = gapAt(e.clientY, anchor.geometry);
+    // This runs on every pointermove; do nothing when nothing changed.
+    if (dragged === drag.dragged && gap === drag.gap) return;
+    setDrag({ ...drag, dragged, gap });
+  };
+
+  const endRowDrag = (e: React.PointerEvent<HTMLElement>) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const to = dropTarget(drag.from, drag.gap, visible.length);
+    dragOrigin.current = null;
+    setDrag(null);
+    if (to === drag.from || !playlist) return;
+    const next = [...visible];
+    const [moved] = next.splice(drag.from, 1);
+    next.splice(to, 0, moved);
+    reorderTracks(playlist.id, next);
+  };
+
+
 
   const listRef = useRef<HTMLDivElement>(null);
   // Sorted and filtered: the button has to look for the row the user can see,
@@ -183,15 +247,51 @@ export function UserPlaylistDetailPage() {
           {visible.length ? (
             <>
               <div className="song-list" ref={listRef}>
-                {visible.map((track, i) => (
-                  <TrackListItem
-                    key={track.source + ':' + track.id + ':' + i}
-                    track={track}
-                    context={visible}
-                    index={i}
-                    onRemove={() => removeTrack(playlist.id, track)}
-                  />
-                ))}
+                {visible.map((track, i) => {
+                  const shift = shifts?.[i] ?? 0;
+                  const isDragged = drag?.from === i;
+                  return (
+                    <div
+                      key={track.source + ':' + track.id + ':' + i}
+                      style={
+                        drag
+                          ? {
+                              transform: isDragged
+                                ? 'translateY(' + (drag.dragged * (dragOrigin.current?.geometry.rowHeight ?? 0)) + 'px)'
+                                : 'translateY(' + shift * (dragOrigin.current?.geometry.rowHeight ?? 0) + 'px)',
+                              transition: isDragged ? 'none' : 'transform 160ms ease',
+                              position: 'relative',
+                              zIndex: isDragged ? 2 : undefined,
+                              opacity: isDragged ? 0.92 : undefined,
+                            }
+                          : undefined
+                      }
+                    >
+                      <TrackListItem
+                        track={track}
+                        context={visible}
+                        index={i}
+                        onRemove={() => removeTrack(playlist.id, track)}
+                        dragHandle={
+                          canReorder ? (
+                            <span
+                              className="song-item__handle"
+                              aria-label="拖动排序"
+                              title="拖动排序"
+                              onPointerDown={(e) => startRowDrag(e, i)}
+                              onPointerMove={moveRowDrag}
+                              onPointerUp={endRowDrag}
+                              onPointerCancel={endRowDrag}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Icon name="grip" size={16} />
+                            </span>
+                          ) : null
+                        }
+                      />
+                    </div>
+                  );
+                })}
               </div>
               <LocatePlayingButton containerRef={listRef} index={playingIndex} />
             </>

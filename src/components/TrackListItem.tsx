@@ -17,6 +17,14 @@ interface TrackListItemProps {
   context: MusicTrack[];
   index?: number;
   onRemove?: () => void;
+  /**
+   * Rendered before the cover, for a reorder handle.
+   *
+   * A slot rather than a built-in handle: only the playlist detail page offers
+   * reordering, and putting a grip on every row everywhere would be a control
+   * that does nothing on most of them.
+   */
+  dragHandle?: React.ReactNode;
 }
 
 /**
@@ -25,7 +33,7 @@ interface TrackListItemProps {
  * hundreds of already-correct rows. Props are a track from a stable array, that
  * same array, and an index, so the comparison is genuinely cheap.
  */
-export const TrackListItem = memo(function TrackListItem({ track, context, index, onRemove }: TrackListItemProps) {
+export const TrackListItem = memo(function TrackListItem({ track, context, index, onRemove, dragHandle }: TrackListItemProps) {
   const current = usePlayerStore((s) => s.current);
   const isPlaying = usePlayerStore((s) => s.status === 'playing');
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
@@ -85,6 +93,7 @@ export const TrackListItem = memo(function TrackListItem({ track, context, index
         }}
       >
         {typeof index === 'number' ? <span className="song-item__index">{index + 1}</span> : null}
+        {dragHandle}
         <div className="song-item__cover">
           <TrackCover track={track} bare radius="var(--am-radius-sm)" />
           {active ? (

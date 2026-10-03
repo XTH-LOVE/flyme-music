@@ -110,3 +110,33 @@
   color: var(--am-text-2);
   margin-top: -4px;
 }
+
+/*
+ * Reorder handle on a playlist row.
+ *
+ * Mirrors the queue sheet's handle, including touch-action: none - without it
+ * the browser claims the vertical gesture for scrolling and the drag never
+ * starts on a phone, which is where it matters most.
+ */
+.song-item__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 40px;
+  margin-right: -4px;
+  flex: 0 0 auto;
+  color: var(--am-text-3, rgba(0, 0, 0, 0.35));
+  touch-action: none;
+  cursor: grab;
+  border-radius: var(--am-radius-sm, 10px);
+  transition: color 160ms ease;
+}
+
+.song-item__handle:hover {
+  color: var(--am-text-1, rgba(0, 0, 0, 0.9));
+}
+
+.song-item__handle:active {
+  cursor: grabbing;
+}

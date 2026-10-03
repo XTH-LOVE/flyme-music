@@ -181,7 +181,7 @@ export function HomePage() {
             ))}
           </div>
         ) : netError && !netPlaylists ? (
-          <EmptyState icon="compass" title="在线歌单加载失败" description="真实歌单依赖 dev 代理，请确认通过 npm run dev 启动且网络可用" action={{ label: '重试', onClick: reloadRecommend }} />
+          <EmptyState icon="compass" title="在线歌单加载失败" description="请检查网络后重试" action={{ label: '重试', onClick: reloadRecommend }} />
         ) : (
           <div className="grid-cards">
             {(netPlaylists ?? []).slice(0, 6).map((pl) => (

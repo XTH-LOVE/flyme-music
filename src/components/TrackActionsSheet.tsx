@@ -13,6 +13,7 @@ import type { MusicTrack } from '@/music/source/types';
 import { sourceLabels } from '@/music/source/types';
 import { CommentsSheet } from './CommentsSheet';
 import './actions.css';
+import { useLibraryStore } from '@/store/useLibraryStore';
 
 interface TrackActionsSheetProps {
   open: boolean;
@@ -35,6 +36,13 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [caching, setCaching] = useState(false);
   const [cached, setCached] = useState<boolean | null>(null);
+  // Subscribed rather than read once, so the row flips to "取消喜欢" the moment
+  // it is tapped instead of waiting for the sheet to reopen.
+  const favorites = useLibraryStore((s) => s.favoriteSongIds);
+  const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
+  // Bare id, matching how the store keeps this list - see the note on
+  // favoriteTracks for why the whole track is stored alongside it.
+  const favorited = Boolean(track && favorites.includes(track.id));
   const [switching, setSwitching] = useState(false);
   const [failureTick, setFailureTick] = useState(0);
 
@@ -139,6 +147,25 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
         {track ? (
           <>
             <div className="action-rows">
+              {/*
+                Favourites belong here.
+                The heart only exists on list rows, so a track opened from the
+                player or from search had no way to be liked at all - and the
+                store already had the call, so this was an entry point that was
+                simply never added.
+              */}
+              <button
+                className="action-row"
+                onClick={() => {
+                  toggleFavorite(track);
+                  onClose();
+                }}
+              >
+                <div className="action-row__icon">
+                  <Icon name={favorited ? 'heartFill' : 'heart'} size={18} />
+                </div>
+                <span>{favorited ? '取消喜欢' : '喜欢'}</span>
+              </button>
               {track ? (
                 <button
                   className="action-row"

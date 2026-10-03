@@ -21,6 +21,8 @@ interface LyricsViewProps {
  */
 export function LyricsView({ track, currentTime }: LyricsViewProps) {
   const [lines, setLines] = useState<MiniLyricLine[]>([]);
+  /** Whether the fetch has settled - an empty list means "none", not "wait". */
+  const [loaded, setLoaded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrubIdx, setScrubIdx] = useState<number | null>(null);
   const touching = useRef(false);
@@ -67,7 +69,10 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     let alive = true;
     // Keep the previous track's lines visible until new lyrics arrive (no flash).
     void fetchLyricLines(track).then((result) => {
-      if (alive) setLines(result);
+      if (alive) {
+        setLines(result);
+        setLoaded(true);
+      }
     });
     return () => {
       alive = false;
@@ -145,7 +150,19 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
   };
 
   const renderBody = () => {
-    if (!lines.length) return <div className="lyrics__line">歌词加载中…</div>;
+    /*
+     * "Still loading" and "there are none" are different, and used to look the
+     * same. A track with no lyrics - an instrumental, or one the providers do
+     * not have - resolved to an empty list, and the view sat on "loading"
+     * forever, which reads as a bug rather than as an answer.
+     */
+    if (!lines.length) {
+      return (
+        <div className="lyrics__line">
+          {loaded ? '这首歌暂时没有歌词' : '歌词加载中…'}
+        </div>
+      );
+    }
     return lines.map((line, i) => {
       const parsed = voices.lines[i];
       const dist = Math.abs(i - activeIndex);

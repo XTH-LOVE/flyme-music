@@ -45,7 +45,7 @@ export function NeteasePlaylistDetailPage() {
     return (
       <EmptyState
         title="歌单加载失败"
-        description={error ?? '请检查网络后重试（真实歌单需要 dev 代理在线）'}
+        description={error ?? '请检查网络后重试'}
       />
     );
   }

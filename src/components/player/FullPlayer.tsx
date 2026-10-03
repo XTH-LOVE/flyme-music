@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { Slider } from '@/design-system/components/Slider';
 import { TrackCover } from '@/components/TrackCover';
@@ -116,8 +116,15 @@ function useSungLines(track: MusicTrack): MiniLyricLine[] {
   return useMemo(() => plainLyricLines(lines), [lines]);
 }
 
-/** Halcyon background: two stacked gradient layers crossfade on track change. */
-function HalcyonBg({ track, live }: { track: MusicTrack; live: boolean }) {
+/**
+ * Halcyon background: two stacked gradient layers crossfade on track change.
+ *
+ * Memoised because this component does not read the play position, and the
+ * player re-renders on every tick - several a second. Without this the whole
+ * gradient stack, the ambient canvas and the noise layer were rebuilt each
+ * time, for a background that only changes when the track does.
+ */
+const HalcyonBg = memo(function HalcyonBg({ track, live }: { track: MusicTrack; live: boolean }) {
   const stack = useCrossfadeStack(track);
   const extracted = useCoverPalette(track.picUrl, track.id);
   const palette = extracted ?? track.palette ?? fallbackPalette(track.id);
@@ -136,7 +143,7 @@ function HalcyonBg({ track, live }: { track: MusicTrack; live: boolean }) {
       <div className="hc-bg__noise" />
     </div>
   );
-}
+});
 
 /** Full-bleed immersive cover: artwork fills the whole player, crossfading. */
 function ImmersiveCover({ track }: { track: MusicTrack }) {

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { MusicTrack } from '@/music/source/types';
+import { mirrorLibraryValue, hydrateLibraryValues } from '@/lib/libraryStorage';
+import { logListeningEvent } from '@/ai/listeningEvents';
 
 const MAX_RECENT = 30;
 const MAX_HISTORY = 12;
@@ -108,6 +110,7 @@ function save(key: string, value: unknown): void {
   } catch {
     /* ignore */
   }
+  void mirrorLibraryValue(key, value);
 }
 
 const trackKey = (t: MusicTrack) => t.source + ':' + t.id;
@@ -200,6 +203,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     save('aurora.favoriteTracks.v1', nextTracks);
     save('aurora.favorites', nextIds);
     set({ favoriteTracks: nextTracks, favoriteSongIds: nextIds });
+    logListeningEvent(liked ? 'disliked' : 'liked', track, { source: 'library.favorite' });
   },
 
   addSearchKeyword: (keyword) => {
@@ -258,3 +262,32 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (Object.keys(next).length) set(next);
   },
 }));
+
+const LIBRARY_KEYS = [
+  'aurora.recent',
+  'aurora.recentTracks.v1',
+  'aurora.favorites',
+  'aurora.favoriteTracks.v1',
+  'aurora.searchHistory',
+  'aurora.playLog.v1',
+  'aurora.dayLog.v1',
+];
+
+void hydrateLibraryValues(LIBRARY_KEYS).then((values) => {
+  const patch: Partial<LibraryState> = {};
+  const useIdb = (key: string) => {
+    try {
+      return localStorage.getItem(key) === null;
+    } catch {
+      return true;
+    }
+  };
+  if (useIdb('aurora.recent') && Array.isArray(values['aurora.recent'])) patch.recentSongIds = values['aurora.recent'] as string[];
+  if (useIdb('aurora.recentTracks.v1') && Array.isArray(values['aurora.recentTracks.v1'])) patch.recentTracks = values['aurora.recentTracks.v1'] as MusicTrack[];
+  if (useIdb('aurora.favorites') && Array.isArray(values['aurora.favorites'])) patch.favoriteSongIds = values['aurora.favorites'] as string[];
+  if (useIdb('aurora.favoriteTracks.v1') && Array.isArray(values['aurora.favoriteTracks.v1'])) patch.favoriteTracks = values['aurora.favoriteTracks.v1'] as MusicTrack[];
+  if (useIdb('aurora.searchHistory') && Array.isArray(values['aurora.searchHistory'])) patch.searchHistory = values['aurora.searchHistory'] as string[];
+  if (useIdb('aurora.playLog.v1') && Array.isArray(values['aurora.playLog.v1'])) patch.playLog = values['aurora.playLog.v1'] as PlayLogEntry[];
+  if (useIdb('aurora.dayLog.v1') && Array.isArray(values['aurora.dayLog.v1'])) patch.dayLog = values['aurora.dayLog.v1'] as DayLog[];
+  if (Object.keys(patch).length) useLibraryStore.setState(patch);
+});

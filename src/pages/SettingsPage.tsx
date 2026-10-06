@@ -28,6 +28,16 @@ import {
   nowPlayingPermission,
   requestNowPlayingPermission,
 } from '@/utils/nowPlayingNotify';
+import { collectPlaybackDiagnostics, type PlaybackDiagnostics } from '@/diagnostics/playbackDiagnostics';
+import {
+  clearFinishedDownloads,
+  cancelDownload,
+  getDownloadQueueSummary,
+  retryDownload,
+  subscribeDownloads,
+  type DownloadTask,
+} from '@/utils/downloadQueue';
+import { usePlayerStore } from '@/store/usePlayerStore';
 
 const themeOptions: { key: ThemeMode; label: string; icon: IconName }[] = [
   { key: 'light', label: '浅色', icon: 'sun' },
@@ -76,6 +86,27 @@ export function SettingsPage() {
   const [notificationPermission, setNotificationPermission] = useState(
     () => (notificationsSupported() ? (nowPlayingPermission() as ReturnType<typeof nowPlayingPermission>) : 'unsupported'),
   );
+  const currentTrack = usePlayerStore((s) => s.current);
+  const [diagnostics, setDiagnostics] = useState<PlaybackDiagnostics | null>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [diagnosticsCopied, setDiagnosticsCopied] = useState(false);
+  const [downloadSummary, setDownloadSummary] = useState(getDownloadQueueSummary);
+  const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([]);
+
+  const refreshDiagnostics = async () => {
+    setDiagnosticsLoading(true);
+    try {
+      setDiagnostics(await collectPlaybackDiagnostics(currentTrack));
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  };
+
+  useEffect(() => subscribeDownloads((tasks) => {
+    setDownloadTasks(tasks);
+    setDownloadSummary(getDownloadQueueSummary());
+  }), []);
+  useEffect(() => { void refreshDiagnostics(); }, [currentTrack]);
 
   useEffect(() => {
     if (neteaseAuth.user) return;
@@ -535,6 +566,87 @@ export function SettingsPage() {
 
       <SectionHeader title="数据" />
       <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">播放与下载诊断</div>
+            <div className="settings-row__desc">
+              {diagnostics
+                ? `${diagnostics.track ? '当前：' + diagnostics.track.title : '暂无正在播放'} · 音源失败 ${diagnostics.source?.failures ?? 0} 次 · 下载 ${downloadSummary.queued + downloadSummary.downloading} 项进行中`
+                : '查看当前音源、歌词、预取、缓存和下载队列状态'}
+            </div>
+            {diagnostics?.urlError ? <div className="settings-row__desc" style={{ color: '#d84f4f' }}>{diagnostics.urlError.code}：{diagnostics.urlError.message}</div> : null}
+          </div>
+          <div className="settings-row__actions">
+            <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => void refreshDiagnostics()}>
+              {diagnosticsLoading ? '刷新中…' : '刷新'}
+            </button>
+            <button
+              className="am-btn am-btn--ghost am-btn--sm"
+              onClick={() => {
+                const text = JSON.stringify({ ...diagnostics, downloads: downloadSummary }, null, 2);
+                void navigator.clipboard?.writeText(text).then(() => {
+                  setDiagnosticsCopied(true);
+                  window.setTimeout(() => setDiagnosticsCopied(false), 1400);
+                });
+              }}
+            >
+              {diagnosticsCopied ? '已复制' : '复制'}
+            </button>
+          </div>
+        </div>
+        <div className="settings-row">
+          <div className="settings-row__body">
+            <div className="settings-row__title">下载队列</div>
+            <div className="settings-row__desc">
+              排队 {downloadSummary.queued} · 下载中 {downloadSummary.downloading} · 已完成 {downloadSummary.completed} · 失败 {downloadSummary.failed} · 可重试 {downloadSummary.retryable}
+            </div>
+          </div>
+          <span className="settings-row__value">{downloadSummary.total} 项</span>
+        </div>
+        {downloadTasks.filter((task) => task.status === 'downloading').slice(0, 2).map((task) => (
+          <div className="settings-row" key={task.id}>
+            <div className="settings-row__body">
+              <div className="settings-row__title">正在下载 · {task.track.name}</div>
+              <div className="settings-row__desc">
+                {task.progress !== undefined ? `${Math.round(task.progress * 100)}%` : '正在读取下载进度'}
+              </div>
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={task.progress !== undefined ? Math.round(task.progress * 100) : undefined}
+                style={{ height: 4, marginTop: 8, borderRadius: 999, background: 'var(--am-surface-3, rgba(0,0,0,.08))', overflow: 'hidden' }}
+              >
+                <div style={{ height: '100%', width: task.progress !== undefined ? `${task.progress * 100}%` : '35%', borderRadius: 999, background: 'var(--am-accent, #7b61ff)', transition: 'width 180ms ease' }} />
+              </div>
+            </div>
+            <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => cancelDownload(task.id)}>
+              取消
+            </button>
+          </div>
+        ))}
+        {downloadTasks.filter((task) => task.status === 'failed').slice(0, 3).map((task) => (
+          <div className="settings-row" key={task.id}>
+            <div className="settings-row__body">
+              <div className="settings-row__title">下载失败 · {task.track.name}</div>
+              <div className="settings-row__desc">{task.error || '未知错误，可重新尝试'}</div>
+            </div>
+            <button className="am-btn am-btn--ghost am-btn--sm" onClick={() => retryDownload(task.id)}>
+              重试
+            </button>
+          </div>
+        ))}
+        {downloadSummary.completed + downloadSummary.cancelled > 0 ? (
+          <div className="settings-row">
+            <div className="settings-row__body">
+              <div className="settings-row__title">清理已完成任务</div>
+              <div className="settings-row__desc">只移除已完成或已取消的队列记录，不删除已保存的音频</div>
+            </div>
+            <button className="am-btn am-btn--ghost am-btn--sm" onClick={clearFinishedDownloads}>
+              清理
+            </button>
+          </div>
+        ) : null}
         <div className="settings-row">
           <div className="settings-row__body">
             <div className="settings-row__title">播放历史</div>

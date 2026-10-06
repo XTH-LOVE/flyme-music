@@ -47,18 +47,44 @@ function sanitize(name: string): string {
  * /api/media-proxy which streams the CDN response with the hotlink Referer;
  * a plain cross-origin fetch is tried first for CORS-enabled CDNs.
  */
-async function fetchMediaBlob(url: string): Promise<Blob> {
+async function readResponseBlob(
+  response: Response,
+  onProgress?: (progress: DownloadProgress) => void,
+): Promise<Blob> {
+  if (!response.body) return response.blob();
+  const totalHeader = response.headers.get('content-length');
+  const total = totalHeader ? Number(totalHeader) : undefined;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  while (true) {
+    const part = await reader.read();
+    if (part.done) break;
+    if (part.value) {
+      chunks.push(part.value);
+      received += part.value.byteLength;
+      onProgress?.({ received, total: Number.isFinite(total) ? total : undefined });
+    }
+  }
+  return new Blob(chunks, { type: response.headers.get('content-type') ?? undefined });
+}
+
+async function fetchMediaBlob(
+  url: string,
+  onProgress?: (progress: DownloadProgress) => void,
+  signal?: AbortSignal,
+): Promise<Blob> {
   // Direct CORS fetch first: some CDNs (e.g. Netease art/audio) allow it and
   // this skips the proxy round-trip entirely.
   try {
-    const direct = await fetch(url, { mode: 'cors' });
-    if (direct.ok) return direct.blob();
+    const direct = await fetch(url, { mode: 'cors', signal });
+    if (direct.ok) return readResponseBlob(direct, onProgress);
   } catch {
     /* CORS-blocked or network failure -> use the proxy below */
   }
-  const res = await fetch('/api/media-proxy?url=' + encodeURIComponent(url));
+  const res = await fetch('/api/media-proxy?url=' + encodeURIComponent(url), { signal });
   if (!res.ok) throw new Error('下载失败：' + res.status);
-  return res.blob();
+  return readResponseBlob(res, onProgress);
 }
 
 /**
@@ -66,7 +92,15 @@ async function fetchMediaBlob(url: string): Promise<Blob> {
  * Packaged app: Rust streams straight to disk (desktop save dialog, Android
  * download dir). Browser: CORS-free fetch, then Web Share or a[download].
  */
-export async function downloadTrack(track: MusicTrack): Promise<void> {
+export interface DownloadProgress {
+  received: number;
+  total?: number;
+}
+
+export async function downloadTrack(
+  track: MusicTrack,
+  options: { onProgress?: (progress: DownloadProgress) => void; signal?: AbortSignal } = {},
+): Promise<void> {
   // Download at the configured quality (default: highest); the resolver
   // falls back to lower bitrates when the quality is unavailable.
   const br = bitrateForQuality(useSettingsStore.getState().quality);
@@ -89,7 +123,18 @@ export async function downloadTrack(track: MusicTrack): Promise<void> {
     return;
   }
 
-  const blob = await fetchMediaBlob(url);
+  let blob: Blob;
+  try {
+    const direct = await fetch(url, { mode: 'cors', signal: options.signal });
+    if (direct.ok && direct.body) {
+      blob = await readResponseBlob(direct, options.onProgress);
+    } else {
+      blob = await fetchMediaBlob(url, options.onProgress, options.signal);
+    }
+  } catch {
+    if (options.signal?.aborted) throw new DOMException('下载已取消', 'AbortError');
+    blob = await fetchMediaBlob(url, options.onProgress, options.signal);
+  }
   // Read the format off the bytes that were actually downloaded, so the name
   // cannot disagree with the contents.
   const head = new Uint8Array(await blob.slice(0, SNIFF_BYTES).arrayBuffer());

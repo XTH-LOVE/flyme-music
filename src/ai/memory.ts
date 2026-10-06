@@ -1,6 +1,7 @@
 import { supabase, supabaseConfigured } from '@/lib/supabase';
 import { chatOnce } from './aiClient';
 import type { AiChatMessage } from './aiClient';
+import { upsertSemantic } from './semanticMemory';
 
 export type AiMemoryCategory = 'artist' | 'genre' | 'mood' | 'fact' | 'dislike';
 
@@ -267,7 +268,10 @@ export async function scheduleMemoryExtraction(turns: AiChatMessage[], model: st
   try {
     const existing = await loadMemories();
     const ops = await extractMemoryOps(turns, existing, model);
-    if (ops.length) await upsertMemories(ops);
+    if (ops.length) {
+      await upsertMemories(ops);
+      upsertSemantic(ops.map((op) => ({ category: op.category, content: op.content })));
+    }
   } catch {
     /* silent */
   }

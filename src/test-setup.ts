@@ -21,3 +21,21 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia;
 }
+
+// Vitest's default environment is Node, while a few persistence helpers are
+// intentionally browser-first and only need the tiny Storage surface here.
+if (typeof globalThis.localStorage === 'undefined') {
+  const data = new Map<string, string>();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    writable: true,
+    value: {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => { data.set(key, String(value)); },
+      removeItem: (key: string) => { data.delete(key); },
+      clear: () => { data.clear(); },
+      key: (index: number) => [...data.keys()][index] ?? null,
+      get length() { return data.size; },
+    } satisfies Storage,
+  });
+}

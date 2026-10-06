@@ -4,7 +4,7 @@ import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
 import { playerController } from '@/player';
 import { playFromAlternateSource } from '@/player/alternateSource';
-import { downloadTrack } from '@/utils/download';
+import { enqueueDownload } from '@/utils/downloadQueue';
 import { notify } from '@/utils/notify';
 import { cacheTrackAudio, isTrackCached, removeCachedTrack } from '@/library/offlineCache';
 import { resolveTrackUrl } from '@/music/source/track-resolver';
@@ -14,6 +14,7 @@ import { sourceLabels } from '@/music/source/types';
 import { CommentsSheet } from './CommentsSheet';
 import './actions.css';
 import { isTrackFavorite, useLibraryStore } from '@/store/useLibraryStore';
+import { useLocalLibraryStore } from '@/store/useLocalLibraryStore';
 
 interface TrackActionsSheetProps {
   open: boolean;
@@ -41,6 +42,7 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
   const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
   const favorites = useLibraryStore((s) => s.favoriteSongIds);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
+  const updateLocalMetadata = useLocalLibraryStore((s) => s.updateMetadata);
   const favorited = Boolean(track && isTrackFavorite(track, favoriteTracks, favorites));
   const [switching, setSwitching] = useState(false);
   const [failureTick, setFailureTick] = useState(0);
@@ -48,6 +50,7 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
   const canCache = track ? track.source !== 'mock' && track.source !== 'local' : false;
   const canDownload = canCache;
   const canComment = track?.source === 'netease';
+  const canEditMetadata = track?.source === 'local';
   const canSwitch = canCache;
   // Re-read on open and after a switch so the panel reflects the latest attempt.
   const failure = useMemo(
@@ -122,12 +125,30 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
     handleAdd(id);
   };
 
+  const handleEditMetadata = async () => {
+    if (!track || !canEditMetadata) return;
+    const name = window.prompt('歌曲名称', track.name);
+    if (name === null) return;
+    const artist = window.prompt('歌手', track.artist.join(' / '));
+    if (artist === null) return;
+    const album = window.prompt('专辑（可留空）', track.album);
+    if (album === null) return;
+    try {
+      await updateLocalMetadata(track, { name, artist, album });
+      notify('本地歌曲信息已更新');
+      onClose();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '更新本地歌曲信息失败');
+    }
+  };
+
   const handleDownload = async () => {
     if (!track || downloading) return;
     setDownloading(true);
     setDownloadMsg(null);
     try {
-      await downloadTrack(track);
+      enqueueDownload(track);
+      notify('已加入下载队列');
       setDownloadMsg('已开始下载');
     } catch (e) {
       setDownloadMsg(e instanceof Error ? e.message : '下载失败');
@@ -210,6 +231,14 @@ export function TrackActionsSheet({ open, track, onClose }: TrackActionsSheetPro
                     <Icon name="compass" size={18} />
                   </div>
                   <span>{switching ? '正在找其他音源…' : '换源重试'}</span>
+                </button>
+              ) : null}
+              {canEditMetadata ? (
+                <button className="action-row" onClick={() => void handleEditMetadata()}>
+                  <div className="action-row__icon">
+                    <Icon name="settings" size={18} />
+                  </div>
+                  <span>编辑歌曲信息</span>
                 </button>
               ) : null}
               {canComment ? (

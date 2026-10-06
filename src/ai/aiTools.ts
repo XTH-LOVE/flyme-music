@@ -20,11 +20,25 @@ import {
 import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
 import { navigateAppRoute } from '@/app/navigation';
 import { fetchLyricLines, lyricLineAt } from '@/utils/currentLyric';
-import { searchAllSources, countSkippedCovers } from './musicSearch';
+import { searchAllSources, searchForPlayback, countSkippedCovers } from './musicSearch';
 import { upsertMemories } from './memory';
 import type { AiMemoryCategory } from './memory';
 import type { MusicTrack } from '@/music/source/types';
 import type { AiPersona, AiPlaylistInfo } from '@/store/useAiStore';
+import { addCandidates, createCandidatePool, pickBestCandidate, type CandidatePool } from './candidatePool';
+import { planPlaylist as buildPlaylistPlan, stageQuery } from './playlistPlanner';
+import { buildPickerPrompt, parsePickerDecision } from './aiPicker';
+import { runAiSkill } from './skills';
+import { chatOnce } from './aiClient';
+import { buildDjSet } from './aiDj';
+import { upsertSemantic } from './semanticMemory';
+import { stripToolSyntax } from './toolProtocol';
+import { stripDeferSyntax } from './deferred';
+import { buildAiTasteProfile, renderAiTasteProfile, scoreTrackByTaste } from './tasteProfile';
+import { dedupeCanonicalTracks } from './musicEntity';
+import { verifyMusicCandidates } from './musicVerifier';
+import { logListeningEvent } from './listeningEvents';
+import { embeddingScoreMap, rankWithEmbedding } from './embeddingClient';
 
 export interface ToolResult {
   reply: string;
@@ -38,6 +52,8 @@ export interface ToolResult {
 /** Scratchpad for one agent run: latest search results act as the candidate pool. */
 export interface ToolCtx {
   found: MusicTrack[];
+  pool?: CandidatePool;
+  plan?: ReturnType<typeof buildPlaylistPlan>;
 }
 
 const APP_ROUTES = new Set(['/', '/library', '/discover', '/search', '/playlists', '/me', '/stats', '/settings', '/ai', '/local', '/login']);
@@ -184,11 +200,12 @@ export function buildSystemPrompt(
     '\n工具清单：' +
     '\n· search_tracks {"query":"关键词","count":8,"artist":"可选"} —— 双音源搜索，结果进入候选池并按序号返回' +
     '\n· play {"indices":[0,2]} —— 播放候选池里的歌（缺省播第一首）；也可 {"query":"歌名"} 现搜现放' +
-    '\n· queue_similar {} · control {"action":"toggle|next|previous|volume_up|volume_down|lyrics|seek","seconds":可选} · radio {"mood":"心情"}' +
+    '\n· queue_similar {} · control {"action":"toggle|next|previous|volume_up|volume_down|lyrics|seek|speed|sleep|repeat|shuffle","seconds":可选,"value":可选} · radio {"mood":"心情"}' +
     '\n· control 的 seek 用 {"action":"seek","seconds":58} 跳到指定秒数——analyze_song 给出结构边界后，用户说「跳到副歌」就用它；seconds 必须来自实测边界，不要凭感觉给数字' +
     '\n· get_app_state {} —— 读取当前路由、页面和播放器状态' +
     '\n· navigate {"to":"/settings 或其他 Flyme 路由"} —— 打开应用页面' +
     '\n· open_player {} —— 打开全屏播放器 · toggle_lyrics {} —— 切换歌词页 · set_theme {"mode":"light|dark|system"}' +
+    '\n· queue_state {} —— 查看播放队列 · library_stats {} —— 查看曲库统计' +
     '\n· analyze_song {} —— 本地实测当前歌的音频特征（速度/调性/动态/音色/频段/结构），连同歌词交给你写分析 · describe_moment {} —— **实时**读取当前播放位置的频谱（仅在音频已接入 Web Audio 时可用，不可用时会返回原因） · taste_profile {} —— 已分析歌曲聚合出的听感画像 · find_similar_by_sound {} —— 按**听感**找相似（非关键词） · report {} · dislike {"word":"回避的歌手或风格"} · remember {"category":"artist|genre|mood|fact","content":"要长期记住的事"} —— 用户交代偏好或约定时用' +
     '\n\n行动准则：' +
     '\n· 你有多轮行动能力：每次工具结果会以「[工具结果]」消息返回给你，看完可以继续调用下一个工具（最多连续 6 次），都做完再答复用户。' +
@@ -197,6 +214,10 @@ export function buildSystemPrompt(
     '**绝不描述你没测到的东西**（具体乐器、编制、制作手法、混音细节）——那会变成编造；标了「不确定」的项要么不提要么说明没把握。' +
     '\n· 如果 analyze_song 返回音频分析不可用，就只谈歌词，并明确说明你只有歌词层面的信息。' +
     '\n· 想说"像某首歌"时优先用 find_similar_by_sound，它比的是音频听感；只有它没有结果时才退回关键词搜索，并说明区别。' +
+    '\n· plan_playlist {"request":"45分钟深夜写代码"} —— 先规划时间阶段，再逐阶段搜索和填充候选池' +
+    '\n· pick_next {} —— 从候选池中挑下一首；如果候选池为空先搜索' +
+    '\n· play_music {"request":"45分钟适合深夜写代码的音乐","duration":45,"avoid":["最近跳过的歌"]} —— 高层音乐 Agent：自动规划、混合检索、按口味排序、去重验证后播放；优先使用它，不要自己拼 search/pick/play' +
+    '\n· 如果用户明确要求之后再提醒，可以在最终回复末尾附加 <defer>{"message":"提醒内容","after_minutes":60,"trigger":"原因"}</defer>；不要对普通回复使用。' +
     '\n· 可以在调用工具前用一句话说明你要做什么。全部做完后用你的口吻自然总结，别提"工具/候选池/序号/规则"这些词。不要编造歌曲。'
   );
 }
@@ -275,6 +296,7 @@ export function parseToolCall(text: string): Record<string, unknown> | null {
 /** Human-readable label for the in-chat action chip. */
 export function describeToolCall(call: Record<string, unknown>): string {
   const t = String(call.tool ?? '');
+  if (t === 'play_music') return '智能安排并播放「' + String(call.request ?? call.mood ?? '') + '」';
   if (t === 'search_tracks' || t === 'search_and_play') return '搜索「' + String(call.query ?? '') + '」';
   if (t === 'play') return '播放歌曲';
   if (t === 'create_playlist') return '创建歌单「' + String(call.title ?? '') + '」';
@@ -292,7 +314,8 @@ export function describeToolCall(call: Record<string, unknown>): string {
 }
 
 export function stripToolCall(text: string): string {
-  return text
+  return stripDeferSyntax(stripToolSyntax(text))
+    .replace(/\b(?:play_music|search_tracks|search_and_play|play|create_playlist|plan_playlist|pick_next|queue_similar|find_similar_by_sound|analyze_song|describe_moment|taste_profile|radio|control|remember|dislike|navigate|get_app_state|queue_state|library_stats|report|open_player|toggle_lyrics|set_theme|explain_lyric)\s*\{[\s\S]*?\}/g, '')
     .replace(/::tool\s*\{[\s\S]*?\}/g, '')
     .replace(/\{[^{}]*"tool"\s*:[\s\S]*?\}/g, '')
     .trim();
@@ -379,6 +402,80 @@ export async function executeTool(
   const tool = String(call.tool ?? '');
   const dislikes = useAiStore.getState().dislikes;
 
+  if (tool === 'play_music') {
+    const request = String(call.request ?? call.mood ?? '').trim();
+    if (!request) return { reply: '告诉我想听什么场景或心情，我来安排。', fact: { action: 'play_music', error: 'missing_request' } };
+    const duration = Math.max(1, Math.min(240, Number(call.duration ?? (request.match(/(\d{1,3})\s*(?:分钟|分|min)/i)?.[1] ?? 45)) || 45));
+    const count = Math.max(4, Math.min(30, Number(call.count ?? Math.ceil(duration / 4)) || Math.ceil(duration / 4)));
+    const avoid = [
+      ...dislikes,
+      ...(Array.isArray(call.avoid) ? call.avoid.map(String) : []),
+    ];
+    const plan = buildPlaylistPlan(`${duration}分钟 ${request}`);
+    const queries = plan.stages.length > 1
+      ? plan.stages.map((stage) => stageQuery(plan, stage, request))
+      : [request];
+    const playbackSearches = [] as Awaited<ReturnType<typeof searchForPlayback>>[];
+    for (const query of queries) {
+      playbackSearches.push(await searchForPlayback(query, Math.max(6, Math.ceil(count / queries.length) + 3), undefined, avoid, { primary: 'netease', fallbacks: ['higequ'], validatePlayable: true }));
+    }
+    const raw = dedupeCanonicalTracks(playbackSearches.flatMap((result) => result.tracks));
+    if (!raw.length) {
+      return { reply: `暂时没找到适合「${request}」的歌曲，我可以换一个更具体的关键词再试。`, fact: { action: 'play_music', error: 'no_candidates', request } };
+    }
+    const cards = await listCachedCards();
+    const profile = buildAiTasteProfile(cards, undefined, Date.now());
+    const remoteRank = await rankWithEmbedding(request, raw);
+    const remoteScores = embeddingScoreMap(remoteRank);
+    const scored = raw.map((track) => {
+      const card = cards.find((item) => item.trackKey === `${track.source}|${track.id}|${track.name}|${track.artist.join('/')}` || (item.track.source === track.source && item.track.id === track.id));
+      const taste = scoreTrackByTaste(track, profile, card);
+      const remote = remoteScores.get(`${track.source}:${track.id}`);
+      const semanticScore = remote ? Math.max(-10, Math.min(20, remote.score * 20)) : 0;
+      return { track, score: taste.score + semanticScore, reasons: [...taste.reasons, ...(remote?.reason ? [`语义模型：${remote.reason}`] : [])] };
+    }).sort((a, b) => b.score - a.score);
+    const ranked = scored.map((item) => item.track);
+    const verified = verifyMusicCandidates(ranked, {
+      avoid,
+      maxArtistRepeat: Math.max(1, Number(call.max_artist_repeat ?? 2) || 2),
+      maxTracks: count,
+      noDuplicates: true,
+    });
+    let finalTracks = verified.tracks;
+    let retry = false;
+    if (finalTracks.length < Math.min(3, count) && avoid.length) {
+      // Verifier-driven retry: broaden the query but keep the user constraints.
+      retry = true;
+      const retryBatch = await searchAllSources(request, Math.max(10, count), undefined, avoid);
+      finalTracks = verifyMusicCandidates(dedupeCanonicalTracks([...finalTracks, ...retryBatch]), {
+        avoid,
+        maxArtistRepeat: Math.max(1, Number(call.max_artist_repeat ?? 2) || 2),
+        maxTracks: count,
+        noDuplicates: true,
+      }).tracks;
+    }
+    if (!finalTracks.length) return { reply: `我找到了一些候选，但都没通过重复和避开条件。要不要放宽限制？`, fact: { action: 'play_music', error: 'verification_failed', retry, rejected: verified.rejected } };
+    ctx.found = finalTracks;
+    ctx.pool = createCandidatePool(request, finalTracks, avoid);
+    ctx.plan = plan;
+    playerController.playTracks(finalTracks, 0);
+    logListeningEvent('manuallyQueued', finalTracks[0], { source: 'ai.play_music' });
+    const playbackSources = [...new Set(playbackSearches.map((result) => result.source).filter(Boolean))];
+    const usedFallback = playbackSearches.some((result) => result.usedFallback);
+    const explanation = [
+      usedFallback ? '网易云没有找到可用原版，已切换到 Hi歌' : '优先使用了网易云原版',
+      `按${plan.goal === 'freeform' ? '你的描述' : plan.goal}规划了约 ${duration} 分钟`,
+      profile.favoriteArtists.length ? `参考了你最近常听的 ${profile.favoriteArtists.slice(0, 3).join('、')}` : '暂时没有足够的历史偏好样本',
+      verified.rejected ? `自动过滤了 ${verified.rejected} 首重复或不符合条件的歌` : '通过了重复和禁忌检查',
+    ].join('；');
+    return {
+      reply: `已经安排好并开始播放《${finalTracks[0].name}》- ${finalTracks[0].artist.join('/')}，后面还有 ${Math.max(0, finalTracks.length - 1)} 首。${explanation}。`,
+      tracks: finalTracks,
+      played: true,
+      fact: { action: 'play_music', request, duration, plan, sourcePolicy: { primary: 'netease', fallbacks: ['higequ'], selected: playbackSources, usedFallback }, profile: renderAiTasteProfile(profile), embedding: remoteRank ? { provider: remoteRank.provider ?? 'external', model: remoteRank.model ?? null } : null, candidates: trackFacts(finalTracks), verification: { accepted: verified.accepted, rejected: verified.rejected, retry } },
+    };
+  }
+
   if (tool === 'create_playlist') {
     return {
       reply: '歌单生成功能已移除，请到「歌单广场」手动创建歌单。',
@@ -392,6 +489,32 @@ export async function executeTool(
       reply: '已读取当前页面和播放器状态。',
       fact: { action: 'get_app_state', state: JSON.parse(buildPageContext(window.location.pathname, snap)) },
     };
+  }
+
+  if (tool === 'queue_state') {
+    const snap = usePlayerStore.getState();
+    return {
+      reply: '已读取播放队列。',
+      fact: {
+        action: 'queue_state',
+        queue: snap.queue.map((track, index) => ({
+          index,
+          name: track.name,
+          artist: track.artist.join('/'),
+          source: track.source,
+          current: index === snap.queueIndex,
+        })),
+      },
+    };
+  }
+
+  if (tool === 'library_stats') {
+    const { buildLibraryInsights } = await import('@/library/libraryInsights');
+    const library = useLibraryStore.getState();
+    const tracks = [...library.favoriteTracks, ...library.recentTracks];
+    const unique = new Map(tracks.map((track) => [track.source + ':' + track.id, track]));
+    const stats = buildLibraryInsights([...unique.values()]);
+    return { reply: '已读取曲库统计。', fact: { action: 'library_stats', stats } };
   }
 
   if (tool === 'navigate') {
@@ -432,15 +555,22 @@ export async function executeTool(
     const count = Math.min(12, Math.max(3, Number(call.count ?? 8) || 8));
     const wantsPlay = tool === 'search_and_play' ? call.play !== false : call.play === true;
     if (!query) return { reply: '（没拿到搜索词，换种说法试试？）' };
-    const tracks = await searchAllSources(query, count, artist, dislikes);
+    const playbackResult = tool === 'search_and_play'
+      ? await searchForPlayback(query, count, artist, dislikes, { primary: 'netease', fallbacks: ['higequ'], validatePlayable: true })
+      : null;
+    const tracks = playbackResult?.tracks ?? await searchAllSources(query, count, artist, dislikes);
     if (!tracks.length) return { reply: '两个音源都没搜到「' + query + '」，换个关键词试试？' };
     ctx.found = tracks;
+    ctx.pool = ctx.pool ? addCandidates(ctx.pool, tracks, query, dislikes) : createCandidatePool(query, tracks, dislikes);
     const skipped = countSkippedCovers(tracks, query);
     const top = tracks[0];
     if (wantsPlay) {
       playerController.playTracks(tracks, 0);
+      const sourceNote = playbackResult?.usedFallback
+        ? '网易云没有可用播放地址，已切换到 Hi歌。'
+        : '';
       return {
-        reply: '已经帮你放上《' + top.name + '》- ' + top.artist.join('/'),
+        reply: '已经帮你放上《' + top.name + '》- ' + top.artist.join('/') + sourceNote,
         tracks,
         played: true,
         fact: {
@@ -448,6 +578,7 @@ export async function executeTool(
           nowPlaying: trackLine(top),
           note: (skipped ? '已把 ' + skipped + ' 个翻唱/现场版本排后；' : '') + '要换歌可从 candidates 里挑序号再调 play',
           candidates: trackFacts(tracks),
+          ...(playbackResult ? { sourcePolicy: { primary: 'netease', fallbacks: ['higequ'], selected: playbackResult.source, usedFallback: playbackResult.usedFallback } } : {}),
         },
       };
     }
@@ -463,6 +594,10 @@ export async function executeTool(
       ? call.indices.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < ctx.found.length)
       : [];
     let list = idxs.length ? dedupeTracks(idxs.map((i) => ctx.found[i])) : ctx.found;
+    if (!idxs.length && ctx.pool) {
+      const candidate = pickBestCandidate(ctx.pool);
+      if (candidate) list = [candidate.track];
+    }
     if (!idxs.length && call.query) {
       const searched = await searchAllSources(String(call.query), 8, undefined, dislikes);
       if (searched.length) {
@@ -480,6 +615,49 @@ export async function executeTool(
       played: true,
       fact: { action: 'play', nowPlaying: trackLine(list[0]), candidates: trackFacts(list) },
     };
+  }
+
+  if (tool === 'plan_playlist') {
+    const request = String(call.request ?? call.query ?? '').trim();
+    if (!request) return { reply: '告诉我想听多久、什么场景，我来规划。', fact: { action: 'plan_playlist', error: 'missing_request' } };
+    ctx.plan = buildPlaylistPlan(request);
+    const batches = await Promise.all(ctx.plan.stages.map(async (stage) => ({ stage, tracks: await searchAllSources(stageQuery(ctx.plan!, stage, request), 6, undefined, dislikes) })));
+    ctx.pool = { query: request, createdAt: Date.now(), candidates: [] };
+    for (const batch of batches) ctx.pool = addCandidates(ctx.pool, batch.tracks, request, dislikes, batch.stage.id);
+    ctx.found = ctx.pool.candidates.map((candidate) => candidate.track);
+    return { reply: `已规划 ${ctx.plan.totalMinutes} 分钟的${ctx.plan.goal === 'freeform' ? '音乐' : '场景'}路线，共 ${ctx.plan.stages.length} 个阶段，并准备了 ${ctx.pool.candidates.length} 首候选歌。`, tracks: ctx.found, fact: { action: 'plan_playlist', plan: ctx.plan, poolSize: ctx.pool.candidates.length } };
+  }
+
+  if (tool === 'pick_next') {
+    if (!ctx.pool || !ctx.pool.candidates.length) return { reply: '候选池还是空的，先搜索一些歌。', fact: { action: 'pick_next', error: 'empty_pool' } };
+    const stageId = typeof call.stage === 'string' ? call.stage : undefined;
+    const stage = ctx.plan?.stages.find((item) => item.id === stageId) ?? ctx.plan?.stages.find((item) => !ctx.pool?.candidates.some((candidate) => candidate.stage === item.id));
+    let candidate = pickBestCandidate(ctx.pool, { stage: stage?.id });
+    let pickerReason = candidate?.reasons ?? [];
+    const model = useAiStore.getState().model.trim();
+    if (model) {
+      try {
+        const response = await chatOnce(
+          { model },
+          [{ role: 'system', content: buildPickerPrompt(ctx.pool, stage) }],
+          undefined,
+          { maxTokens: 100, temperature: 0.2 },
+        );
+        const decision = parsePickerDecision(response);
+        if (decision) {
+          const picked = ctx.pool.candidates[decision.index];
+          if (picked && !picked.selected && !picked.skipped && (!stage || !picked.stage || picked.stage === stage.id)) {
+            candidate = picked;
+            pickerReason = [decision.reason];
+          }
+        }
+      } catch {
+        /* deterministic picker remains the safe fallback */
+      }
+    }
+    if (!candidate) return { reply: '当前阶段没有更多合适的歌了。', fact: { action: 'pick_next', error: 'no_candidate' } };
+    candidate.selected = true;
+    return { reply: `下一首建议《${candidate.track.name}》- ${candidate.track.artist.join('/')}`, tracks: [candidate.track], fact: { action: 'pick_next', stage: stage?.id ?? null, track: trackFacts([candidate.track])[0], reason: pickerReason, picker: model ? 'ai_with_rule_fallback' : 'rule' } };
   }
 
   if (tool === 'create_playlist') {
@@ -595,6 +773,29 @@ export async function executeTool(
         const label = Math.floor(target / 60) + ':' + String(Math.floor(target % 60)).padStart(2, '0');
         return { reply: '跳到 ' + label + '。', fact: { action: 'control', did: 'seek', seconds: target } };
       }
+      case 'speed': {
+        const speed = Number(call.value ?? call.rate);
+        if (![0.5, 0.75, 1, 1.25, 1.5, 2].includes(speed)) {
+          return { reply: '倍速支持 0.5、0.75、1、1.25、1.5、2 倍。' };
+        }
+        const extras = (await import('@/store/useExtrasStore')).useExtrasStore.getState();
+        extras.setSpeed(speed);
+        return { reply: '已切换到 ' + speed + ' 倍速。', fact: { action: 'control', did: 'speed', speed } };
+      }
+      case 'sleep': {
+        const minutes = Number(call.value ?? call.minutes);
+        const extras = (await import('@/store/useExtrasStore')).useExtrasStore.getState();
+        if (minutes === 0) extras.clearSleep();
+        else if (Number.isFinite(minutes) && minutes > 0 && minutes <= 240) extras.setSleepMinutes(minutes);
+        else return { reply: '睡眠定时请输入 1 到 240 分钟，或 0 取消。' };
+        return { reply: minutes === 0 ? '已取消睡眠定时。' : minutes + ' 分钟后停止播放。', fact: { action: 'control', did: 'sleep', minutes } };
+      }
+      case 'repeat':
+        playerController.cycleRepeat();
+        return { reply: '已切换循环模式。', fact: { action: 'control', did: 'repeat', mode: playerController.snapshot().repeat } };
+      case 'shuffle':
+        playerController.toggleShuffle();
+        return { reply: playerController.snapshot().shuffle ? '已开启随机播放。' : '已关闭随机播放。', fact: { action: 'control', did: 'shuffle' } };
       default:
         return { reply: '（没听懂要控制什么）', fact: { action: 'control', error: '未知 action' } };
     }
@@ -603,15 +804,35 @@ export async function executeTool(
   if (tool === 'radio') {
     const mood = String(call.mood ?? '');
     const kw = matchMoodKeyword(mood) ?? (mood.trim() || '轻松');
-    const tracks = await searchAllSources(kw, 10, undefined, dislikes);
+    const set = await buildDjSet(
+      kw,
+      async (query, count, ignoredDislikes) => (
+        await searchForPlayback(query, count, undefined, ignoredDislikes, {
+          primary: 'netease',
+          fallbacks: ['higequ'],
+          validatePlayable: true,
+        })
+      ).tracks,
+      dislikes,
+      8,
+    );
+    const tracks = set.tracks.length >= 3
+      ? set.tracks
+      : (await searchForPlayback(kw, 10, undefined, dislikes, {
+        primary: 'netease',
+        fallbacks: ['higequ'],
+        validatePlayable: true,
+      })).tracks;
     if (!tracks.length) return { reply: '这个心情的歌没搜到，换个心情试试？' };
     ctx.found = tracks;
+    ctx.pool = set.pool;
+    ctx.plan = set.plan;
     playerController.playTracks(tracks, 0);
     return {
-      reply: '「' + mood + '」电台开播！给你排了 ' + tracks.length + ' 首。',
+      reply: '「' + mood + '」电台开播！我按节奏和能量排了 ' + tracks.length + ' 首。',
       tracks,
       played: true,
-      fact: { action: 'radio', mood, nowPlaying: trackLine(tracks[0]), candidates: trackFacts(tracks) },
+      fact: { action: 'radio', mood, plan: set.plan, nowPlaying: trackLine(tracks[0]), candidates: trackFacts(tracks) },
     };
   }
 
@@ -814,6 +1035,7 @@ export async function executeTool(
       return { reply: '（这条想记的内容太长或为空，换个说法？）', fact: { action: 'remember', error: 'bad_content' } };
     }
     void upsertMemories([{ category, content }]).catch(() => undefined);
+    upsertSemantic([{ category, content }]);
     return { reply: '记住了：' + content, fact: { action: 'remember', category, content } };
   }
 
@@ -822,6 +1044,7 @@ export async function executeTool(
     if (!word) return { reply: '（告诉我不喜欢谁/什么风格，我记下来。）' };
     useAiStore.getState().addDislike(word);
     void upsertMemories([{ category: 'dislike', content: word }]).catch(() => undefined);
+    upsertSemantic([{ category: 'dislike', content: word }]);
     return { reply: '记住了，以后找歌会避开「' + word + '」。', fact: { action: 'dislike', avoid: word } };
   }
 
@@ -867,6 +1090,9 @@ export async function localAssistant(text: string): Promise<ToolResult> {
   const extras = extrasStore.useExtrasStore.getState();
   const aiStore = useAiStore.getState();
 
+  const skill = await runAiSkill(t, { current: snap.current, playLog: useLibraryStore.getState().playLog });
+  if (skill) return { reply: skill.reply, fact: { action: 'skill', skill: skill.skill.id } };
+
   // Keep imperative playback commands ahead of the generic search branch.
   // "暂停" must be idempotent, while "播放 歌名" must still search.
   if (/(暂停|停止)/.test(t)) { playerController.pause(); return { reply: '好，暂停了。' }; }
@@ -874,7 +1100,7 @@ export async function localAssistant(text: string): Promise<ToolResult> {
     playerController.toggle();
     return { reply: '继续播放~' };
   }
-  if (/下一首|切歌/.test(t)) { playerController.next(); return { reply: '下一首！' }; }
+  if (/换一首|换首歌|下一首|切歌/.test(t)) { playerController.next(); return { reply: '换一首，继续播放。', fact: { action: 'next' } }; }
   if (/上一首/.test(t)) { playerController.previous(); return { reply: '回到上一首。' }; }
   if (/大点声|音量.*大/.test(t)) { playerController.setVolume(Math.min(1, snap.volume + 0.15)); return { reply: '调大了。' }; }
   if (/小点声|音量.*小/.test(t)) { playerController.setVolume(Math.max(0, snap.volume - 0.15)); return { reply: '调小了。' }; }
@@ -888,6 +1114,7 @@ export async function localAssistant(text: string): Promise<ToolResult> {
     const word = dislikeMatch[1].replace(/的|了|这种|这类|歌|歌手|音乐|风格|的?歌/g, '').trim() || snap.current?.artist[0] || '';
     if (word) {
       aiStore.addDislike(word);
+      if (snap.current) logListeningEvent('disliked', snap.current, { source: 'ai.dislike' });
       return { reply: '记住了，以后避开「' + word + '」。' };
     }
   }
@@ -898,8 +1125,22 @@ export async function localAssistant(text: string): Promise<ToolResult> {
 
   const kw = matchMoodKeyword(t);
   const wantsPlay = /播放|放一首|放首|我要听|我想听|来一首|给我放/.test(t);
+  // Mood-radio requests must execute the radio action directly. Previously
+  // these fell through to the generic planner (or an LLM-only narration),
+  // which could say "starting playback" without queueing a playable track.
+  if (/电台/.test(t) && kw) {
+    return executeTool({ tool: 'radio', mood: kw });
+  }
+  if (/安排|帮我放|给我安排|电台|适合.*(?:分钟|分)|\d{1,3}\s*(?:分钟|分|min)/i.test(t)) {
+    return executeTool({ tool: 'play_music', request: t });
+  }
   if (kw || /想听|来点|找.*歌|搜|播放/.test(t)) {
-    const cleaned = t.replace(/想听|来点|给我|找|搜|播放|放一首|放首|我要听|我想听|来一首|给我放|的|歌|一些|一首|首|点|我想|我要|听|吧|请|帮我|一下|想|要|来|点|几|些|好|吗|呢|啊|哦|呀|～|~/g, '').trim();
+    // Only remove command wrappers. Do not strip words from inside the title:
+    // "我要听周杰伦的说好的幸福呢" must keep the inner "的".
+    const cleaned = t
+      .replace(/^(?:请\s*)?(?:(?:帮我|给我|我想|我要)\s*)?(?:播放|听|放一首|放首|来一首|给我放|想听|来点|找|搜|搜索)\s*/i, '')
+      .replace(/[，。！？!?、,.；;：:～~\s]+$/g, '')
+      .trim();
     const query = kw ?? (cleaned || '热门');
     return executeTool({ tool: 'search_and_play', query, count: 8, play: wantsPlay });
   }

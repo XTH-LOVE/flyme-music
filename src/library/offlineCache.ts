@@ -89,6 +89,10 @@ export async function getStreamUrl(track: MusicTrack): Promise<string | null> {
       );
       if (!record) return null;
       knownCached.add(key);
+      // A cache hit is a use: keep frequently replayed songs out of the LRU
+      // eviction set even when they were downloaded a long time ago.
+      record.cachedAt = Date.now();
+      void withStore<AudioRecord>(DB_NAME, DB_VERSION, STORE, 'readwrite', (store) => store.put(record)).catch(() => undefined);
       return blobUrlFor(key, record.blob);
     } catch {
       return null;
@@ -102,6 +106,8 @@ export async function getStreamUrl(track: MusicTrack): Promise<string | null> {
       knownCached.delete(key);
       return null;
     }
+    record.cachedAt = Date.now();
+    void withStore<AudioRecord>(DB_NAME, DB_VERSION, STORE, 'readwrite', (store) => store.put(record)).catch(() => undefined);
     return blobUrlFor(key, record.blob);
   } catch {
     return null;

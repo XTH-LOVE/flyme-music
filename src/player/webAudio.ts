@@ -17,6 +17,7 @@ let sourceNode: MediaElementAudioSourceNode | null = null;
 let low: BiquadFilterNode | null = null;
 let mid: BiquadFilterNode | null = null;
 let high: BiquadFilterNode | null = null;
+let eqBands: BiquadFilterNode[] = [];
 let wiredElement: HTMLAudioElement | null = null;
 let tainted = false;
 
@@ -203,6 +204,32 @@ export interface EqGains {
   high: number;
 }
 
+export const EQ10_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] as const;
+export type Eq10Gains = Record<(typeof EQ10_FREQUENCIES)[number], number>;
+const EQ10_STORAGE_KEY = 'aurora.eq.10band';
+
+const defaultEq10 = (): Eq10Gains =>
+  Object.fromEntries(EQ10_FREQUENCIES.map((frequency) => [frequency, 0])) as Eq10Gains;
+
+function clampEq10(gains: Partial<Record<number, number>>): Eq10Gains {
+  const next = defaultEq10();
+  for (const frequency of EQ10_FREQUENCIES) {
+    const value = Number(gains[frequency]);
+    next[frequency] = clampDb(Number.isFinite(value) ? value : 0);
+  }
+  return next;
+}
+
+function legacyToEq10(gains: EqGains): Eq10Gains {
+  const next = defaultEq10();
+  for (const frequency of EQ10_FREQUENCIES) {
+    next[frequency] =
+      frequency <= 250 ? gains.low :
+        frequency <= 2000 ? gains.mid : gains.high;
+  }
+  return next;
+}
+
 /** The band limits the sliders offer, in dB. */
 export const EQ_RANGE_DB = 12;
 
@@ -250,10 +277,16 @@ export function ensureWired(el: HTMLAudioElement): boolean {
       high.frequency.value = 5200;
       applyStoredPreset();
     }
-    // Locals so TS narrowing survives across the module-level lets.
-    const lowNode = low;
-    const midNode = mid;
-    const highNode = high;
+    if (!eqBands.length) {
+      eqBands = EQ10_FREQUENCIES.map((frequency, index) => {
+        const node = ctx!.createBiquadFilter();
+        node.type = index === 0 ? 'lowshelf' : index === EQ10_FREQUENCIES.length - 1 ? 'highshelf' : 'peaking';
+        node.frequency.value = frequency;
+        if (node.type === 'peaking') node.Q.value = 1;
+        return node;
+      });
+      applyStoredEq10();
+    }
     const analyserNode = analyser;
     const audioCtx = ctx;
     sourceNode = ctx.createMediaElementSource(el);
@@ -282,9 +315,11 @@ export function ensureWired(el: HTMLAudioElement): boolean {
     // actually for.
     sourceNode.connect(levelGain);
     levelGain.connect(levelAnalyser);
-    levelAnalyser.connect(lowNode);
-    lowNode.connect(midNode);
-    midNode.connect(highNode);
+    let eqInput: AudioNode = levelAnalyser;
+    for (const band of eqBands) {
+      eqInput.connect(band);
+      eqInput = band;
+    }
 
     /*
      * A ceiling, and the reason it is not optional.
@@ -305,7 +340,7 @@ export function ensureWired(el: HTMLAudioElement): boolean {
     limiter.ratio.value = 20;
     limiter.attack.value = 0.003;
     limiter.release.value = 0.25;
-    highNode.connect(limiter);
+    eqInput.connect(limiter);
 
     // The visualiser sits last on purpose: it should show what is coming out,
     // not what went in.
@@ -355,7 +390,8 @@ export function isWebAudioTainted(): boolean {
 export function needsSameOriginAudio(): boolean {
   if (isLevelMatching()) return true;
   const gains = getEqGains();
-  return gains.low !== 0 || gains.mid !== 0 || gains.high !== 0;
+  return gains.low !== 0 || gains.mid !== 0 || gains.high !== 0 ||
+    Object.values(getEq10Gains()).some((value) => value !== 0);
 }
 
 export function hasWebAudioSupport(): boolean {
@@ -386,6 +422,25 @@ function applyGains(p: EqGains): void {
   }
 }
 
+function applyEq10Gains(gains: Eq10Gains): void {
+  eqBands.forEach((band, index) => {
+    band.gain.value = gains[EQ10_FREQUENCIES[index]];
+  });
+}
+
+function applyStoredEq10(): void {
+  try {
+    const raw = localStorage.getItem(EQ10_STORAGE_KEY);
+    if (raw) {
+      applyEq10Gains(clampEq10(JSON.parse(raw) as Partial<Record<number, number>>));
+      return;
+    }
+  } catch {
+    /* fall back to the legacy three-band preset */
+  }
+  applyEq10Gains(legacyToEq10(getEqGains()));
+}
+
 function applyStoredPreset(): void {
   try {
     const key = localStorage.getItem(EQ_STORAGE_KEY);
@@ -412,8 +467,11 @@ export function setEqPreset(key: string): void {
   const preset = EQ_PRESETS.find((p) => p.key === key);
   if (!preset) return;
   applyGains(preset);
+  const next = legacyToEq10(preset);
+  applyEq10Gains(next);
   try {
     localStorage.setItem(EQ_STORAGE_KEY, key);
+    localStorage.setItem(EQ10_STORAGE_KEY, JSON.stringify(next));
   } catch {
     /* ignore */
   }
@@ -465,6 +523,28 @@ export function setEqGains(gains: EqGains): void {
   try {
     localStorage.setItem(EQ_STORAGE_KEY, 'custom');
     localStorage.setItem(EQ_CUSTOM_KEY, JSON.stringify(next));
+    localStorage.setItem(EQ10_STORAGE_KEY, JSON.stringify(legacyToEq10(next)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getEq10Gains(): Eq10Gains {
+  try {
+    const raw = localStorage.getItem(EQ10_STORAGE_KEY);
+    if (raw) return clampEq10(JSON.parse(raw) as Partial<Record<number, number>>);
+  } catch {
+    /* ignore malformed settings */
+  }
+  return legacyToEq10(getEqGains());
+}
+
+export function setEq10Gains(gains: Partial<Record<number, number>>): void {
+  const next = clampEq10(gains);
+  applyEq10Gains(next);
+  try {
+    localStorage.setItem(EQ10_STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(EQ_STORAGE_KEY, 'custom');
   } catch {
     /* ignore */
   }

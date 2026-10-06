@@ -14,6 +14,7 @@ const BLOB_STORE = 'blobs';
 
 export interface LocalFileMeta {
   key: string;
+  fingerprint?: string;
   name: string;
   artist: string;
   album: string;
@@ -27,6 +28,10 @@ let seq = 0;
 
 export function localTrackKey(fileKey: string): string {
   return 'local:' + fileKey;
+}
+
+function fileFingerprint(file: Pick<File, 'name' | 'size' | 'lastModified'>): string {
+  return [file.name.trim().toLocaleLowerCase(), file.size, file.lastModified].join(':');
 }
 
 function metaToTrack(meta: LocalFileMeta): MusicTrack {
@@ -77,8 +82,17 @@ const AUDIO_EXT = /\.(mp3|flac|m4a|aac|ogg|opus|wav|webm)$/i;
 export async function importLocalFiles(files: File[]): Promise<{ imported: number; skipped: number }> {
   let imported = 0;
   let skipped = 0;
+  const existing = await withStore<LocalFileMeta[]>(DB_NAME, DB_VERSION, META_STORE, 'readonly', (store) =>
+    store.getAll(),
+  ).catch(() => []);
+  const fingerprints = new Set((existing ?? []).map((item) => item.fingerprint).filter(Boolean));
   for (const file of files) {
     if (!AUDIO_EXT.test(file.name) && !file.type.startsWith('audio/')) {
+      skipped += 1;
+      continue;
+    }
+    const fingerprint = fileFingerprint(file);
+    if (fingerprints.has(fingerprint)) {
       skipped += 1;
       continue;
     }
@@ -87,6 +101,7 @@ export async function importLocalFiles(files: File[]): Promise<{ imported: numbe
     const key = 'f' + Date.now().toString(36) + '-' + (seq++).toString(36);
     const meta: LocalFileMeta = {
       key,
+      fingerprint,
       name: parsed.title,
       artist: parsed.artist,
       album: '',
@@ -101,8 +116,35 @@ export async function importLocalFiles(files: File[]): Promise<{ imported: numbe
       store.put({ key, blob: file });
     });
     imported += 1;
+    fingerprints.add(fingerprint);
   }
   return { imported, skipped };
+}
+
+/** Update display metadata without touching the original audio bytes. */
+export async function updateLocalTrackMetadata(
+  track: MusicTrack,
+  patch: Partial<Pick<LocalFileMeta, 'name' | 'artist' | 'album'>>,
+): Promise<void> {
+  const key = track.url_id;
+  const current = await withStore<LocalFileMeta | undefined>(
+    DB_NAME,
+    DB_VERSION,
+    META_STORE,
+    'readonly',
+    (store) => store.get(key),
+  );
+  if (!current) throw new Error('本地歌曲记录不存在');
+  const next: LocalFileMeta = {
+    ...current,
+    ...patch,
+    name: patch.name?.trim() || current.name,
+    artist: patch.artist?.trim() || current.artist,
+    album: patch.album?.trim() ?? current.album,
+  };
+  await withStore<LocalFileMeta>(DB_NAME, DB_VERSION, META_STORE, 'readwrite', (store) =>
+    store.put(next),
+  );
 }
 
 export async function getAllLocalTracks(): Promise<MusicTrack[]> {

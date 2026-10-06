@@ -33,6 +33,19 @@ body {
   background: var(--am-bg);
 }
 
+.app-shell {
+  /*
+   * The ordinary pages use the same artwork-derived colour field as the
+   * player, but at a lower opacity so cards and text remain readable.
+   * MonetAccent writes real RGBA values here for old Android WebViews.
+   */
+  background:
+    radial-gradient(120% 72% at 4% -10%, var(--am-bg-wash-a, transparent) 0%, transparent 68%),
+    radial-gradient(100% 72% at 98% 112%, var(--am-bg-wash-b, transparent) 0%, transparent 66%),
+    var(--am-bg);
+  transition: background var(--am-motion-slow) var(--am-ease-standard);
+}
+
 .app-main__inner {
   padding-bottom: 12px;
 }

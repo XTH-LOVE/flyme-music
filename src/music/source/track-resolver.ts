@@ -2,6 +2,8 @@ import type { MusicTrack } from './types';
 import { getTrackProvider } from './factory';
 import { getStreamUrl } from '@/library/offlineCache';
 import { getLocalStreamUrl } from '@/library/localLibrary';
+import { markSourceFailure, markSourceSuccess } from './sourceHealth';
+import { classifyMusicRequestError, type MusicRequestError } from './requestError';
 
 /**
  * Cached resolution of remote media (stream url / cover).
@@ -21,6 +23,7 @@ const urlCache = new Map<string, CacheEntry<string>>();
 const urlInflight = new Map<string, Promise<string | null>>();
 const picCache = new Map<string, CacheEntry<string>>();
 const picInflight = new Map<string, Promise<string | null>>();
+const lastUrlErrors = new Map<string, MusicRequestError>();
 
 // Restore persisted cover URLs so page reloads skip re-resolution entirely.
 try {
@@ -78,7 +81,7 @@ export function clearPicCache(): void {
   }
 }
 
-const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+const wait = (ms: number) => new Promise<void>((resolve) => globalThis.setTimeout(resolve, ms));
 
 function read<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null | undefined {
   const entry = cache.get(key);
@@ -118,10 +121,14 @@ export async function resolveTrackUrl(track: MusicTrack, br = 320): Promise<stri
         try {
           const url = await getTrackProvider(track.source).getUrl(track, qualities[attempt]);
           if (url) {
+            markSourceSuccess(track.source);
+            lastUrlErrors.delete(key);
             urlCache.set(key, { value: url, expiresAt: Date.now() + URL_TTL_MS });
             return url;
           }
-        } catch {
+        } catch (error) {
+          lastUrlErrors.set(key, classifyMusicRequestError(error));
+          markSourceFailure(track.source);
           /* try the next quality */
         }
         if (attempt < qualities.length - 1) await wait(200);
@@ -135,6 +142,10 @@ export async function resolveTrackUrl(track: MusicTrack, br = 320): Promise<stri
   })();
   urlInflight.set(key, promise);
   return promise;
+}
+
+export function getTrackUrlError(track: MusicTrack, br = 320): MusicRequestError | null {
+  return lastUrlErrors.get(track.source + ':' + track.url_id + ':' + br) ?? null;
 }
 
 export async function resolveTrackPic(track: MusicTrack, size = 500): Promise<string | null> {

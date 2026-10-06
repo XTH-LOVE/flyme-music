@@ -466,3 +466,54 @@ export async function handleAi(req: IncomingMessage, res: ServerResponse): Promi
     }
   }
 }
+
+/** Optional CLAP/EffNet-compatible semantic music reranker. */
+export async function handleMusicRank(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!guardRequest(req, res, 'music-rank')) return;
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'POST');
+    res.end(JSON.stringify({ error: 'method not allowed' }));
+    return;
+  }
+  const endpoint = process.env.AURORA_EMBEDDING_ENDPOINT?.trim().replace(/\/$/, '') ?? '';
+  const apiKey = process.env.AURORA_EMBEDDING_API_KEY?.trim() ?? '';
+  if (!endpoint) {
+    res.statusCode = 503;
+    res.end(JSON.stringify({ error: 'embedding service is not configured' }));
+    return;
+  }
+  try {
+    const raw = await readBody(req, 512 * 1024);
+    const input = JSON.parse(raw) as { query?: unknown; candidates?: unknown };
+    if (typeof input.query !== 'string' || !Array.isArray(input.candidates) || input.candidates.length === 0) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'query and candidates are required' }));
+      return;
+    }
+    const upstream = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': PC_USER_AGENT,
+        ...(apiKey ? { Authorization: 'Bearer ' + apiKey } : {}),
+      },
+      body: JSON.stringify({
+        query: input.query.slice(0, 500),
+        candidates: input.candidates.slice(0, 80),
+        model: process.env.AURORA_EMBEDDING_MODEL?.trim() || undefined,
+      }),
+    });
+    res.statusCode = upstream.status;
+    res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(await upstream.text());
+  } catch (error) {
+    if (error instanceof Error && error.message === 'request body too large') {
+      res.statusCode = 413;
+      res.end(JSON.stringify({ error: 'request body too large' }));
+    } else {
+      upstreamFailure(res, error);
+    }
+  }
+}

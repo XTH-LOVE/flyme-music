@@ -209,6 +209,7 @@ export const RATE_LIMITS = {
   weapi: 60,
   'media-proxy': 30,
   ai: 30,
+  'music-rank': 20,
   // The update check is cheap but hits GitHub's own rate limit, and the
   // download route relays a ~20 MB APK, so it is worth a bucket of its own
   // rather than sharing the image proxy's generous one.

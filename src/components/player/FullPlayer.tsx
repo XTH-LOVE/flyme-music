@@ -12,10 +12,10 @@ import { useExtrasStore } from '@/store/useExtrasStore';
 import { useLyricStore } from '@/store/useLyricStore';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useCrossfadeStack } from '@/hooks/useCrossfadeStack';
-import { downloadTrack } from '@/utils/download';
+import { enqueueDownload } from '@/utils/downloadQueue';
 import { notify } from '@/utils/notify';
 import { formatTime } from '@/utils/format';
-import { fallbackPalette } from '@/utils/palette';
+import { fallbackPalette, playerPalette } from '@/utils/palette';
 import { useCoverPalette } from '@/utils/coverPalette';
 import { shareLyricCard } from '@/utils/lyricShare';
 import { fetchLyricLines, lyricLineAt, type MiniLyricLine } from '@/utils/currentLyric';
@@ -29,12 +29,12 @@ import { pipSupported, openPiPLyrics, closePiPLyrics, isPipOpen } from './PiPLyr
 import {
   EQ_PRESETS,
   EQ_RANGE_DB,
-  getEqGains,
+  EQ10_FREQUENCIES,
+  getEq10Gains,
   getEqPreset,
   isWired,
-  setEqGains,
+  setEq10Gains,
   setEqPreset,
-  type EqGains,
 } from '@/player/webAudio';
 import { flingVelocity, trimSamples, type DragSample } from '@/player/dismissGesture';
 import { glowFillWidth, glowHeadOpacity } from '@/utils/glowProgress';
@@ -68,7 +68,7 @@ function bgGrad(palette: [string, string]): string {
 /** One background layer: blurred artwork ambience + palette gradient. */
 function HcBgLayer({ t, top }: { t: MusicTrack; top: boolean }) {
   const extracted = useCoverPalette(t.picUrl, t.id);
-  const palette = extracted ?? t.palette ?? fallbackPalette(t.id);
+  const palette = playerPalette(extracted ?? t.palette, fallbackPalette(t.id));
   return (
     <div className={'hc-bg__layer' + (top ? ' hc-bg__layer--top' : '')}>
       {t.picUrl ? (
@@ -127,7 +127,7 @@ function useSungLines(track: MusicTrack): MiniLyricLine[] {
 const HalcyonBg = memo(function HalcyonBg({ track, live }: { track: MusicTrack; live: boolean }) {
   const stack = useCrossfadeStack(track);
   const extracted = useCoverPalette(track.picUrl, track.id);
-  const palette = extracted ?? track.palette ?? fallbackPalette(track.id);
+  const palette = playerPalette(extracted ?? track.palette, fallbackPalette(track.id));
 
   return (
     <div className="hc-bg">
@@ -461,8 +461,10 @@ export function FullPlayer() {
   const [eqPreset, setEqPresetState] = useState(() => getEqPreset());
   // Seeded from whatever is in effect, so opening the sheet shows the curve the
   // user is actually hearing rather than a row of zeroes.
-  const [eqGains, setEqGainsState] = useState<EqGains>(() => getEqGains());
+  const [eq10Gains, setEq10GainsState] = useState(() => getEq10Gains());
   const [dragX, setDragX] = useState(0);
+  const [coverDragging, setCoverDragging] = useState(false);
+  const [lyricsDragging, setLyricsDragging] = useState(false);
   const [dismissY, setDismissY] = useState(0);
   const [dismissX, setDismissX] = useState(0);
   const [dismissActive, setDismissActive] = useState(false);
@@ -534,7 +536,8 @@ export function FullPlayer() {
     if (downloading) return;
     setDownloading(true);
     try {
-      await downloadTrack(current);
+      enqueueDownload(current);
+      notify('已加入下载队列');
     } catch (error) {
       // 用户取消另存为不算错误
       if (error instanceof Error && error.message !== 'cancelled') notify(error.message);
@@ -574,6 +577,7 @@ export function FullPlayer() {
   /* ---- Halcyon cover swipe (horizontal) ---- */
   const coverPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     dragRef.current = { startX: e.clientX, dx: 0, active: true };
+    setCoverDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const coverPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -586,6 +590,7 @@ export function FullPlayer() {
     if (!dragRef.current.active) return;
     const dx = dragRef.current.dx;
     dragRef.current.active = false;
+    setCoverDragging(false);
     setDragX(0);
     if (isDesktop) {
       if (dx <= -84) playerController.next();
@@ -735,7 +740,7 @@ export function FullPlayer() {
       <div className="hc-times">
         <span>{formatTime(shown)}</span>
         <span className="hc-pill">{SOURCE_LABEL[current.source] ?? '在线'}</span>
-        <span>-{formatTime(Math.max(0, duration - shown))}</span>
+        <span>{formatTime(duration)}</span>
       </div>
     </div>
   );
@@ -869,6 +874,7 @@ export function FullPlayer() {
                 onClick={() => {
                   setEqPreset(p.key);
                   setEqPresetState(p.key);
+                  setEq10GainsState(getEq10Gains());
                 }}
               >
                 {p.label}
@@ -880,20 +886,13 @@ export function FullPlayer() {
               a preset is a starting point and this is where you go from it, so
               they are two halves of one control. */}
           <div className="hc-more__label">
-            自定义{EQ_PRESETS.some((p) => p.key === eqPreset) && eqPreset !== 'flat' ? '（调整后覆盖预设）' : ''}
+            十段自定义{EQ_PRESETS.some((p) => p.key === eqPreset) && eqPreset !== 'flat' ? '（调整后覆盖预设）' : ''}
           </div>
           <div className="hc-eq">
-            {(
-              [
-                ['low', '低音', '250Hz'],
-                ['mid', '中音', '1.8kHz'],
-                ['high', '高音', '4kHz'],
-              ] as const
-            ).map(([band, label, freq]) => (
-              <label key={band} className="hc-eq__row">
+            {EQ10_FREQUENCIES.map((frequency) => (
+              <label key={frequency} className="hc-eq__row">
                 <span className="hc-eq__name">
-                  {label}
-                  <em>{freq}</em>
+                  {frequency >= 1000 ? (frequency / 1000).toFixed(frequency % 1000 ? 1 : 0) + 'kHz' : frequency + 'Hz'}
                 </span>
                 <input
                   className="hc-eq__slider"
@@ -901,28 +900,28 @@ export function FullPlayer() {
                   min={-EQ_RANGE_DB}
                   max={EQ_RANGE_DB}
                   step={0.5}
-                  value={eqGains[band]}
+                  value={eq10Gains[frequency]}
                   onChange={(e) => {
                     // Applied on every input event, not on release: the point
                     // of a slider is hearing what it does as you move it.
-                    const next = { ...eqGains, [band]: Number(e.target.value) };
-                    setEqGainsState(next);
-                    setEqGains(next);
+                    const next = { ...eq10Gains, [frequency]: Number(e.target.value) };
+                    setEq10GainsState(next);
+                    setEq10Gains(next);
                     setEqPresetState('custom');
                   }}
                 />
                 <span className="hc-eq__value">
-                  {eqGains[band] > 0 ? '+' : ''}
-                  {eqGains[band].toFixed(1)}
+                  {eq10Gains[frequency] > 0 ? '+' : ''}
+                  {eq10Gains[frequency].toFixed(1)}
                 </span>
               </label>
             ))}
             <button
               className="hc-eq__reset"
               onClick={() => {
-                const flat = { low: 0, mid: 0, high: 0 };
-                setEqGainsState(flat);
-                setEqGains(flat);
+                const flat = Object.fromEntries(EQ10_FREQUENCIES.map((frequency) => [frequency, 0]));
+                setEq10GainsState(flat as typeof eq10Gains);
+                setEq10Gains(flat);
                 setEqPresetState('custom');
               }}
             >
@@ -1009,7 +1008,7 @@ export function FullPlayer() {
   /* ---------------- Desktop: Halcyon landscape layout ---------------- */
   if (isDesktop) {
     return (
-      <div className={'full-player hc' + (ambientMotion ? '' : ' hc--still') + (lyricBlur ? ' hc--lyrics-blur' : '')} {...dismissProps}>
+      <div className={'full-player hc' + (ambientMotion ? '' : ' hc--still') + (lyricBlur && !coverDragging && !lyricsDragging ? ' hc--lyrics-blur' : '') + (coverDragging ? ' hc--cover-dragging' : '') + (lyricsDragging ? ' hc--lyrics-dragging' : '')} {...dismissProps}>
         <HalcyonBg track={current} live={playing && ambientMotion} />
         <button className="hc-collapse" onClick={close} aria-label="收起">
           <Icon name="chevronLeft" size={22} className="hc-collapse__icon" />
@@ -1109,7 +1108,7 @@ export function FullPlayer() {
           </div>
 
           <div className="hc-right">
-            <LyricsView track={current} currentTime={currentTime} />
+            <LyricsView track={current} currentTime={currentTime} onDraggingChange={setLyricsDragging} />
           </div>
         </div>
 
@@ -1125,7 +1124,9 @@ export function FullPlayer() {
         'full-player hc hc--p' +
         (lyricsMode ? ' hc--p-lyrics' : '') +
         (ambientMotion ? '' : ' hc--still') +
-        (lyricBlur ? ' hc--lyrics-blur' : '')
+        (lyricBlur && !coverDragging && !lyricsDragging ? ' hc--lyrics-blur' : '') +
+        (lyricsDragging ? ' hc--lyrics-dragging' : '') +
+        (coverDragging ? ' hc--cover-dragging' : '')
       }
       {...dismissProps}
     >
@@ -1159,7 +1160,7 @@ export function FullPlayer() {
               {favButton}
             </div>
             <div className="hc-p-lyrics">
-              <LyricsView track={current} currentTime={currentTime} />
+              <LyricsView track={current} currentTime={currentTime} onDraggingChange={setLyricsDragging} />
             </div>
           </>
         ) : (

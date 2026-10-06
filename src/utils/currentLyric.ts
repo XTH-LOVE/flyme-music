@@ -4,10 +4,14 @@ import type { MusicTrack } from '@/music/source/types';
 import { neteaseWeapi } from '@/music/netease/neteaseWeapi';
 import { lyricOffset } from '@/store/useLyricStore';
 import { parseTimedLrc, type TimedLyricLine } from './timedLyrics';
+import { optimizeLyricLines } from './lyricOptimize';
+import { sanitizeLyricWords } from './lyricTruth';
+import { diagnoseLyrics, type LyricDiagnostics } from './lyricTruth';
 
 export type MiniLyricLine = TimedLyricLine;
 
 const cache = new Map<string, MiniLyricLine[]>();
+const diagnosticsCache = new Map<string, LyricDiagnostics>();
 const inflight = new Map<string, Promise<MiniLyricLine[]>>();
 
 /** Attach each translation line to the nearest original line (±0.8s). */
@@ -94,12 +98,19 @@ export async function fetchLyricLines(track: MusicTrack): Promise<MiniLyricLine[
     racers.push(neteaseWeapiLyric(track.id));
   }
   const promise = raceLyrics(racers).then((lines) => {
+    const optimized = sanitizeLyricWords(optimizeLyricLines(lines), track.duration ?? 0);
+    diagnosticsCache.set(key, diagnoseLyrics(optimized, track.duration ?? 0));
     inflight.delete(key);
-    if (lines.length) cache.set(key, lines);
-    return lines;
+    if (optimized.length) cache.set(key, optimized);
+    return optimized;
   });
   inflight.set(key, promise);
   return promise;
+}
+
+/** Return the last computed quality report without triggering a network call. */
+export function getLyricDiagnostics(track: MusicTrack): LyricDiagnostics | null {
+  return diagnosticsCache.get(track.source + ':' + track.id) ?? null;
 }
 
 /** Find the active lyric line for a timestamp. */

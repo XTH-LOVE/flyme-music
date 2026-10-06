@@ -20,6 +20,13 @@ describe('timed lyric parsing', () => {
     ]);
   });
 
+  it('accepts millisecond word offsets', () => {
+    const [line] = parseTimedLrc('[00:01.00]<0,500>hello<500,500> world');
+    expect(line.text).toBe('hello world');
+    expect(line.words?.[0].start).toBeCloseTo(1);
+    expect(line.words?.[1].start).toBeCloseTo(1.5);
+  });
+
   it('parses TTML paragraph and word spans', () => {
     const lines = parseTimedLyricFile(
       '<tt><body><div><p begin="2s"><span begin="2s" end="2.4s">Hello </span><span begin="2.4s" end="3s">world</span></p></div></body></tt>',

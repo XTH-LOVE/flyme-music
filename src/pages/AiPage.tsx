@@ -24,6 +24,9 @@ import {
 import { fetchLyricLines, lyricLineAt } from '@/utils/currentLyric';
 import { contextUsage, maybeCompactHistory, resolveContextWindow } from '@/agent';
 import { loadMemories, memoryBlock, scheduleMemoryExtraction } from '@/ai/memory';
+import { appendEpisodic, semanticContext } from '@/ai/semanticMemory';
+import { callsToLegacy, parseNormalizedToolCalls, validateToolArguments } from '@/ai/toolProtocol';
+import { parseDeferTag, scheduleDeferred } from '@/ai/deferred';
 import { MemoryPanel } from '@/ai/memoryUi';
 import type { MusicTrack } from '@/music/source/types';
 import './ai-page.css';
@@ -339,9 +342,16 @@ export function AiPage() {
     abortRef.current = ctrl;
     pushMessage({ id: nextAiMsgId(), role: 'user', text });
     setBusy(true);
-    setActivity(configured ? '正在准备分析…' : '正在执行本地操作…');
-    try {
-      if (!configured) {
+      setActivity(configured ? '正在准备分析…' : '正在执行本地操作…');
+      try {
+        // Deterministic playback intents should never be delegated to the LLM:
+        // "换一首歌" means next track, not acoustic-similarity search.
+        if (/^(?:给我|请)?\s*(?:换一首(?:歌)?|下一首|切歌)[。！!]?$/i.test(text)) {
+          const res = await localAssistant(text);
+          pushMessage({ id: nextAiMsgId(), role: 'ai', text: res.reply, tracks: res.tracks });
+          return;
+        }
+        if (!configured) {
         try {
           const res = await localAssistant(text);
           pushMessage({
@@ -385,7 +395,7 @@ export function AiPage() {
             snippet,
             dislikes,
             buildPageContext(location.pathname + location.search, snap),
-            memoryInfo,
+            semanticContext(text, memories) || memoryInfo,
           ),
         },
         ...messages
@@ -459,7 +469,8 @@ export function AiPage() {
           });
           return;
         }
-        const calls = parseToolCalls(full);
+        const normalizedCalls = parseNormalizedToolCalls(full);
+        const calls = normalizedCalls.length ? callsToLegacy(normalizedCalls) : parseToolCalls(full);
         finalText = stripToolCall(full).trim();
         if (!calls.length && finalText) break;
         if (!calls.length && !finalText) {
@@ -494,7 +505,13 @@ export function AiPage() {
           // A failing tool must not leave the bubble stuck in streaming.
           let res: Awaited<ReturnType<typeof executeTool>>;
           try {
-            res = await executeTool(call, ctx);
+            const normalized = normalizedCalls.find((item) => item.tool === String(call.tool) && JSON.stringify({ ...item.arguments }) === JSON.stringify(Object.fromEntries(Object.entries(call).filter(([key]) => key !== 'tool'))));
+            const validation = normalized ? validateToolArguments(normalized) : { ok: true as const, value: call };
+            if (!validation.ok) {
+              res = { reply: validation.error, fact: { tool: String(call.tool), error: validation.error } };
+            } else {
+              res = await executeTool(call, ctx);
+            }
           } catch (err) {
             res = {
               reply: '',
@@ -528,12 +545,19 @@ export function AiPage() {
         });
         updateMessage(aiId, { text: '' });
       }
+      const deferred = parseDeferTag(finalText);
+      if (deferred) scheduleDeferred(deferred.message, deferred.afterMinutes, deferred.trigger);
+      const cleanFinalText = deferred?.clean || finalText;
       updateMessage(aiId, {
-        text: finalText || lastReply || '（这次没能整理出回复，再发一次试试）',
+        text: cleanFinalText || lastReply || '（这次没能整理出回复，再发一次试试）',
         streaming: false,
         steps: [...steps],
         tracks: lastTracks,
       });
+      appendEpisodic([
+        { role: 'user', content: text },
+        { role: 'assistant', content: cleanFinalText || lastReply },
+      ]);
       // Channel A: quiet background extraction from this turn's dialogue.
       void scheduleMemoryExtraction(
         working.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-6),

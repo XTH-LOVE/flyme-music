@@ -1,7 +1,9 @@
 import { searchAllSources } from '@/ai/musicSearch';
+import { getTrackProvider } from '@/music/source/factory';
 import { useAiStore } from '@/store/useAiStore';
 import { playerController } from '@/player';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
+import { sourcePriority } from '@/music/source/sourceHealth';
 
 /**
  * "Play from another source": the same song (name + artist) re-searched on
@@ -30,11 +32,36 @@ export async function findAlternateSource(
 ): Promise<MusicTrack | null> {
   const dislikes = useAiStore.getState().dislikes;
   const query = (track.name + ' ' + (track.artist[0] ?? '')).trim();
+  // Playback policy: when the preferred Netease recording cannot resolve,
+  // give Hi歌 the first chance before the broader cross-provider fallback.
+  if (track.source === 'netease' && !exclude?.has('higequ')) {
+    try {
+      const preferred = await getTrackProvider('higequ').search(query, 1, 12);
+      const exact = preferred.items.find((hit) => {
+        const name = norm(hit.name);
+        const want = norm(track.name);
+        const sameSong = name === want || name.includes(want) || want.includes(name);
+        return sameSong && artistOverlap(hit.artist, track.artist);
+      });
+      if (exact) return exact;
+    } catch {
+      // Continue to the general fallback search below.
+    }
+  }
   // Hi歌 is included because netease and joox share the GD aggregator - if that
   // is what is down, the fallback search has to reach something else entirely.
   const hits = await searchAllSources(query, 12, track.artist[0], dislikes, ['higequ']);
   const want = norm(track.name);
-  for (const hit of hits) {
+  const availableSources = sourcePriority(
+    Array.from(new Set(hits.map((hit) => hit.source))),
+  );
+  const rank = new Map(availableSources.map((source, index) => [source, index]));
+  const orderedHits = hits
+    .map((hit, index) => ({ hit, index }))
+    .sort((a, b) => (rank.get(a.hit.source) ?? Number.MAX_SAFE_INTEGER)
+      - (rank.get(b.hit.source) ?? Number.MAX_SAFE_INTEGER) || a.index - b.index)
+    .map(({ hit }) => hit);
+  for (const hit of orderedHits) {
     if (hit.source === track.source) continue;
     if (exclude?.has(hit.source)) continue;
     const name = norm(hit.name);

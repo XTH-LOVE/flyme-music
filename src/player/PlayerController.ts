@@ -9,6 +9,7 @@ import { setPlaybackFailure, clearPlaybackFailure } from './playbackFailure';
 import { isTauri } from '@/lib/apiTransport';
 import { PlayerEngine } from './PlayerEngine';
 import { PlayerQueue } from './PlayerQueue';
+import { cancelPrefetch, prefetchUpcoming } from './playbackPrefetch';
 import type { PlayerListener, PlayerSnapshot, RepeatMode } from './PlayerState';
 
 /**
@@ -18,6 +19,12 @@ import type { PlayerListener, PlayerSnapshot, RepeatMode } from './PlayerState';
  */
 /** Persisted playback session (queue + preferences). */
 const QUEUE_KEY = 'aurora.queue.v1';
+
+function storage(): Storage | null {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+    ? window.localStorage
+    : null;
+}
 
 /**
  * Turns a media failure into something a person can act on.
@@ -364,6 +371,7 @@ class PlayerController {
 
   clearQueue(): void {
     this.playbackRequestId += 1;
+    cancelPrefetch();
     this.forcedNextKey = null;
     this.queue.clear();
     this.engine.load(0);
@@ -480,6 +488,13 @@ class PlayerController {
         notify('《' + track.name + '》暂时无法播放（可能受版权限制），可在歌曲菜单里换源重试');
       }
     }
+    // Warm the next songs after the current request has been validated. This
+    // remains safe if the user changes the queue while providers are resolving.
+    if (stillCurrent) {
+      prefetchUpcoming(this.queue.list, this.queue.currentIndex, 2, {
+        wrapAround: this.repeat === 'all',
+      });
+    }
   }
 
   /**
@@ -570,7 +585,7 @@ class PlayerController {
 
   private persistQueue(): void {
     try {
-      localStorage.setItem(
+      storage()?.setItem(
         QUEUE_KEY,
         JSON.stringify({
           queue: this.queue.list,
@@ -590,7 +605,7 @@ class PlayerController {
 
   private restorePersisted(): void {
     try {
-      const raw = localStorage.getItem(QUEUE_KEY);
+      const raw = storage()?.getItem(QUEUE_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw) as {
         queue?: MusicTrack[];

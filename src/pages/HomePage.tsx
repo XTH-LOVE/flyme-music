@@ -51,15 +51,34 @@ export function HomePage() {
 
   useEffect(() => {
     let alive = true;
-    getNewSongs()
-      .then((songs) => {
-        if (alive) setNewSongs(songs);
-      })
-      .catch((e: unknown) => {
-        if (alive) setNewSongsError(e instanceof Error ? e.message : String(e));
-      });
+    let loading = false;
+    const load = () => {
+      if (loading) return;
+      loading = true;
+      getNewSongs()
+        .then((songs) => {
+          if (alive) {
+            setNewSongs(songs);
+            setNewSongsError(null);
+          }
+        })
+        .catch((e: unknown) => {
+          if (alive) setNewSongsError(e instanceof Error ? e.message : String(e));
+        })
+        .finally(() => {
+          loading = false;
+        });
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    load();
+    const timer = window.setInterval(load, 15 * 60 * 1000);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [newSongsAttempt]);
 
@@ -125,7 +144,6 @@ export function HomePage() {
       </header>
 
       <button className="home-search" onClick={() => navigate('/search')}>
-        <Icon name="search" size={19} />
         <span>搜索音乐</span>
       </button>
 

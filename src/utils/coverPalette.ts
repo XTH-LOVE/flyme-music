@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { withPicSize } from './imgFallback';
 import { fetchImageBlob } from './imageSource';
+import { safePalette } from './palette';
 
 export type CoverPalette = [string, string];
 
@@ -121,11 +122,11 @@ async function extract(picUrl: string): Promise<CoverPalette | null> {
       const b = secondary
         ? ambientTone(toHex(secondary.r, secondary.g, secondary.b))
         : ambientTone(lighten(a, 0.38));
-      return [a, b];
+      return safePalette([a, b]);
     }
     // Fully desaturated artwork: use the raw average instead.
     const avg = ambientTone(toHex(ar / any, ag / any, ab / any));
-    return [avg, ambientTone(lighten(avg, 0.3))];
+    return safePalette([avg, ambientTone(lighten(avg, 0.3))]);
   } catch {
     return null;
   }

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { deleteLocalTrack, getAllLocalTracks, importLocalFiles } from '@/library/localLibrary';
+import { deleteLocalTrack, getAllLocalTracks, importLocalFiles, updateLocalTrackMetadata } from '@/library/localLibrary';
 import type { MusicTrack } from '@/music/source/types';
 
 interface LocalLibraryState {
@@ -8,6 +8,10 @@ interface LocalLibraryState {
   loading: boolean;
   importFiles: (files: File[]) => Promise<{ imported: number; skipped: number }>;
   remove: (track: MusicTrack) => Promise<void>;
+  updateMetadata: (
+    track: MusicTrack,
+    patch: { name?: string; artist?: string; album?: string },
+  ) => Promise<void>;
   reload: () => Promise<void>;
 }
 
@@ -25,6 +29,11 @@ export const useLocalLibraryStore = create<LocalLibraryState>((set, get) => ({
   remove: async (track) => {
     await deleteLocalTrack(track);
     set({ tracks: get().tracks.filter((t) => t.id !== track.id) });
+  },
+
+  updateMetadata: async (track, patch) => {
+    await updateLocalTrackMetadata(track, patch);
+    await get().reload();
   },
 
   reload: async () => {

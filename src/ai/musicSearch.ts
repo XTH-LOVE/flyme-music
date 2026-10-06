@@ -1,5 +1,7 @@
 import { getTrackProvider } from '@/music/source/factory';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
+import { sourcePriority } from '@/music/source/sourceHealth';
+import { resolveTrackUrl } from '@/music/source/track-resolver';
 
 /** Words that mark a non-original version of a song. */
 const COVER_WORDS = [
@@ -92,7 +94,7 @@ export async function searchAllSources(
 ): Promise<MusicTrack[]> {
   const kw = keyword.trim();
   if (!kw) return [];
-  const sources: MusicSource[] = ['netease', 'joox', ...extraSources];
+  const sources = sourcePriority(['netease', 'joox', ...extraSources] as MusicSource[]);
   const results = await Promise.allSettled(
     sources.map((source) => getTrackProvider(source).search(kw, 1, Math.max(count, 12))),
   );
@@ -109,6 +111,84 @@ export async function searchAllSources(
   }
   merged.sort((a, b) => scoreTrack(b, kw, artistHint, dislikes) - scoreTrack(a, kw, artistHint, dislikes));
   return merged.slice(0, count);
+}
+
+export interface PlaybackSourcePolicy {
+  /** Search this source first and keep it as the preferred playback source. */
+  primary?: MusicSource;
+  /** Only search these sources when the primary has no usable original hit. */
+  fallbacks?: MusicSource[];
+  /** Verify that at least the first queued song has a real stream URL. */
+  validatePlayable?: boolean;
+}
+
+function isLikelyOriginal(track: MusicTrack): boolean {
+  const name = norm(track.name);
+  return !COVER_WORDS.some((word) => name.includes(norm(word)));
+}
+
+async function putPlayableFirst(tracks: MusicTrack[], validatePlayable: boolean): Promise<MusicTrack[]> {
+  if (!validatePlayable) return tracks;
+  // Validate only the first few ranked candidates. This makes the response
+  // truthful without resolving every song in a long queue up front.
+  const limit = Math.min(5, tracks.length);
+  for (let index = 0; index < limit; index += 1) {
+    const track = tracks[index];
+    try {
+      const url = await resolveTrackUrl(track, 128);
+      if (url) return [track, ...tracks.filter((_, itemIndex) => itemIndex !== index)];
+    } catch {
+      // Try the next ranked version or provider.
+    }
+  }
+  return [];
+}
+
+/**
+ * Playback-specific source policy. Unlike the general search page, this is
+ * intentionally sequential: Netease gets the first chance, and Hi歌 is only
+ * queried when Netease has no usable original version. This avoids silently
+ * mixing a fallback source into a queue when the preferred provider already
+ * returned the studio recording.
+ */
+export async function searchForPlayback(
+  keyword: string,
+  count = 10,
+  artistHint?: string,
+  dislikes?: string[],
+  policy: PlaybackSourcePolicy = { primary: 'netease', fallbacks: ['higequ'] },
+): Promise<{ tracks: MusicTrack[]; source: MusicSource | null; usedFallback: boolean }> {
+  const kw = keyword.trim();
+  if (!kw) return { tracks: [], source: null, usedFallback: false };
+  const primary = policy.primary ?? 'netease';
+  const primaryResult = await Promise.allSettled([
+    getTrackProvider(primary).search(kw, 1, Math.max(count, 12)),
+  ]);
+  const primaryTracks = primaryResult[0].status === 'fulfilled'
+    ? primaryResult[0].value.items.filter((track) => isLikelyOriginal(track))
+    : [];
+  const rankedPrimary = primaryTracks
+    .map((track, index) => ({ track, index, score: scoreTrack(track, kw, artistHint, dislikes) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.track)
+    .slice(0, count);
+  const playablePrimary = await putPlayableFirst(rankedPrimary, policy.validatePlayable === true);
+  if (playablePrimary.length) return { tracks: playablePrimary, source: primary, usedFallback: false };
+
+  for (const fallback of policy.fallbacks ?? []) {
+    if (fallback === primary) continue;
+    const result = await Promise.allSettled([
+      getTrackProvider(fallback).search(kw, 1, Math.max(count, 12)),
+    ]);
+    if (result[0].status !== 'fulfilled') continue;
+    const tracks = result[0].value.items
+      .filter((track) => isLikelyOriginal(track))
+      .sort((a, b) => scoreTrack(b, kw, artistHint, dislikes) - scoreTrack(a, kw, artistHint, dislikes))
+      .slice(0, count);
+    const playableFallback = await putPlayableFirst(tracks, policy.validatePlayable === true);
+    if (playableFallback.length) return { tracks: playableFallback, source: fallback, usedFallback: true };
+  }
+  return { tracks: [], source: null, usedFallback: false };
 }
 
 /** Sources behind the search page's "全部" tab, roughly by catalogue size. */

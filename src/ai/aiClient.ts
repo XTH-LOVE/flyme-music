@@ -87,15 +87,15 @@ const MODEL_IDLE_TIMEOUT_MS = 20_000;
  */
 const MODEL_TOTAL_TIMEOUT_MS = 180_000;
 
-export async function getAiStatus(): Promise<AiStatus> {
+export async function getAiStatus(signal?: AbortSignal): Promise<AiStatus> {
   if (isTauri()) return invokeAi<AiStatus>('ai_status');
-  const res = await aiFetch('/status', { method: 'GET' });
+  const res = await aiFetch('/status', { method: 'GET', signal });
   if (!res.ok) throw new Error('AI 状态 HTTP ' + res.status);
   return (await res.json()) as AiStatus;
 }
 
 /** GET /models - list available model ids on the configured endpoint. */
-export async function listAiModels(_cfg?: AiConfig): Promise<string[]> {
+export async function listAiModels(_cfg?: AiConfig, signal?: AbortSignal): Promise<string[]> {
   if (isTauri()) {
     try {
       return await invokeAi<string[]>('ai_models');
@@ -103,7 +103,7 @@ export async function listAiModels(_cfg?: AiConfig): Promise<string[]> {
       return [];
     }
   }
-  const res = await aiFetch('/models', { method: 'GET' });
+  const res = await aiFetch('/models', { method: 'GET', signal });
   if (!res.ok) throw new Error('模型列表 HTTP ' + res.status);
   const json = (await res.json()) as { data?: { id?: string }[] };
   return (json.data ?? [])
@@ -203,9 +203,10 @@ export async function chatStreamWithFallback(
   signal?: AbortSignal,
 ): Promise<{ text: string; model: string }> {
   const [statusResult, modelsResult] = await Promise.allSettled([
-    getAiStatus(),
-    listAiModels(cfg),
+    getAiStatus(signal),
+    listAiModels(cfg, signal),
   ]);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   // Keep the user's choice first, then the server's known default. The latter
   // prevents an old locally saved model from delaying every request.
   const statusModel = statusResult.status === 'fulfilled' && statusResult.value.configured

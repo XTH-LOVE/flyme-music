@@ -6,6 +6,7 @@ import {
   markMusicApiUrlFailure,
   markMusicApiUrlSuccess,
 } from './api-config';
+import { MusicRequestError, classifyMusicRequestError } from './requestError';
 
 export const normalizeTrack = (t: RawApiTrack, source: MusicSource): MusicTrack => ({
   id: String(t.id),
@@ -37,9 +38,75 @@ const buildUrl = (
 };
 
 async function requestJSON<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetchWithTimeout(url, signal ? { signal } : {});
-  if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + res.statusText);
-  return (await res.json()) as T;
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url, signal ? { signal } : {});
+  } catch (error) {
+    throw classifyMusicRequestError(error);
+  }
+  if (!res.ok) {
+    const code = res.status === 401
+      ? 'auth-expired'
+      : res.status === 403
+        ? 'permission-denied'
+        : res.status === 404
+          ? 'not-found'
+          : res.status >= 500
+            ? 'server'
+            : 'unknown';
+    throw new MusicRequestError(code, 'HTTP ' + res.status + ': ' + res.statusText, {
+      status: res.status,
+      endpoint: url,
+    });
+  }
+  try {
+    return (await res.json()) as T;
+  } catch (error) {
+    throw new MusicRequestError('invalid-response', '音乐接口返回了无效数据', {
+      endpoint: url,
+      cause: error,
+    });
+  }
+}
+
+async function waitBeforeRetry(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const timer = globalThis.setTimeout(() => {
+      settled = true;
+      signal?.removeEventListener('abort', abort);
+      resolve();
+    }, ms);
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', abort);
+      globalThis.clearTimeout(timer);
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+    };
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+}
+
+/** Retry only transient failures, with a short bounded exponential backoff. */
+async function requestJSONWithRetry<T>(
+  url: string,
+  signal?: AbortSignal,
+  maxAttempts = 2,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      return await requestJSON<T>(url, signal);
+    } catch (error) {
+      const classified = classifyMusicRequestError(error);
+      lastError = classified;
+      if (!classified.retryable || attempt === maxAttempts - 1) throw classified;
+      await waitBeforeRetry(250 * (attempt + 1), signal);
+    }
+  }
+  throw lastError ?? new Error('音乐接口请求失败');
 }
 
 /**
@@ -59,7 +126,7 @@ export async function requestMusicApiJSON<T>(
     }
     const url = buildUrl(apiBase, params);
     try {
-      const result = await requestJSON<T>(url, signal);
+      const result = await requestJSONWithRetry<T>(url, signal);
       markMusicApiUrlSuccess(apiBase);
       return result;
     } catch (e) {

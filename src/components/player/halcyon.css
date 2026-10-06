@@ -235,6 +235,7 @@
   align-items: center;
   justify-content: center;
   padding: 14px 0;
+  background: transparent !important;
 }
 .hc-cover {
   /* Larger than the old 46vh: on a desktop screen the artwork should be the
@@ -242,6 +243,7 @@
   height: min(100%, 54vh);
   aspect-ratio: 1;
   max-width: 100%;
+  border-radius: 14px;
   cursor: grab;
   touch-action: pan-y;
   transition: transform 90ms linear,
@@ -265,12 +267,20 @@
 }
 .hc-swap {
   width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: transparent !important;
 }
 .hc-swap .fp-cover-swap__layer {
   border-radius: 14px;
+  background: transparent !important;
+}
+.hc-swap .am-cover {
+  border-radius: 14px !important;
+  background: transparent !important;
 }
 .hc-swap .fp-cover-swap__layer--top {
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22), 0 2px 10px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18), 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* ---------- Glow progress ---------- */
@@ -288,9 +298,9 @@
 .hc-glow__track {
   position: relative;
   width: 100%;
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.24);
   /*
    * Thickens under the finger, the way the Apple Music bar does.
    *
@@ -310,7 +320,7 @@
 .hc-glow:hover .hc-glow__track,
 .hc-glow:active .hc-glow__track,
 .hc-glow--active .hc-glow__track {
-  height: 6px;
+  height: 4px;
   transition-duration: 110ms;
 }
 
@@ -318,12 +328,12 @@
    the thumb is down, which :active covers on its own. */
 @media (hover: none) {
   .hc-glow:hover .hc-glow__track {
-    height: 4px;
+    height: 3px;
     transition-duration: 180ms;
   }
   .hc-glow:active .hc-glow__track,
   .hc-glow--active .hc-glow__track {
-    height: 6px;
+    height: 4px;
   }
 }
 .hc-glow__fill {
@@ -333,18 +343,21 @@
   top: 0;
   bottom: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: none;
 }
 .hc-glow__head {
   position: absolute;
   /* Logical, so the head trails the fill's leading edge under RTL too. */
-  inset-inline-end: -8px;
+  inset-inline-end: -5px;
   top: 50%;
-  width: 16px;
-  height: 16px;
+  width: 11px;
+  height: 11px;
   transform: translateY(-50%);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.28);
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
   filter: none;
   /* The start fade comes from the component, so it composes with the active
      state below instead of being overridden by it. */
@@ -353,18 +366,13 @@
     scale var(--am-motion-micro) var(--am-ease-spring);
 }
 .hc-glow__head::after {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border-radius: 50%;
-  background: #fff;
-  filter: none;
+  display: none;
 }
 /* Dragging boosts the head by size and brightness rather than by opacity, which
    would fight the start fade for control of the same property. */
 .hc-glow--active .hc-glow__head {
-  scale: 1.12;
-  filter: brightness(1.15);
+  scale: 1.04;
+  filter: none;
 }
 
 /* ---- Low-end fallback ----------------------------------------------------
@@ -566,10 +574,10 @@
   text-align: left;
 }
 .hc-right .lyrics__spacer:first-child {
-  height: 30%;
+  height: 50%;
 }
 .hc-right .lyrics__spacer:last-child {
-  height: 40%;
+  height: 50%;
 }
 .hc-right .lyrics__line {
   color: #fff;
@@ -577,9 +585,29 @@
   filter: none;
   font-size: calc(18px * var(--lyric-scale, 1));
   padding: 10px 8px;
+  text-wrap: balance;
+  contain: layout style paint;
   transition: color var(--am-motion-normal) var(--am-ease-standard),
     opacity var(--am-motion-page) var(--am-ease-standard),
     font-size var(--am-motion-page) var(--am-ease-standard);
+}
+.hc-right .lyrics__interlude,
+.hc-p-lyrics .lyrics__interlude {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 12px 8px;
+  color: #fff;
+  opacity: 0.42;
+}
+.hc-right .lyrics__interlude span,
+.hc-p-lyrics .lyrics__interlude span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: lyrics-interlude-pulse 1.6s ease-in-out infinite;
 }
 .hc-right .lyrics__line:hover {
   opacity: 0.85;
@@ -712,6 +740,7 @@
   justify-content: center;
   padding: 10px 0 0;
   overflow: hidden;
+  background: transparent !important;
 }
 .hc--p .hc-p-cover .hc-cover {
   /* Fills what it can: capped by width on a narrow phone, by height on a tall
@@ -798,7 +827,7 @@
   min-height: 0;
 }
 .hc-p-lyrics .lyrics__spacer {
-  height: 18%;
+  height: 50%;
 }
 .hc--p-lyrics .hc-p-spacer {
   display: none;
@@ -1024,10 +1053,13 @@
   background: rgba(39, 48, 64, 0.14);
 }
 [data-theme='light'] .hc:not(.hc--imm) .hc-glow__fill {
-  background: rgba(61, 123, 255, 0.78);
+  background: #4f7ff0;
+  box-shadow: none;
 }
-[data-theme='light'] .hc:not(.hc--imm) .hc-glow__head::after {
-  background: #2458c7;
+[data-theme='light'] .hc:not(.hc--imm) .hc-glow__head {
+  background: #fff;
+  border-color: rgba(40, 62, 110, 0.18);
+  box-shadow: 0 1px 4px rgba(42, 71, 136, 0.24);
 }
 [data-theme='light'] .hc:not(.hc--imm) .hc-times {
   color: #5f6672;
@@ -1095,6 +1127,44 @@
   width: min(88vw, 52vh);
   height: min(88vw, 52vh);
   max-height: 100%;
+  aspect-ratio: 1 / 1;
+  background: transparent;
+  overflow: hidden;
+}
+
+/* A cover swipe is a direct-manipulation state: keep every lyric glyph crisp
+   while the artwork follows the finger, then restore the user's blur setting
+   after release. */
+.hc--cover-dragging .hc-right .lyrics__line,
+.hc--cover-dragging .hc-p-lyrics .lyrics__line {
+  filter: none !important;
+}
+
+/* Directly dragging the lyric sheet gets the same readable state as dragging
+   the cover: the rows stay crisp while the finger is moving. */
+.hc--lyrics-dragging .hc-right .lyrics__line,
+.hc--lyrics-dragging .hc-p-lyrics .lyrics__line {
+  filter: none !important;
+}
+
+.lyrics-wrap--dragging .lyrics__line,
+.lyrics-wrap--dragging .lyrics__line--near,
+.lyrics-wrap--dragging .lyrics__line--far,
+.lyrics-wrap--dragging .lyrics__line--active {
+  filter: none !important;
+}
+
+.lyrics-wrap--scrubbing .lyrics__line,
+.lyrics-wrap--scrubbing .lyrics__line--near,
+.lyrics-wrap--scrubbing .lyrics__line--far,
+.lyrics-wrap--scrubbing .lyrics__line--active {
+  filter: none !important;
+}
+
+.lyrics__line--clear {
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 /* ---- Cover blur backdrop: the artwork itself becomes the ambience ---- */

@@ -41,7 +41,12 @@ export function Visualizer({ playing, className, colors }: VisualizerProps) {
     const frame = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (playingRef.current) t += dt;
+      if (!playingRef.current) {
+        ctx.clearRect(0, 0, canvas.clientWidth || 300, canvas.clientHeight || 26);
+        raf = 0;
+        return;
+      }
+      t += dt;
       const w = canvas.clientWidth || 300;
       const h = canvas.clientHeight || 26;
       if (canvas.width !== w) canvas.width = w;
@@ -105,11 +110,22 @@ export function Visualizer({ playing, className, colors }: VisualizerProps) {
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+      if (playingRef.current && !document.hidden) raf = requestAnimationFrame(frame);
+    };
+
+    const wake = () => {
+      if (document.hidden || !playingRef.current || raf !== 0) return;
+      last = performance.now();
       raf = requestAnimationFrame(frame);
     };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    document.addEventListener('visibilitychange', wake);
+    if (playing && !document.hidden) raf = requestAnimationFrame(frame);
+    return () => {
+      document.removeEventListener('visibilitychange', wake);
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    };
+  }, [playing]);
 
   return <canvas ref={ref} className={className} aria-hidden="true" />;
 }

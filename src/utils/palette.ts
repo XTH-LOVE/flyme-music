@@ -7,6 +7,44 @@ const PALETTES: [string, string][] = [
   ['#009A93', '#80E0D8'],
 ];
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/** Reject malformed/transparent cover colours before they reach CSS variables. */
+export function isSafeHexColor(value: unknown): value is string {
+  return typeof value === 'string' && HEX_COLOR.test(value);
+}
+
+export function safePalette(
+  palette: [string, string] | null | undefined,
+  fallback: [string, string] = PALETTES[0],
+): [string, string] {
+  const first = isSafeHexColor(palette?.[0]) ? palette[0] : fallback[0];
+  const second = isSafeHexColor(palette?.[1]) ? palette[1] : first;
+  return [first, second];
+}
+
+/** Stabilize colours for large player backgrounds. */
+export function playerPalette(
+  palette: [string, string] | null | undefined,
+  fallback: [string, string] = PALETTES[0],
+): [string, string] {
+  const [first, second] = safePalette(palette, fallback);
+  const luma = (hex: string) => {
+    const n = Number.parseInt(hex.slice(1), 16);
+    return ((n >> 16) & 255) * 0.2126 + ((n >> 8) & 255) * 0.7152 + (n & 255) * 0.0722;
+  };
+  const values = [luma(first), luma(second)];
+  const adjust = (hex: string, mode: 'lift' | 'lower' | 'keep') => {
+    if (mode === 'keep') return hex;
+    const n = Number.parseInt(hex.slice(1), 16);
+    const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    const scale = mode === 'lift' ? 1.28 : 0.82;
+    return '#' + rgb.map((v) => Math.min(220, Math.max(18, Math.round(v * scale))).toString(16).padStart(2, '0')).join('');
+  };
+  const mode = values.every((value) => value < 50) ? 'lift' : values.every((value) => value > 218) ? 'lower' : 'keep';
+  return [adjust(first, mode), adjust(second, mode)];
+}
+
 /** Deterministic gradient art for tracks without a palette (remote songs). */
 export function fallbackPalette(id: string): [string, string] {
   let h = 0;
@@ -32,6 +70,9 @@ export function accentFromCover(
   palette: [string, string] | null,
   dynamicAccent: boolean,
 ): string | null {
-  if (!dynamicAccent || !palette) return null;
+  if (!dynamicAccent || !palette || !isSafeHexColor(palette[0])) return null;
+  const n = Number.parseInt(palette[0].slice(1), 16);
+  const luma = ((n >> 16) & 255) * 0.2126 + ((n >> 8) & 255) * 0.7152 + (n & 255) * 0.0722;
+  if (luma < 42 || luma > 218) return null;
   return palette[0];
 }

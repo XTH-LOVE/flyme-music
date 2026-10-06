@@ -40,7 +40,17 @@ function lineTimesAndText(raw: string): { times: number[]; text: string } | null
 }
 
 function enhancedWords(text: string, lineTime: number): { text: string; words?: TimedLyricWord[] } {
-  const tags = [...text.matchAll(/<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>/g)];
+  const clockTags = [...text.matchAll(/<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>/g)].map((match) => ({
+    index: match.index ?? 0,
+    raw: match[0],
+    start: Number(match[1]) * 60 + Number(match[2]) + Number((match[3] ?? '').padEnd(3, '0')) / 1000,
+  }));
+  const offsetTags = [...text.matchAll(/<(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)>/g)].map((match) => ({
+    index: match.index ?? 0,
+    raw: match[0],
+    start: lineTime + Number(match[1]) / 1000,
+  }));
+  const tags = clockTags.length ? clockTags : offsetTags;
   if (!tags.length) return { text };
 
   const segments: Array<{ start: number; text: string }> = [];
@@ -51,11 +61,9 @@ function enhancedWords(text: string, lineTime: number): { text: string; words?: 
   for (let i = 0; i < tags.length; i += 1) {
     const tag = tags[i];
     const next = tags[i + 1];
-    const fraction = Number((tag[3] ?? '').padEnd(3, '0')) / 1000;
-    const start = Number(tag[1]) * 60 + Number(tag[2]) + fraction;
-    const from = (tag.index ?? 0) + tag[0].length;
+    const from = tag.index + tag.raw.length;
     const to = next?.index ?? text.length;
-    segments.push({ start, text: text.slice(from, to) });
+    segments.push({ start: tag.start, text: text.slice(from, to) });
   }
 
   const words = segments.filter((part) => part.text.length > 0).map((part, index, all) => ({

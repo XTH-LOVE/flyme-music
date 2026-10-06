@@ -80,9 +80,9 @@ export function fetchWithTimeout(
     if (external.aborted) controller.abort();
     else external.addEventListener('abort', forwardAbort);
   }
-  const timer = window.setTimeout(() => controller.abort(), timeout);
+  const timer = globalThis.setTimeout(() => controller.abort(), timeout);
   return httpFetch(input, { ...init, signal: controller.signal }).finally(() => {
-    window.clearTimeout(timer);
+    globalThis.clearTimeout(timer);
     if (external) external.removeEventListener('abort', forwardAbort);
   });
 }

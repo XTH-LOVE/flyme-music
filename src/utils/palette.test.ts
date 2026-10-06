@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accentFromCover, fallbackPalette } from './palette';
+import { accentFromCover, fallbackPalette, playerPalette, safePalette } from './palette';
 
 describe('fallbackPalette', () => {
   it('is deterministic and always returns a real two-tone palette', () => {
@@ -37,5 +37,22 @@ describe('accentFromCover', () => {
     // Same answer as "still loading", which is what makes a failed extraction
     // settle on the theme accent instead of flickering.
     expect(accentFromCover(null, false)).toBeNull();
+  });
+});
+
+describe('safePalette', () => {
+  it('rejects malformed and transparent CSS values', () => {
+    expect(safePalette(['transparent', 'rgba(0,0,0,0)'])).toEqual(['#3D7BFF', '#3D7BFF']);
+  });
+
+  it('keeps valid cover colours intact', () => {
+    expect(safePalette(['#102030', '#f0c080'])).toEqual(['#102030', '#f0c080']);
+  });
+});
+
+describe('playerPalette', () => {
+  it('lifts black palettes and lowers white palettes for ambient backgrounds', () => {
+    expect(playerPalette(['#000000', '#101010'])[0]).not.toBe('#000000');
+    expect(playerPalette(['#ffffff', '#eeeeee'])[0]).not.toBe('#ffffff');
   });
 });

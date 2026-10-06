@@ -92,6 +92,7 @@ export function AmbientCanvas({ palette, live }: AmbientCanvasProps) {
   /** Read from inside the animation loop so the loop never has to restart. */
   const targetRef = useRef(config);
   const liveRef = useRef(live);
+  const wakeRef = useRef<(() => void) | null>(null);
   /** Repaints the frozen frame on demand; installed by the effect below. */
   const redrawRef = useRef<((dt: number) => void) | null>(null);
 
@@ -102,6 +103,7 @@ export function AmbientCanvas({ palette, live }: AmbientCanvasProps) {
     // pushed through by hand or the still frame keeps the old colours. An
     // infinite step lands the ease in a single frame.
     if (!live) redrawRef.current?.(Number.POSITIVE_INFINITY);
+    if (live) wakeRef.current?.();
   }, [config, live]);
 
   useEffect(() => {
@@ -151,34 +153,49 @@ export function AmbientCanvas({ palette, live }: AmbientCanvasProps) {
     observer.observe(canvas);
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onVisibility = () => {
+      if (!document.hidden && !reduced.matches && liveRef.current) wakeRef.current?.();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     let frame = 0;
     let previous = 0;
     let pending = 0;
 
     const tick = (now: number) => {
-      frame = requestAnimationFrame(tick);
       const delta = previous === 0 ? 0 : now - previous;
       previous = now;
       // `previous` advances even while skipping, so resuming after a pause
       // continues the drift from where it stopped instead of teleporting.
       if (!liveRef.current || document.hidden || reduced.matches) {
         pending = 0;
+        frame = 0;
         return;
       }
       // Advance by real elapsed time: the drift keeps a constant speed however
       // often we actually repaint.
       clock += delta * 0.001 * DRIFT_RATE;
       pending += delta;
-      if (pending < FRAME_MS) return;
+      if (pending < FRAME_MS) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
       pending = 0;
       draw(delta);
+      frame = requestAnimationFrame(tick);
+    };
+    wakeRef.current = () => {
+      if (frame || document.hidden || reduced.matches || !liveRef.current) return;
+      previous = performance.now();
+      frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(frame);
+      document.removeEventListener('visibilitychange', onVisibility);
       observer.disconnect();
       redrawRef.current = null;
+      wakeRef.current = null;
     };
   }, []);
 

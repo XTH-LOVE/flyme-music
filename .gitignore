@@ -53,3 +53,8 @@ release-cf/
 # 临时链接器探针产物（scripts/build-android.sh 的 sanity check 用）
 probe-*
 *.rcgu.o
+
+# 本地参考/审计资料（不随正式发布提交）
+.tmp-flyme084-audit/
+xth/
+references/

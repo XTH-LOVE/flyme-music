@@ -5,6 +5,11 @@ import { TrackCover } from '@/components/TrackCover';
 import { BottomSheet } from '@/design-system/components/BottomSheet';
 import { playerController } from '@/player';
 import { usePlayerStore } from '@/store/usePlayerStore';
+import { useLibraryStore } from '@/store/useLibraryStore';
+import { suggestNextTracks } from '@/player/smartQueue';
+import { notify } from '@/utils/notify';
+import { listCachedCards } from '@/audio/analysis/cache';
+import { trackKeyOf } from '@/audio/analysis/types';
 import { formatTime } from '@/utils/format';
 import { dragShift, dropTarget, gapAt, type SlotGeometry } from '@/utils/queueDrag';
 import './fullplayer.css';
@@ -45,9 +50,13 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
   const queue = usePlayerStore((s) => s.queue);
   const queueIndex = usePlayerStore((s) => s.queueIndex);
   const status = usePlayerStore((s) => s.status);
+  const favoriteTracks = useLibraryStore((s) => s.favoriteTracks);
+  const recentTracks = useLibraryStore((s) => s.recentTracks);
+  const playLog = useLibraryStore((s) => s.playLog);
   const rowsRef = useRef<HTMLDivElement>(null);
   const origin = useRef<{ y: number; geometry: SlotGeometry } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [smartLoading, setSmartLoading] = useState(false);
 
   const nowPlaying = queue[queueIndex];
   const upNext = queue.slice(queueIndex + 1);
@@ -105,6 +114,53 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
     origin.current = null;
     setDrag(null);
   };
+  const addSmartNext = async () => {
+    if (!nowPlaying) return;
+    setSmartLoading(true);
+    const queued = new Set(queue.map((item) => item.source + ':' + item.id));
+    try {
+      const cards = await listCachedCards();
+      const cardsByKey = new Map(cards.map((card) => [card.trackKey, card]));
+      const currentCard = cardsByKey.get(trackKeyOf(nowPlaying));
+      const playStats = new Map<string, { count: number; lastPlayedAt?: number }>();
+      for (const entry of playLog) {
+        const current = playStats.get(entry.key) ?? { count: 0 };
+        current.count += 1;
+        current.lastPlayedAt = Math.max(current.lastPlayedAt ?? 0, entry.ts);
+        playStats.set(entry.key, current);
+      }
+      const candidateTracks = new Map<string, typeof nowPlaying>();
+      for (const track of [...favoriteTracks, ...recentTracks, ...cards.map((card) => card.track)]) {
+        candidateTracks.set(trackKeyOf(track), track);
+      }
+      const candidates = [...candidateTracks.values()]
+        .filter((item) => !queued.has(item.source + ':' + item.id))
+        .map((track) => {
+          const key = track.source + ':' + track.id;
+          const card = cardsByKey.get(trackKeyOf(track));
+          const stats = playStats.get(key);
+          return {
+            track,
+            features: card,
+            liked: favoriteTracks.some((favorite) => favorite.source === track.source && favorite.id === track.id),
+            playCount: stats?.count,
+            lastPlayedAt: stats?.lastPlayedAt,
+          };
+        });
+      const suggestions = suggestNextTracks(nowPlaying, candidates, {
+        limit: 2,
+        currentFeatures: currentCard,
+      });
+      if (!suggestions.length) {
+        notify('暂时没有合适的推荐歌曲');
+        return;
+      }
+      playerController.playNext(suggestions.map((item) => item.track));
+      notify(currentCard ? '已按听感添加 ' + suggestions.length + ' 首推荐' : '已添加 ' + suggestions.length + ' 首智能推荐');
+    } finally {
+      setSmartLoading(false);
+    }
+  };
   return (
     <BottomSheet
       open={open}
@@ -135,18 +191,26 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
           </>
         ) : null}
 
-        {upNext.length ? (
+        {nowPlaying ? (
           <>
             <div className="queue-section-head">
               <div className="queue-section-title">接下来播放</div>
-              {/* Only the pending songs: this button sits under 接下来播放, so
-                  clearing the whole queue would also stop the current track. */}
-              <button className="queue-clear" onClick={() => playerController.clearUpNext()}>
-                <Icon name="trash" size={14} />
-                清空待播
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="queue-clear" onClick={() => void addSmartNext()} disabled={smartLoading}>
+                  <Icon name="refresh" size={14} />
+                  {smartLoading ? '分析中…' : '智能补充'}
+                </button>
+                {/* Only the pending songs: this button sits under 接下来播放, so
+                    clearing the whole queue would also stop the current track. */}
+                {upNext.length ? (
+                  <button className="queue-clear" onClick={() => playerController.clearUpNext()}>
+                    <Icon name="trash" size={14} />
+                    清空待播
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <div className={'queue-rows' + (drag ? ' queue-rows--dragging' : '')} ref={rowsRef}>
+            {upNext.length ? <div className={'queue-rows' + (drag ? ' queue-rows--dragging' : '')} ref={rowsRef}>
               {upNext.map((track, i) => {
                 const realIndex = queueIndex + 1 + i;
                 const shift = shifts ? shifts[i] : 0;
@@ -212,7 +276,7 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
               {drag && target !== drag.from ? (
                 <div className="queue-drop" style={{ top: target * drag.rowHeight + 'px' }} />
               ) : null}
-            </div>
+            </div> : <div className="queue-section-title" style={{ padding: '12px 0', opacity: 0.6 }}>暂无待播歌曲</div>}
           </>
         ) : null}
       </div>

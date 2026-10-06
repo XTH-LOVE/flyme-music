@@ -13,6 +13,7 @@ import {
   type ProactiveKind,
   type SessionState,
 } from './proactive';
+import { flushDeferred } from './deferred';
 
 /**
  * Headless proactive companion: greets once a day, reacts to listening
@@ -25,6 +26,21 @@ export function ProactiveEngine() {
   const model = useAiStore((s) => s.model);
   const persona = useAiStore((s) => s.persona);
   const lastKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    const drain = () => {
+      const due = flushDeferred();
+      if (!due.length) return;
+      const state = useAiStore.getState();
+      for (const item of due) {
+        state.pushMessage({ id: nextAiMsgId(), role: 'ai', kind: 'chat', text: item.message, steps: [`已到期：${item.trigger}`] });
+        notify('Flyme 有一条延后提醒');
+      }
+    };
+    drain();
+    const timer = window.setInterval(drain, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const push = (

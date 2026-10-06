@@ -569,6 +569,48 @@ function aiProxy(env: Record<string, string>): Plugin {
   };
 }
 
+/** Optional local development proxy for CLAP/EffNet-compatible rerankers. */
+function musicRankProxy(env: Record<string, string>): Plugin {
+  const endpoint = env.AURORA_EMBEDDING_ENDPOINT?.trim().replace(/\/$/, '') ?? '';
+  const apiKey = env.AURORA_EMBEDDING_API_KEY?.trim() ?? '';
+  const model = env.AURORA_EMBEDDING_MODEL?.trim() ?? '';
+  return {
+    name: 'aurora-music-rank-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/music/rank', (req, res) => {
+        if (req.method !== 'POST' || !endpoint) {
+          res.statusCode = endpoint ? 405 : 503;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: endpoint ? 'method not allowed' : 'embedding service is not configured' }));
+          return;
+        }
+        let body = '';
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', async () => {
+          try {
+            const parsed = JSON.parse(body) as { query?: unknown; candidates?: unknown };
+            const upstream = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': PC_USER_AGENT,
+                ...(apiKey ? { Authorization: 'Bearer ' + apiKey } : {}),
+              },
+              body: JSON.stringify({ query: parsed.query, candidates: parsed.candidates, model: model || undefined }),
+            });
+            res.statusCode = upstream.status;
+            res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/json');
+            res.end(await upstream.text());
+          } catch (error) {
+            res.statusCode = 502;
+            res.end(JSON.stringify({ error: String(error) }));
+          }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'AURORA_');
   // The app's own version, read from package.json so there is one place to bump
@@ -592,6 +634,7 @@ export default defineConfig(({ mode }) => {
     imageProxy(),
     mediaDownloadProxy(),
     aiProxy(env),
+    musicRankProxy(env),
   ],
   resolve: {
     alias: {

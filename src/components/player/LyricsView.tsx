@@ -1,74 +1,109 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
 import { parseTimedLyricFile } from '@/utils/timedLyrics';
+import { optimizeLyricLines } from '@/utils/lyricOptimize';
 import { analyseLyricVoices, voiceSide } from '@/utils/lyricVoices';
 import type { MusicTrack } from '@/music/source/types';
 import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
-import { Spring } from '@/utils/spring';
 import './fullplayer.css';
 import './lyrics-trans.css';
 
 interface LyricsViewProps {
   track: MusicTrack;
   currentTime: number;
+  onDraggingChange?: (dragging: boolean) => void;
 }
 
+const TOUCH_SLOP = 8;
+const AUTO_SCROLL_RESUME_MS = 5000;
+const SCROLL_ANIM_MS = 400;
+
 /**
- * Immersive bilingual lyrics with Halcyon-style 3D perspective tilt.
- * Uses the app-wide shared lyric cache (prefetched at play start).
- * Desktop: single click seeks. Touch: double-tap seeks; dragging shows a
- * dashed scrub line with a play button that seeks to the centered line.
+ * The lyric sheet has one owner for scrolling:
+ *
+ * - playback owns the sheet while the user is idle;
+ * - a real touch/wheel gesture temporarily owns it;
+ * - releasing the gesture keeps the sheet readable for five seconds;
+ * - playback then retargets the current line with one 400ms animation.
+ *
+ * Keeping these states in one component is intentional. The previous version
+ * combined a spring, native smooth scrolling and pointer state, which meant
+ * that each system could retarget the same scroll position at once.
  */
-export function LyricsView({ track, currentTime }: LyricsViewProps) {
+export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewProps) {
   const [lines, setLines] = useState<MiniLyricLine[]>([]);
-  /** Whether the fetch has settled - an empty list means "none", not "wait". */
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [request, setRequest] = useState(0);
   const [importError, setImportError] = useState('');
-  const manualLyricsRef = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [scrubIdx, setScrubIdx] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [offsetOpen, setOffsetOpen] = useState(false);
+  const [showTrans, setShowTrans] = useState(true);
+  const [, setLyricScale] = useState(1);
+
+  const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const touching = useRef(false);
-  const hideTimer = useRef<number | null>(null);
-  // Subscribed (not read via getState) so nudging the offset re-renders and the
-  // highlight moves immediately, without refetching the lyrics.
+  const manualLyricsRef = useRef(false);
+  const scrubIdxRef = useRef<number | null>(null);
+  const activeIndexRef = useRef(-1);
+  const userScrollingRef = useRef(false);
+  const touchingRef = useRef(false);
+  const dragStartedRef = useRef(false);
+  const dragStartYRef = useRef(0);
+  const draggedRef = useRef(false);
+  const autoResumeTimerRef = useRef<number | null>(null);
+  const wheelReleaseTimerRef = useRef<number | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+  const scrollAnimationRef = useRef<number | null>(null);
   const offset = useLyricStore((s) => s.offset);
   const setOffset = useLyricStore((s) => s.setOffset);
   const nudgeOffset = useLyricStore((s) => s.nudge);
-  const [offsetOpen, setOffsetOpen] = useState(false);
-  // Single-click seek only where a real mouse exists; on touch screens a
-  // single tap must not seek (too easy to trigger while scrolling).
-  const seekable =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-  // Lyric font scaling (persisted) and translation visibility toggle.
-  const [, setLyricScale] = useState(1);
-  const [showTrans, setShowTrans] = useState(true);
+  const setScrubTarget = (index: number | null) => {
+    scrubIdxRef.current = index;
+    setScrubIdx(index);
+  };
+
+  const clearTimer = (timer: { current: number | null }) => {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  };
+
+  const cancelScrollAnimation = () => {
+    if (scrollAnimationRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationRef.current);
+      scrollAnimationRef.current = null;
+    }
+  };
+
   useEffect(() => {
-    const s = Number(localStorage.getItem('aurora.lyricScale'));
-    if (s >= 0.8 && s <= 1.6) {
-      setLyricScale(s);
-      document.documentElement.style.setProperty('--lyric-scale', String(s));
+    const scale = Number(localStorage.getItem('aurora.lyricScale'));
+    if (scale >= 0.8 && scale <= 1.6) {
+      setLyricScale(scale);
+      document.documentElement.style.setProperty('--lyric-scale', String(scale));
     }
     if (localStorage.getItem('aurora.lyricTrans') === '0') setShowTrans(false);
   }, []);
-  const bumpScale = (d: number) => {
-    setLyricScale((prev) => {
-      const next = Math.min(1.6, Math.max(0.8, Math.round((prev + d) * 100) / 100));
+
+  const bumpScale = (delta: number) => {
+    setLyricScale((previous) => {
+      const next = Math.min(1.6, Math.max(0.8, Math.round((previous + delta) * 100) / 100));
       localStorage.setItem('aurora.lyricScale', String(next));
       document.documentElement.style.setProperty('--lyric-scale', String(next));
       return next;
     });
   };
+
   const toggleTrans = () => {
-    setShowTrans((prev) => {
-      localStorage.setItem('aurora.lyricTrans', prev ? '0' : '1');
-      return !prev;
+    setShowTrans((previous) => {
+      localStorage.setItem('aurora.lyricTrans', previous ? '0' : '1');
+      return !previous;
     });
   };
 
@@ -91,23 +126,45 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
         setLoaded(true);
         setLoadError('歌词加载失败，请重试或导入本地歌词');
       });
+
+    userScrollingRef.current = false;
+    touchingRef.current = false;
+    dragStartedRef.current = false;
+    activeIndexRef.current = -1;
+    clearTimer(autoResumeTimerRef);
+    clearTimer(wheelReleaseTimerRef);
+    clearTimer(hideTimerRef);
+    cancelScrollAnimation();
+    setDragging(false);
+    setManualMode(false);
+    setScrubTarget(null);
+    onDraggingChange?.(false);
+
     return () => {
       alive = false;
     };
-    // Narrowed to the track identity on purpose: `track` is a new object on
-    // every player-store update, so depending on it would refetch lyrics on
-    // each position tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+    // The track object changes on every playback tick; identity is deliberate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.id, track.source, request]);
+
+  useEffect(
+    () => () => {
+      clearTimer(autoResumeTimerRef);
+      clearTimer(wheelReleaseTimerRef);
+      clearTimer(hideTimerRef);
+      cancelScrollAnimation();
+      onDraggingChange?.(false);
+    },
+    [onDraggingChange],
+  );
 
   const importLyrics = async (file?: File) => {
     if (!file) return;
     manualLyricsRef.current = true;
     try {
-      const content = await file.text();
-      const parsed = parseTimedLyricFile(content);
+      const parsed = parseTimedLyricFile(await file.text());
       if (!parsed.length) throw new Error('文件中没有可识别的歌词或时间戳');
-      setLines(parsed);
+      setLines(optimizeLyricLines(parsed));
       setLoaded(true);
       setLoadError('');
       setImportError('');
@@ -117,145 +174,240 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
     }
   };
 
-  // Duet voices and backing vocals, read from the sheet's own conventions.
   const voices = useMemo(() => analyseLyricVoices(lines.map((line) => line.text)), [lines]);
 
   let activeIndex = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].time + offset > currentTime) break;
-    // A line that is only an aside never becomes "the line being sung"; the
-    // highlight stays on the last line that actually had words.
-    if (!voices.lines[i].allBackground) activeIndex = i;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index].time + offset > currentTime) break;
+    if (!voices.lines[index].allBackground) activeIndex = index;
   }
+  activeIndexRef.current = activeIndex;
 
-  /*
-   * The scroll is spring-driven, which is what lets every line move.
-   *
-   * It used to call scrollTo, and the comment that was here explained the
-   * workaround: two overlapping smooth scrolls fight, the second cancels the
-   * first and restarts from wherever it got to, and that stutter is why a
-   * one-line step was jumped instantly instead of animated. The result was that
-   * the common case - a line changing - had no motion at all, and only a seek
-   * did.
-   *
-   * A spring does not fight itself. Retargeting mid-flight keeps the velocity
-   * and bends toward the new position, so a line arriving before the last one
-   * has settled is smooth rather than a restart.
-   *
-   * scrollTop is still what moves, so native touch scrolling and the existing
-   * drag-to-scrub keep working; the spring only drives it while the user is not
-   * holding it.
-   */
-  const scrollSpring = useRef<Spring | null>(null);
-  const scrollRaf = useRef(0);
+  const lyricTarget = (index: number) => {
+    const container = containerRef.current;
+    if (!container || index < 0) return null;
+    const line = container.querySelector<HTMLElement>(`[data-index="${index}"]`);
+    if (!line) return null;
+    const centered = line.offsetTop - (container.clientHeight - line.offsetHeight) / 2;
+    const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+    return Math.max(0, Math.min(maxScroll, centered));
+  };
 
-  useEffect(() => {
+  const animateScrollTo = (target: number, duration = SCROLL_ANIM_MS) => {
     const container = containerRef.current;
     if (!container) return;
-    const el = container.querySelector<HTMLElement>('[data-active="true"]');
-    if (!el) return;
-
-    const target = el.offsetTop - (container.clientHeight - el.offsetHeight) / 2;
-    if (!scrollSpring.current) {
-      /*
-       * damping = sqrt(stiffness) * 2.2, which is AMLL's formula and the reason
-       * it uses one.
-       *
-       * Critical damping for stiffness 170 is 2*sqrt(170) = 26.1, so a round 26
-       * is just under it - the spring arrives, overshoots, and comes back. On a
-       * scroll that reads as the text bobbing up and down after every line
-       * change, which is what it did. The multiplier puts it clearly past
-       * critical: no overshoot, and still fast enough to land before the next
-       * line.
-       */
-      const stiffness = 220;
-      scrollSpring.current = new Spring(container.scrollTop, {
-        stiffness,
-        damping: Math.sqrt(stiffness) * 2.2,
-      });
+    cancelScrollAnimation();
+    const start = container.scrollTop;
+    const distance = target - start;
+    if (Math.abs(distance) < 1 || duration <= 0) {
+      container.scrollTop = target;
+      return;
     }
-    scrollSpring.current.setTarget(target);
 
-    cancelAnimationFrame(scrollRaf.current);
-    let last = performance.now();
-    // Seeded from the container, not the spring: the two can differ after a
-    // drag, and a stale seed would make the first frame write a large jump.
-    let lastWritten = container.scrollTop;
+    const startedAt = performance.now();
     const tick = (now: number) => {
-      const spring = scrollSpring.current;
-      if (!spring) return;
-      spring.update((now - last) / 1000);
-      last = now;
-      /*
-       * Written only when it actually changed, and never while a finger is on
-       * it.
-       *
-       * scrollTop is a layout-affecting property, so every write costs a
-       * layout even when the value is identical - and the spring spends most of
-       * its time within a fraction of a pixel of where it already was. The
-       * finger check is separate: while the user is scrolling, their gesture is
-       * the authority and writing underneath them fights it.
-       */
-      const next = spring.position;
-      if (!touching.current && Math.abs(next - lastWritten) >= 0.5) {
-        container.scrollTop = next;
-        lastWritten = next;
+      if (userScrollingRef.current) {
+        scrollAnimationRef.current = null;
+        return;
       }
-      // Stop once it has arrived. A settled spring is frozen, so a loop left
-      // running would burn a frame callback per frame for nothing.
-      if (spring.settled) return;
-      scrollRaf.current = requestAnimationFrame(tick);
+      const progress = Math.min(1, (now - startedAt) / duration);
+      // Halcyon's standard PathInterpolator(0.25, 0.1, 0.25, 1).
+      const eased =
+        progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      container.scrollTop = start + distance * eased;
+      if (progress < 1) {
+        scrollAnimationRef.current = window.requestAnimationFrame(tick);
+      } else {
+        scrollAnimationRef.current = null;
+      }
     };
-    scrollRaf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(scrollRaf.current);
-  }, [activeIndex, track.id]);
+    scrollAnimationRef.current = window.requestAnimationFrame(tick);
+  };
 
-  useEffect(() => () => cancelAnimationFrame(scrollRaf.current), []);
+  const resumeAutoScroll = () => {
+    clearTimer(autoResumeTimerRef);
+    userScrollingRef.current = false;
+    touchingRef.current = false;
+    dragStartedRef.current = false;
+    setDragging(false);
+    setManualMode(false);
+    onDraggingChange?.(false);
+    const target = lyricTarget(activeIndexRef.current);
+    if (target !== null) animateScrollTo(target);
+  };
 
-  useEffect(
-    () => () => {
-      if (hideTimer.current !== null) clearTimeout(hideTimer.current);
-    },
-    [],
-  );
+  const scheduleResume = () => {
+    clearTimer(autoResumeTimerRef);
+    autoResumeTimerRef.current = window.setTimeout(() => {
+      autoResumeTimerRef.current = null;
+      resumeAutoScroll();
+    }, AUTO_SCROLL_RESUME_MS);
+  };
 
-  /** Line index nearest the vertical center of the lyrics viewport. */
-  const centerLineIndex = (): number | null => {
-    const el = containerRef.current;
-    if (!el || !lines.length) return null;
-    const r = el.getBoundingClientRect();
-    const center = r.top + r.height / 2;
-    const nodes = el.querySelectorAll<HTMLElement>('.lyrics__line');
-    let best = -1;
-    let bestD = Infinity;
-    nodes.forEach((n, i) => {
-      const nr = n.getBoundingClientRect();
-      const d = Math.abs(nr.top + nr.height / 2 - center);
-      if (d < bestD) {
-        bestD = d;
-        best = i;
+  const enterManualMode = () => {
+    clearTimer(autoResumeTimerRef);
+    cancelScrollAnimation();
+    if (!userScrollingRef.current) {
+      userScrollingRef.current = true;
+      setManualMode(true);
+      onDraggingChange?.(true);
+    } else {
+      setManualMode(true);
+    }
+  };
+
+  const centerLineIndex = () => {
+    const container = containerRef.current;
+    if (!container || !lines.length) return null;
+    const bounds = container.getBoundingClientRect();
+    const center = bounds.top + bounds.height / 2;
+    let best: number | null = null;
+    let bestDistance = Infinity;
+    container.querySelectorAll<HTMLElement>('.lyrics__line').forEach((line) => {
+      const rect = line.getBoundingClientRect();
+      const distance = Math.abs(rect.top + rect.height / 2 - center);
+      const index = Number(line.dataset.index);
+      if (distance < bestDistance && Number.isFinite(index)) {
+        bestDistance = distance;
+        best = index;
       }
     });
-    return best >= 0 ? best : null;
+    return best;
   };
 
   const showScrub = () => {
-    setScrubIdx(centerLineIndex());
+    setScrubTarget(centerLineIndex());
   };
-  const scheduleHide = () => {
-    if (hideTimer.current !== null) clearTimeout(hideTimer.current);
-    hideTimer.current = window.setTimeout(() => {
-      if (!touching.current) setScrubIdx(null);
+
+  const scheduleHideScrub = () => {
+    clearTimer(hideTimerRef);
+    hideTimerRef.current = window.setTimeout(() => {
+      if (!touchingRef.current) setScrubTarget(null);
+      hideTimerRef.current = null;
     }, 1600);
   };
 
+  const releaseDrag = () => {
+    const wasDragging = dragStartedRef.current;
+    touchingRef.current = false;
+    dragStartedRef.current = false;
+    if (!wasDragging) return;
+    setDragging(false);
+    enterManualMode();
+    scheduleResume();
+    scheduleHideScrub();
+  };
+
+  const seekToLyric = (time: number) => {
+    clearTimer(autoResumeTimerRef);
+    clearTimer(wheelReleaseTimerRef);
+    cancelScrollAnimation();
+    userScrollingRef.current = false;
+    touchingRef.current = false;
+    dragStartedRef.current = false;
+    setDragging(false);
+    setManualMode(false);
+    setScrubTarget(null);
+    onDraggingChange?.(false);
+    playerController.seek(time + offset);
+  };
+
+  useEffect(() => {
+    if (userScrollingRef.current || touchingRef.current) return;
+    const target = lyricTarget(activeIndex);
+    if (target !== null) animateScrollTo(target);
+    // The target is derived from the rendered lyric row and current track.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, track.id]);
+
+  useEffect(() => {
+    const onPointerUp = () => {
+      if (touchingRef.current) releaseDrag();
+    };
+    const onPointerCancel = () => {
+      if (touchingRef.current) releaseDrag();
+    };
+    const onTouchEnd = () => {
+      if (touchingRef.current) releaseDrag();
+    };
+    const onTouchCancel = () => {
+      if (touchingRef.current) releaseDrag();
+    };
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', onTouchCancel, { passive: true });
+    return () => {
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchCancel);
+    };
+    // Handlers use refs, so they do not need to be recreated on every tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' || (event.button !== undefined && event.button !== 0)) return;
+    touchingRef.current = true;
+    dragStartedRef.current = false;
+    draggedRef.current = false;
+    dragStartYRef.current = event.clientY;
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!touchingRef.current || event.pointerType === 'mouse') return;
+    if (!dragStartedRef.current && Math.abs(event.clientY - dragStartYRef.current) >= TOUCH_SLOP) {
+      dragStartedRef.current = true;
+      draggedRef.current = true;
+      enterManualMode();
+      setDragging(true);
+      showScrub();
+    } else if (dragStartedRef.current) {
+      showScrub();
+    }
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchingRef.current) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchingRef.current = true;
+    dragStartedRef.current = false;
+    draggedRef.current = false;
+    dragStartYRef.current = touch.clientY;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchingRef.current) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    if (!dragStartedRef.current && Math.abs(touch.clientY - dragStartYRef.current) >= TOUCH_SLOP) {
+      dragStartedRef.current = true;
+      draggedRef.current = true;
+      enterManualMode();
+      setDragging(true);
+      showScrub();
+    } else if (dragStartedRef.current) {
+      showScrub();
+    }
+  };
+
+  const handleWheel = () => {
+    enterManualMode();
+    setDragging(false);
+    showScrub();
+    clearTimer(wheelReleaseTimerRef);
+    wheelReleaseTimerRef.current = window.setTimeout(() => {
+      wheelReleaseTimerRef.current = null;
+      scheduleResume();
+      scheduleHideScrub();
+    }, 180);
+  };
+
   const renderBody = () => {
-    /*
-     * "Still loading" and "there are none" are different, and used to look the
-     * same. A track with no lyrics - an instrumental, or one the providers do
-     * not have - resolved to an empty list, and the view sat on "loading"
-     * forever, which reads as a bug rather than as an answer.
-     */
     if (!lines.length) {
       return (
         <div className="lyrics__empty">
@@ -301,173 +453,195 @@ export function LyricsView({ track, currentTime }: LyricsViewProps) {
         </div>
       );
     }
-    return lines.map((line, i) => {
-      const parsed = voices.lines[i];
-      const dist = Math.abs(i - activeIndex);
+
+    const clearRows = manualMode || dragging || scrubIdx !== null;
+    return lines.map((line, index) => {
+      const parsed = voices.lines[index];
+      const distance = Math.abs(index - activeIndex);
       const side = voices.duet ? voiceSide(parsed.voice) : 'center';
-      const cls =
+      const className =
         'lyrics__line' +
-        (i === activeIndex
+        (index === activeIndex
           ? ' lyrics__line--active'
-          : dist === 1
+          : distance === 1
             ? ' lyrics__line--near'
-            : dist >= 4
+            : distance >= 4
               ? ' lyrics__line--far'
               : '') +
         (voices.duet ? ' lyrics__line--' + side : '') +
-        (parsed.allBackground ? ' lyrics__line--aside' : '');
+        (parsed.allBackground ? ' lyrics__line--aside' : '') +
+        (clearRows ? ' lyrics__line--clear' : '');
+      const gap = index > 0 ? line.time - lines[index - 1].time : 0;
       return (
-        <button
-          key={track.id + '-' + i}
-          data-active={i === activeIndex}
-          className={cls}
-          onClick={
-            seekable
-              ? (e) => {
-                  e.stopPropagation();
-                  playerController.seek(line.time + offset);
-                }
-              : (e) => {
-                  // Touch: require a deliberate double-tap to seek.
-                  if (e.detail < 2) return;
-                  e.stopPropagation();
-                  playerController.seek(line.time + offset);
-                }
-          }
-        >
-          <span className="lyrics__text">
-            {line.words?.length && i === activeIndex && !voices.duet && !parsed.allBackground
-              ? line.words.map((word, wordIndex) => {
-                  const wordTime = currentTime - offset;
-                  const progress = wordTime <= word.start
-                    ? 0
-                    : wordTime >= word.end
-                      ? 1
-                      : (wordTime - word.start) / (word.end - word.start);
-                  return (
-                    <span
-                      key={wordIndex}
-                      className="lyrics__word"
-                      style={{ '--word-progress': `${Math.round(progress * 100)}%` } as CSSProperties}
-                    >
-                      {word.text}
-                    </span>
-                  );
-                })
-              : parsed.runs.length
-              ? parsed.runs.map((run, r) => (
-                  <span
-                    key={r}
-                    className={run.background ? 'lyrics__bg' : undefined}
-                  >
-                    {run.text}
-                  </span>
-                ))
-              : '· · ·'}
-          </span>
-          {showTrans && line.trans ? <span className="lyrics__trans">{line.trans}</span> : null}
-        </button>
+        <Fragment key={track.id + '-' + index}>
+          {gap >= 5 ? (
+            <div className="lyrics__interlude" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          ) : null}
+          <button
+            type="button"
+            data-index={index}
+            data-active={index === activeIndex}
+            className={className}
+            onClick={(event) => {
+              if (draggedRef.current) {
+                draggedRef.current = false;
+                return;
+              }
+              event.stopPropagation();
+              seekToLyric(line.time);
+            }}
+          >
+            <span className="lyrics__text">
+              {line.words?.length && index === activeIndex && !voices.duet && !parsed.allBackground
+                ? line.words.map((word, wordIndex) => {
+                    const wordTime = currentTime - offset;
+                    const progress =
+                      wordTime <= word.start
+                        ? 0
+                        : wordTime >= word.end
+                          ? 1
+                          : (wordTime - word.start) / (word.end - word.start);
+                    return (
+                      <span
+                        key={wordIndex}
+                        className="lyrics__word"
+                        style={{ '--word-progress': `${Math.round(progress * 100)}%` } as CSSProperties}
+                      >
+                        {word.text}
+                      </span>
+                    );
+                  })
+                : parsed.runs.length
+                  ? parsed.runs.map((run, runIndex) => (
+                      <span key={runIndex} className={run.background ? 'lyrics__bg' : undefined}>
+                        {run.text}
+                      </span>
+                    ))
+                  : '· · ·'}
+            </span>
+            {showTrans && line.trans ? <span className="lyrics__trans">{line.trans}</span> : null}
+          </button>
+        </Fragment>
       );
     });
   };
 
   return (
     <div
-      className={'lyrics-wrap' + (scrubIdx !== null ? ' lyrics-wrap--scrubbing' : '')}
-      onPointerDown={(e) => {
-        if (e.pointerType !== 'touch') return;
-        touching.current = true;
-        showScrub();
-      }}
-      onPointerMove={(e) => {
-        if (e.pointerType !== 'touch' || !touching.current) return;
-        showScrub();
-      }}
-      onPointerUp={(e) => {
-        if (e.pointerType !== 'touch') return;
-        touching.current = false;
-        // Realign: the spring still holds the position from before the drag,
-        // and without this the next update would snap the view back to it.
-        if (scrollSpring.current && containerRef.current) {
-          scrollSpring.current.reset(containerRef.current.scrollTop);
-        }
-        scheduleHide();
-      }}
-      onPointerCancel={(e) => {
-        if (e.pointerType !== 'touch') return;
-        touching.current = false;
-        // Realign: the spring still holds the position from before the drag,
-        // and without this the next update would snap the view back to it.
-        if (scrollSpring.current && containerRef.current) {
-          scrollSpring.current.reset(containerRef.current.scrollTop);
-        }
-        scheduleHide();
-      }}
+      className={
+        'lyrics-wrap' +
+        (scrubIdx !== null ? ' lyrics-wrap--scrubbing' : '') +
+        (dragging ? ' lyrics-wrap--dragging' : '') +
+        (manualMode ? ' lyrics-wrap--manual' : '')
+      }
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={releaseDrag}
+      onPointerCancel={releaseDrag}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={releaseDrag}
+      onTouchCancel={releaseDrag}
     >
-      <div className="lyrics" ref={containerRef} onScroll={() => { if (scrubIdx !== null) showScrub(); }}>
+      <div
+        className="lyrics"
+        ref={containerRef}
+        onWheel={handleWheel}
+        onScroll={() => {
+          if (dragStartedRef.current) showScrub();
+        }}
+      >
         <div className="lyrics__spacer" />
         {renderBody()}
         <div className="lyrics__spacer" />
       </div>
+
       <div className="lyrics__controls">
         <button
+          type="button"
           className="lyrics__ctl-btn"
           aria-label="减小歌词字号"
-          onClick={(e) => { e.stopPropagation(); bumpScale(-0.1); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            bumpScale(-0.1);
+          }}
         >
           A−
         </button>
         <button
+          type="button"
           className="lyrics__ctl-btn"
           aria-label="增大歌词字号"
-          onClick={(e) => { e.stopPropagation(); bumpScale(0.1); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            bumpScale(0.1);
+          }}
         >
           A+
         </button>
         <button
+          type="button"
           className={'lyrics__ctl-btn' + (showTrans ? ' lyrics__ctl-btn--on' : '')}
           aria-label="显示或隐藏翻译"
-          onClick={(e) => { e.stopPropagation(); toggleTrans(); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleTrans();
+          }}
         >
           译
         </button>
         <button
+          type="button"
           className={'lyrics__ctl-btn' + (offset !== 0 ? ' lyrics__ctl-btn--on' : '')}
           aria-label="歌词时间偏移调整"
           aria-pressed={offsetOpen}
-          onClick={(e) => { e.stopPropagation(); setOffsetOpen((v) => !v); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            setOffsetOpen((value) => !value);
+          }}
         >
           偏移
         </button>
       </div>
 
       {offsetOpen ? (
-        <div className="lyrics__offset" onClick={(e) => e.stopPropagation()}>
+        <div className="lyrics__offset" onClick={(event) => event.stopPropagation()}>
           <div className="lyrics__offset-row">
-            <button className="lyrics__ctl-btn" aria-label="歌词提前" onClick={() => nudgeOffset(-1)}>
+            <button type="button" className="lyrics__ctl-btn" aria-label="歌词提前" onClick={() => nudgeOffset(-1)}>
               −{LYRIC_OFFSET_STEP}s
             </button>
-            <span className="lyrics__offset-val">{(offset > 0 ? '+' : '') + offset.toFixed(1)}s</span>
-            <button className="lyrics__ctl-btn" aria-label="歌词延后" onClick={() => nudgeOffset(1)}>
+            <span className="lyrics__offset-val">
+              {(offset > 0 ? '+' : '') + offset.toFixed(1)}s
+            </span>
+            <button type="button" className="lyrics__ctl-btn" aria-label="歌词延后" onClick={() => nudgeOffset(1)}>
               +{LYRIC_OFFSET_STEP}s
             </button>
-            <button className="lyrics__ctl-btn" onClick={() => setOffset(0)}>
+            <button type="button" className="lyrics__ctl-btn" onClick={() => setOffset(0)}>
               重置
             </button>
           </div>
           <div className="lyrics__offset-hint">歌词比声音早，就按 +</div>
         </div>
       ) : null}
+
       {scrubIdx !== null && lines[scrubIdx] ? (
         <div className="lyrics__scrub">
           <span className="lyrics__scrub-line" />
           <button
+            type="button"
             className="lyrics__scrub-btn"
             aria-label="跳转到这句"
-            onClick={(e) => {
-              e.stopPropagation();
-              playerController.seek(lines[scrubIdx].time + offset);
-              setScrubIdx(null);
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              const targetIndex = scrubIdxRef.current;
+              if (targetIndex === null || !lines[targetIndex]) return;
+              seekToLyric(lines[targetIndex].time);
             }}
           >
             <Icon name="play" size={14} />

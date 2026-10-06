@@ -6,6 +6,8 @@
 .full-player {
   position: fixed;
   inset: 0;
+  width: 100%;
+  max-width: 100vw;
   z-index: 300;
   color: #fff;
   overflow: hidden;
@@ -79,6 +81,7 @@
 /* ---------- Shell ---------- */
 .fp3-shell {
   height: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   padding: 10px 20px calc(12px + env(safe-area-inset-bottom));
@@ -126,6 +129,7 @@
   gap: 16px;
   max-width: 1200px;
   width: 100%;
+  min-width: 0;
   margin: 0 auto;
   padding: 6px 0;
 }
@@ -138,6 +142,9 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: transparent;
 }
 .fp-cover-swap__layer {
   position: absolute;
@@ -149,12 +156,13 @@
   transition: opacity 620ms var(--am-ease-standard),
     transform 620ms var(--am-ease-spring);
   font-size: 56px;
+  background: transparent;
 }
 .fp-cover-swap__layer--top {
   opacity: 1;
   transform: scale(1);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5),
-    0 0 120px 2px var(--fp-glow, rgba(0, 0, 0, 0));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28),
+    0 0 64px 0 var(--fp-glow, rgba(0, 0, 0, 0));
 }
 
 .fp3-side {
@@ -357,16 +365,10 @@
   overflow-y: auto;
   text-align: center;
   /*
-   * No scroll-behavior here, deliberately.
-   *
-   * It was `smooth`, which made sense while the scroll was driven by
-   * scrollTo({behavior:'smooth'}). The scroll is spring-driven now, and the
-   * spring writes scrollTop on every frame - so the browser was turning each of
-   * those sixty writes a second into its own smooth animation. They queued and
-   * interrupted each other, which is exactly what "stutters" looked like.
-   *
-   * One animator or the other. The spring is the one that can be retargeted
-   * mid-flight, so it is the one that stays.
+   * No native scroll-behavior here, deliberately. Playback and the five-second
+   * post-drag recovery use the component's single requestAnimationFrame
+   * animator. Native smooth scrolling would queue a second animation behind
+   * those frame-by-frame writes and produce the old stutter.
    */
   mask-image: linear-gradient(transparent 0%, #000 16%, #000 84%, transparent 100%);
   -webkit-mask-image: linear-gradient(transparent 0%, #000 16%, #000 84%, transparent 100%);
@@ -384,7 +386,9 @@
   display: none;
 }
 .lyrics__spacer {
-  height: 36%;
+  /* Leave half a viewport before and after the sheet so the first and last
+     active lines can occupy the same visual centre as every middle line. */
+  height: 50%;
 }
 /* Scrub indicator shown while dragging the lyrics (touch): dashed line + play */
 .lyrics__scrub {
@@ -435,10 +439,60 @@
   font-size: 16px;
   line-height: 1.55;
   cursor: pointer;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  contain: layout style paint;
   transition: color var(--am-motion-normal) var(--am-ease-standard),
     opacity var(--am-motion-page) var(--am-ease-standard),
     font-size var(--am-motion-page) var(--am-ease-standard),
     transform var(--am-motion-page) var(--am-ease-spring);
+}
+
+.lyrics__interlude {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 12px;
+  opacity: 0.42;
+}
+.lyrics__interlude span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: lyrics-interlude-pulse 1.6s ease-in-out infinite;
+}
+.lyrics__interlude span:nth-child(2) { animation-delay: 120ms; }
+.lyrics__interlude span:nth-child(3) { animation-delay: 240ms; }
+@keyframes lyrics-interlude-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 600px) {
+  .fp3-shell {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .fp3-main,
+  .fp3-side,
+  .fp3-lyrics,
+  .fp3-bar {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .fp3-cover {
+    width: min(76vw, 40vh, 360px);
+  }
+  .fp3-title,
+  .fp3-artist {
+    max-width: 88vw;
+  }
+  .lyrics__line {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
 }
 .lyrics__line:hover {
   color: rgba(255, 255, 255, 0.8);
@@ -451,20 +505,40 @@
 .lyrics__line--far {
   color: rgba(255, 255, 255, 0.28);
   transform: scale(0.97);
-  /*
-   * Depth of field, the way Apple Music does it.
-   *
-   * Only on the far rows: a blur is a full offscreen pass per element, and the
-   * rows beside the active one are the ones the eye is actually on. Capped at
-   * 3px because past that the text stops being readable at a glance, which
-   * defeats the point of showing the coming lines at all.
-   *
-   * Dropped when the reader has asked for less motion. No @supports guard: the
-   * blur is the whole effect here, so an engine without it loses nothing by
-   * skipping the row, and one that applies it on the CPU still draws the right
-   * picture - just slower, which is a fair trade for a handful of rows.
-   */
-  filter: blur(3px);
+  /* Blur is opt-in and is controlled by the player's `hc--lyrics-blur` class. */
+  filter: none;
+}
+
+/* Keep every lyric row crisp during direct manipulation. */
+.lyrics-wrap--dragging .lyrics__line,
+.lyrics-wrap--dragging .lyrics__line--near,
+.lyrics-wrap--dragging .lyrics__line--far,
+.lyrics-wrap--dragging .lyrics__line--active {
+  filter: none !important;
+}
+
+.lyrics-wrap--manual .lyrics__line,
+.lyrics-wrap--manual .lyrics__line--near,
+.lyrics-wrap--manual .lyrics__line--far,
+.lyrics-wrap--manual .lyrics__line--active {
+  filter: none !important;
+}
+
+/* Native WebView scrolling can bypass pointer events; scrub state is the
+   authoritative fallback and must also clear every distance-based filter. */
+.lyrics-wrap--scrubbing .lyrics__line,
+.lyrics-wrap--scrubbing .lyrics__line--near,
+.lyrics-wrap--scrubbing .lyrics__line--far,
+.lyrics-wrap--scrubbing .lyrics__line--active {
+  filter: none !important;
+}
+
+/* A drag/scrub view is a reading state: remove not only blur, but also the
+   distance-based fade and scale so every visible row stays equally legible. */
+.lyrics__line--clear {
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

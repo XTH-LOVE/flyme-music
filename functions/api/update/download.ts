@@ -36,6 +36,25 @@ function isAllowedAssetUrl(raw: string | null): boolean {
  * Everything outside a conservative set is replaced rather than escaped - a
  * mangled filename is a cosmetic problem, a header injection is not.
  */
+async function releaseAssetUrl(env: Env, version: string, filename: string | null): Promise<string | null> {
+  if (!env.GITHUB_REPO || !/^v?[A-Za-z0-9._-]{1,40}$/.test(version)) return null;
+  const headers: Record<string, string> = {
+    'User-Agent': 'Flyme-Music-App',
+    Accept: 'application/vnd.github.v3+json',
+  };
+  if (env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + env.GITHUB_TOKEN;
+  const response = await fetch(
+    'https://api.github.com/repos/' + env.GITHUB_REPO + '/releases/tags/' + encodeURIComponent(version),
+    { headers },
+  );
+  if (!response.ok) return null;
+  const release = (await response.json()) as { assets?: { name?: string; browser_download_url?: string }[] };
+  const wanted = (filename ?? '').toLowerCase();
+  const asset = (release.assets ?? []).find((item) => (item.name ?? '').toLowerCase() === wanted)
+    ?? (release.assets ?? []).find((item) => (item.name ?? '').toLowerCase().endsWith('.apk'));
+  return asset?.browser_download_url ?? null;
+}
+
 function safeFilename(raw: string | null): string {
   const base = (raw ?? 'flyme-music.apk').split(/[/\\]/).pop() ?? 'flyme-music.apk';
   const cleaned = base.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
@@ -51,7 +70,11 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   const blocked = guard(request, context.env as Env, 'update', { allowNavigation: true });
   if (blocked) return blocked;
 
-  const target = queryParam(request, 'url');
+  const version = queryParam(request, 'version');
+  const named = queryParam(request, 'filename');
+  const target = version
+    ? await releaseAssetUrl(context.env, version, named)
+    : queryParam(request, 'url');
   if (!target) return new Response('missing url', { status: 400 });
   if (!isAllowedAssetUrl(target)) {
     // Not a 404: a caller that got here with a foreign URL is either a bug or

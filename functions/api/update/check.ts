@@ -111,15 +111,27 @@ export async function onRequest(context: PagesContext): Promise<Response> {
     }
 
     const origin = new URL(request.url).origin;
+    // The mirror is a same-origin redirect to the R2 copy. It is tried before
+    // the Worker relay because a Worker that pulls GitHub on every download is
+    // exactly the slow path this exists to avoid. The relay remains the
+    // fallback for a release that has not been mirrored yet.
+    const filename = encodeURIComponent(apk.name ?? 'flyme-music.apk');
+    const mirrorUrl =
+      origin +
+      '/api/update/mirror?version=' +
+      encodeURIComponent(release.tag_name ?? '') +
+      '&filename=' +
+      filename;
+    const relayUrl =
+      origin +
+      '/api/update/download?url=' +
+      encodeURIComponent(apk.browser_download_url) +
+      '&filename=' +
+      filename;
     const info: UpdateInfo = {
       latestVersion: release.tag_name ?? '',
       changelog: (release.body ?? '').trim(),
-      downloadUrl:
-        origin +
-        '/api/update/download?url=' +
-        encodeURIComponent(apk.browser_download_url) +
-        '&filename=' +
-        encodeURIComponent(apk.name ?? 'flyme-music.apk'),
+      downloadUrl: context.env.RELEASE_MIRROR ? mirrorUrl : relayUrl,
       directUrl: apk.browser_download_url,
       publishDate: release.published_at ?? '',
       size: typeof apk.size === 'number' ? apk.size : 0,

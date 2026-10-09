@@ -1,13 +1,14 @@
 /**
- * Fills the landing page's download section from the release API.
+ * Fills the landing page's Android download view from the release API.
  *
- * Fetched in the browser rather than baked in at build time: a release
- * published on GitHub then shows up here as soon as the API's ten-minute edge
- * cache expires, instead of requiring the landing page to be rebuilt and
- * redeployed for every version.
+ * The markup only knows where the buttons and facts are. The concrete APK URL
+ * is not written into the page: `releases/latest/download/...` looks stable,
+ * but GitHub answers it with a redirect, and the China download proxy only
+ * accepts a concrete release-asset URL. Asking `/api/update/check` returns
+ * that URL already wrapped in the proxy, plus the version, size and date.
  *
- * The page is served from the same origin as the API, so it passes the same
- * origin check that the packaged app does - no separate allowance is needed.
+ * Fetched in the browser rather than baked in at build time, so a release
+ * shows up here as soon as the API's edge cache expires.
  */
 
 interface UpdateInfo {
@@ -45,11 +46,10 @@ function formatDate(iso: string): string | null {
 }
 
 /**
- * Sets a link's href, or removes the link entirely when there is no URL.
+ * Points a link at a URL, or removes it when there is nothing to point at.
  *
- * Removing rather than leaving a dead `href="#"` matters: a download button
- * that does nothing is worse than one that is not there, because the visitor
- * concludes the download is broken rather than that the build is unavailable.
+ * A download button that does nothing is worse than one that is not there:
+ * the visitor concludes the download is broken rather than unavailable.
  */
 function setLink(el: HTMLAnchorElement | null, url: string | undefined): boolean {
   if (!el) return false;
@@ -61,16 +61,20 @@ function setLink(el: HTMLAnchorElement | null, url: string | undefined): boolean
   return true;
 }
 
-export function initDownload(): void {
-  const section = document.getElementById('download');
-  if (!section) return;
+function setText(selector: string, value: string | null): void {
+  if (!value) return;
+  document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
+    el.textContent = value;
+  });
+}
 
-  const status = section.querySelector<HTMLElement>('[data-dl="status"]');
-  const meta = section.querySelector<HTMLElement>('[data-dl="meta"]');
-  const log = section.querySelector<HTMLElement>('[data-dl="log"]');
-  const proxyLink = section.querySelector<HTMLAnchorElement>('[data-dl="proxy"]');
-  const directLink = section.querySelector<HTMLAnchorElement>('[data-dl="direct"]');
-  const fallback = section.querySelector<HTMLAnchorElement>('[data-dl="fallback"]');
+export function initDownload(): void {
+  const proxyLink = document.querySelector<HTMLAnchorElement>('[data-dl="proxy"]');
+  const directLink = document.querySelector<HTMLAnchorElement>('[data-dl="direct"]');
+  const fallback = document.querySelector<HTMLAnchorElement>('[data-dl="fallback"]');
+  const status = document.querySelector<HTMLElement>('[data-dl="status"]');
+  const meta = document.querySelector<HTMLElement>('[data-dl="meta"]');
+  const log = document.querySelector<HTMLElement>('[data-dl="log"]');
 
   fetch('/api/update/check', { headers: { Accept: 'application/json' } })
     .then(async (response) => {
@@ -81,18 +85,10 @@ export function initDownload(): void {
       if (!info?.latestVersion) throw new Error('empty');
 
       if (status) status.textContent = info.latestVersion;
+      setText('[data-dl="stat-version"]', info.latestVersion);
+      setText('[data-dl="stat-size"]', formatBytes(info.size));
+      setText('[data-dl="stat-date"]', formatDate(info.publishDate));
 
-      // The hero strip stays hidden until there is something true to put in
-      // it, rather than showing a row of dashes.
-      const put = (key: string, value: string | null) => {
-        const el = document.querySelector<HTMLElement>('[data-dl="' + key + '"]');
-        if (el && value) el.textContent = value;
-      };
-      put('stat-version', info.latestVersion);
-      put('stat-size', formatBytes(info.size));
-      put('stat-date', formatDate(info.publishDate));
-      const stats = document.querySelector<HTMLElement>('[data-dl="stats"]');
-      if (stats) stats.hidden = false;
       if (meta) {
         const parts = [formatDate(info.publishDate), formatBytes(info.size)].filter(Boolean);
         meta.textContent = parts.join(' · ');
@@ -102,24 +98,23 @@ export function initDownload(): void {
         log.hidden = false;
       }
       if (info.prerelease && status) {
-        // A test build offered without saying so is how someone ends up on one
-        // without choosing it.
         const badge = document.createElement('span');
-        badge.className = 'of-download__badge';
+        badge.className = 'dl-badge';
         badge.textContent = '测试版';
         status.after(badge);
       }
 
+      // The proxy URL is the China path. The direct URL stays as the
+      // fallback for anyone the proxy cannot reach.
       setLink(proxyLink, info.downloadUrl);
       setLink(directLink, info.directUrl);
       if (fallback) fallback.remove();
     })
     .catch(() => {
-      // The API could not answer. Leave a link to the releases page rather than
-      // an empty section, so the visitor can still get the app.
       if (status) status.textContent = '最新版本';
       if (meta) meta.textContent = '暂时无法获取版本信息，可前往 GitHub 查看';
       if (proxyLink) proxyLink.remove();
+      if (directLink) directLink.remove();
       if (fallback) {
         fallback.href = RELEASES_PAGE;
         fallback.hidden = false;

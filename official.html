@@ -1,316 +1,1426 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/jpeg" href="/flyme-mark.jpg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#101012" media="(prefers-color-scheme: dark)" />
-    <meta name="description" content="Flyme Music — HyperOS 风格的现代音乐播放器，沉浸式歌词、动态环境色、轻量 Liquid Glass。" />
-    <title>Flyme Music — HyperOS 风格现代音乐播放器</title>
-  </head>
-  <body>
-        <div class="of-progress" data-scroll-progress aria-hidden="true"></div>
-<script type="module" src="/src/official/main.ts"></script>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#06141d" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f4f8fa" media="(prefers-color-scheme: light)" />
+  <meta name="description" content="Flyme Music — 面向 Web、Windows 与 Android 的现代音乐播放器。沉浸式歌词、动态环境色、液态玻璃与 AI 伴听。" />
+  <link rel="icon" type="image/jpeg" href="/flyme-mark.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <title>Flyme Music — 让每首歌，有自己的氛围</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #f4f8fa;
+      --page-2: #eaf2f5;
+      --surface: rgba(255, 255, 255, .82);
+      --surface-solid: #ffffff;
+      --ink: #11242d;
+      --muted: #4c6570;
+      --faint: #728892;
+      --line: rgba(17, 45, 58, .14);
+      --blue: #1677ff;
+      --cyan: #00a7a7;
+      --lime: #a4d34f;
+      --deep: #06141d;
+      --hero-text: #f4fbff;
+      --hero-muted: #a6bdc7;
+      --shadow: 0 28px 90px rgba(18, 63, 83, .16);
+      --radius-s: 14px;
+      --radius-m: 22px;
+      --radius-l: 34px;
+      --max: 1180px;
+    }
 
-    <header class="of-nav">
-      <div class="of-nav__inner">
-        <a class="of-nav__brand" href="./official.html">
-          <img src="/flyme-mark.jpg" alt="Flyme Music" class="of-nav__mark" />
-          <span class="of-nav__name">Flyme Music</span>
-        </a>
-        <nav class="of-nav__links">
-          <a href="#features">特性</a>
-          <a href="#preview">界面</a>
-          <a href="#about">关于</a>
-        </nav>
-        <a href="#gallery">界面</a>
-        <a href="#download">下载</a>
-        <a href="#history">版本</a>
-        <a class="of-btn of-btn--primary of-nav__cta" href="/">立即体验</a>
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #06141d;
+        --page-2: #0a1d28;
+        --surface: rgba(14, 35, 45, .82);
+        --surface-solid: #0e232d;
+        --ink: #edf8fb;
+        --muted: #aac0c9;
+        --faint: #78929c;
+        --line: rgba(198, 232, 241, .14);
+        --blue: #63a7ff;
+        --cyan: #46c7c2;
+        --lime: #b4dd62;
+        --shadow: 0 28px 90px rgba(0, 0, 0, .32);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 0;
+      overflow-x: hidden;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "Noto Sans SC", "IBM Plex Sans", sans-serif;
+      line-height: 1.65;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+
+    .nav {
+      position: absolute;
+      inset: 0 0 auto;
+      z-index: 20;
+      padding: 18px max(20px, env(safe-area-inset-left));
+      color: var(--hero-text);
+    }
+    .nav__inner {
+      width: min(var(--max), 100%);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 26px;
+    }
+    .nav__links { display: flex; gap: 24px; align-items: center; }
+    .nav__links a { font-size: 14px; color: #b9cad2; transition: color .2s ease; }
+    .nav__links a:hover { color: #fff; }
+    .nav__cta {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 18px;
+      border-radius: 999px;
+      background: #f2f8fb;
+      color: #07151e;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .hero {
+      position: relative;
+      min-height: 760px;
+      display: grid;
+      align-items: center;
+      overflow: hidden;
+      background:
+        radial-gradient(720px 600px at 83% 35%, rgba(0, 162, 170, .24), transparent 62%),
+        radial-gradient(660px 520px at 55% 92%, rgba(27, 105, 191, .19), transparent 70%),
+        #06141d;
+      color: var(--hero-text);
+      isolation: isolate;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 180px;
+      background: linear-gradient(180deg, transparent, rgba(3, 11, 16, .22));
+      pointer-events: none;
+    }
+    .hero__grid {
+      position: absolute;
+      inset: 0;
+      opacity: .18;
+      background-image:
+        linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: linear-gradient(90deg, rgba(0,0,0,.72), transparent 78%);
+      pointer-events: none;
+    }
+    .hero__inner {
+      position: relative;
+      z-index: 2;
+      width: min(var(--max), calc(100% - 40px));
+      margin: 0 auto;
+      padding: 136px 0 90px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(370px, .82fr);
+      align-items: center;
+      gap: clamp(48px, 8vw, 112px);
+    }
+    .kicker {
+      margin: 0 0 20px;
+      color: #65d8d4;
+      font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .08em;
+    }
+    .hero h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(48px, 6.2vw, 78px);
+      line-height: 1.08;
+      letter-spacing: -.045em;
+      font-weight: 700;
+    }
+    .hero__lead {
+      max-width: 650px;
+      margin: 26px 0 0;
+      color: var(--hero-muted);
+      font-size: clamp(17px, 1.55vw, 20px);
+      line-height: 1.8;
+    }
+    .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
+    .button {
+      min-height: 52px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 0 22px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 15px;
+      transition: transform .2s ease, background .2s ease, border-color .2s ease;
+    }
+    .button:hover { transform: translateY(-2px); }
+    .button--light { background: #f2f8fb; color: #07151e; }
+    .button--ghost { border: 1px solid rgba(255,255,255,.22); color: #e7f3f7; background: rgba(255,255,255,.045); }
+    .button--ghost:hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.38); }
+    .button svg { width: 18px; height: 18px; }
+    .hero__meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      margin-top: 28px;
+      color: #809aa5;
+      font-size: 13px;
+    }
+    .hero__meta span { display: inline-flex; align-items: center; gap: 8px; }
+    .hero__meta i { width: 5px; height: 5px; background: #5fd3ce; border-radius: 50%; }
+
+    .device-wrap { position: relative; display: grid; place-items: center; min-height: 520px; }
+    .device-wrap::before {
+      content: "";
+      position: absolute;
+      width: 420px;
+      height: 420px;
+      border: 1px solid rgba(107, 215, 213, .18);
+      border-radius: 50%;
+      box-shadow: 0 0 0 54px rgba(75, 166, 180, .03), 0 0 0 108px rgba(75, 166, 180, .022);
+    }
+    .phone {
+      position: relative;
+      width: min(310px, 78vw);
+      aspect-ratio: .515;
+      padding: 10px;
+      border-radius: 50px;
+      background: linear-gradient(145deg, #314650, #0d1b22 42%, #617780 80%, #182830);
+      box-shadow: 0 46px 90px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.28);
+      transform: rotate(4deg);
+      animation: drift 6s ease-in-out infinite;
+    }
+    .phone__screen {
+      position: relative;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 41px;
+      background:
+        radial-gradient(150% 80% at 50% 28%, rgba(0, 221, 204, .42), transparent 52%),
+        linear-gradient(165deg, #103846, #09202a 50%, #07151d);
+      color: #eefcff;
+    }
+    .phone__screen::before {
+      content: "";
+      position: absolute;
+      width: 120%;
+      height: 52%;
+      left: -10%;
+      top: 5%;
+      background: radial-gradient(circle at 55% 35%, rgba(131, 239, 228, .45), transparent 52%);
+      filter: blur(18px);
+    }
+    .phone__island {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      width: 78px;
+      height: 23px;
+      border-radius: 20px;
+      transform: translateX(-50%);
+      background: #051117;
+      z-index: 4;
+    }
+    .phone__status {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      padding: 19px 24px 0;
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 11px;
+      color: rgba(255,255,255,.75);
+    }
+    .now {
+      position: relative;
+      z-index: 2;
+      padding: 58px 25px 0;
+      text-align: center;
+    }
+    .now__cover {
+      width: 195px;
+      aspect-ratio: 1;
+      margin: 0 auto 28px;
+      padding: 23px;
+      border-radius: 34px;
+      background: rgba(255,255,255,.13);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: 0 26px 42px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.2);
+      backdrop-filter: blur(18px) saturate(1.35);
+    }
+    .now__cover img { width: 100%; height: 100%; object-fit: cover; border-radius: 23px; }
+    .now__title { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 700; letter-spacing: -.02em; }
+    .now__artist { margin: 6px 0 0; color: rgba(235,249,252,.62); font-size: 12px; }
+    .scrub { height: 3px; border-radius: 9px; background: rgba(255,255,255,.18); margin: 29px 0 9px; overflow: hidden; }
+    .scrub span { display: block; width: 61%; height: 100%; border-radius: inherit; background: #e9feff; }
+    .time { display: flex; justify-content: space-between; color: rgba(255,255,255,.52); font: 10px "IBM Plex Sans", sans-serif; }
+    .controls { display: flex; align-items: center; justify-content: center; gap: 30px; margin-top: 20px; }
+    .controls svg { width: 20px; height: 20px; fill: currentColor; }
+    .controls__play { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: #f2fdff; color: #08212b; }
+    .controls__play svg { transform: translateX(2px); }
+    .glass-dock {
+      position: absolute;
+      z-index: 3;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 26px;
+      background: rgba(18, 45, 55, .58);
+      box-shadow: inset 0 1px rgba(255,255,255,.15);
+      backdrop-filter: blur(18px) saturate(1.5);
+    }
+    .glass-dock span { width: 5px; height: 5px; border: 1.5px solid rgba(255,255,255,.55); border-radius: 50%; }
+    .glass-dock span:nth-child(2) { width: 24px; border-radius: 99px; background: #63dad5; border-color: #63dad5; }
+    .floating-note {
+      position: absolute;
+      right: -3%;
+      top: 23%;
+      width: 156px;
+      padding: 16px 16px 15px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 20px;
+      background: rgba(10, 31, 41, .68);
+      box-shadow: 0 18px 40px rgba(0,0,0,.24);
+      backdrop-filter: blur(16px) saturate(1.3);
+      color: #dff8fa;
+      transform: rotate(-4deg);
+      z-index: 5;
+    }
+    .floating-note strong { display: block; font-size: 13px; }
+    .floating-note small { display: block; margin-top: 5px; color: #8cb2bd; font-size: 11px; line-height: 1.5; }
+
+    .section { padding: 112px 20px; }
+    .section--tight { padding-top: 80px; padding-bottom: 80px; }
+    .section__inner { width: min(var(--max), 100%); margin: 0 auto; }
+    .section__head { display: grid; grid-template-columns: .85fr 1.15fr; gap: 90px; align-items: end; margin-bottom: 56px; }
+    .section__eyebrow { margin: 0 0 14px; color: var(--cyan); font: 600 13px "IBM Plex Sans", "Noto Sans SC", sans-serif; letter-spacing: .1em; }
+    .section h2 { margin: 0; font-size: clamp(34px, 4.2vw, 56px); line-height: 1.14; letter-spacing: -.04em; }
+    .section__intro { margin: 0; color: var(--muted); font-size: 17px; max-width: 580px; }
+
+    .feature-stage {
+      display: grid;
+      grid-template-columns: 1.04fr .96fr;
+      min-height: 550px;
+      overflow: hidden;
+      border-radius: var(--radius-l);
+      background: #081a24;
+      color: #eaf9fb;
+      box-shadow: var(--shadow);
+    }
+    .feature-stage__visual {
+      position: relative;
+      min-height: 480px;
+      overflow: hidden;
+      background:
+        radial-gradient(430px 430px at 38% 40%, rgba(29, 165, 171, .35), transparent 62%),
+        linear-gradient(135deg, #0d2a36, #07151d);
+    }
+    .vinyl {
+      position: absolute;
+      width: 390px;
+      height: 390px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-47%, -50%);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, #c5f6ef 0 4%, #108a8e 4.5% 12%, #071219 12.5% 15%, transparent 15.5%),
+        repeating-radial-gradient(circle, #071219 0 6px, #0d242c 7px 8px);
+      box-shadow: 0 35px 70px rgba(0,0,0,.48);
+    }
+    .vinyl::before {
+      content: "";
+      position: absolute;
+      inset: 24px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.1);
+      box-shadow: inset 0 0 0 72px rgba(255,255,255,.015);
+    }
+    .lyric-sheet {
+      position: absolute;
+      width: 290px;
+      right: 5%;
+      bottom: 0;
+      padding: 26px 25px 30px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 26px 26px 0 0;
+      background: rgba(13, 37, 47, .72);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 -10px 40px rgba(0,0,0,.24);
+    }
+    .lyric-line { margin: 0 0 16px; color: rgba(231,249,252,.32); font-size: 18px; font-weight: 600; }
+    .lyric-line--on { color: #f0feff; font-size: 25px; line-height: 1.35; }
+    .feature-stage__copy { padding: clamp(40px, 7vw, 82px); display: flex; flex-direction: column; justify-content: center; }
+    .feature-stage__copy h3 { margin: 0; font-size: clamp(32px, 3.5vw, 48px); line-height: 1.15; letter-spacing: -.035em; }
+    .feature-stage__copy p { margin: 20px 0 0; color: #a6bec8; font-size: 17px; }
+    .pill-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+    .pill-list span { padding: 8px 13px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; color: #cce0e6; font-size: 12px; }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .feature {
+      position: relative;
+      min-height: 260px;
+      padding: 30px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-m);
+      background: var(--surface);
+    }
+    .feature:nth-child(1), .feature:nth-child(4) { grid-column: span 7; }
+    .feature:nth-child(2), .feature:nth-child(3) { grid-column: span 5; }
+    .feature__num { color: var(--faint); font: 500 12px "IBM Plex Sans", sans-serif; letter-spacing: .12em; }
+    .feature h3 { max-width: 400px; margin: 54px 0 10px; font-size: 25px; line-height: 1.3; }
+    .feature p { max-width: 440px; margin: 0; color: var(--muted); font-size: 15px; }
+    .feature__art { position: absolute; right: 26px; top: 28px; width: 86px; height: 86px; color: var(--blue); }
+    .feature:nth-child(2) .feature__art { color: var(--cyan); }
+    .feature:nth-child(3) .feature__art { color: #d2a43e; }
+    .feature:nth-child(4) .feature__art { color: #6eb052; }
+
+    .ai {
+      position: relative;
+      overflow: hidden;
+      background: var(--deep);
+      color: #eef9fb;
+    }
+    .ai::before {
+      content: "";
+      position: absolute;
+      width: 740px;
+      height: 740px;
+      right: -260px;
+      top: -250px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(31, 174, 177, .22), transparent 68%);
+    }
+    .ai .section__head { position: relative; z-index: 1; }
+    .ai .section__intro { color: #9bb3bd; }
+    .ai-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; }
+    .ai-card { min-height: 360px; padding: 36px; border: 1px solid rgba(255,255,255,.11); background: rgba(255,255,255,.035); }
+    .ai-card:first-child { border-radius: 28px 8px 28px 28px; }
+    .ai-card:last-child { border-radius: 8px 28px 28px 28px; }
+    .ai-card__label { color: #64d7d0; font-size: 13px; }
+    .ai-card h3 { margin: 88px 0 10px; font-size: 32px; line-height: 1.25; }
+    .ai-card p { margin: 0; color: #9eb6bf; max-width: 520px; }
+    .prompt {
+      margin-top: 32px;
+      padding: 18px 20px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.08);
+      color: #eefcfd;
+      font-size: 15px;
+    }
+    .prompt::before { content: "“"; color: #5ed1ca; font-size: 21px; margin-right: 6px; }
+
+    .platforms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border: 1px solid var(--line); background: var(--line); border-radius: var(--radius-m); overflow: hidden; }
+    .platform { min-height: 250px; padding: 34px; background: var(--surface-solid); }
+    .platform__icon { width: 44px; height: 44px; color: var(--blue); }
+    .platform:nth-child(2) .platform__icon { color: var(--cyan); }
+    .platform:nth-child(3) .platform__icon { color: #6baa45; }
+    .platform h3 { margin: 50px 0 8px; font-size: 24px; }
+    .platform p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .download-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(280px, .88fr);
+      gap: clamp(34px, 7vw, 88px);
+      align-items: center;
+      padding: clamp(36px, 6vw, 66px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-l);
+      background: var(--surface-solid);
+    }
+    .download-panel__platform {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--blue);
+      font: 600 13px "IBM Plex Sans", "Noto Sans SC", sans-serif;
+    }
+    .download-panel__platform::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 12%, transparent);
+    }
+    .download-panel h3 {
+      max-width: 620px;
+      margin: 20px 0 16px;
+      font-size: clamp(30px, 3.5vw, 46px);
+      line-height: 1.2;
+      letter-spacing: -.038em;
+      font-weight: 600;
+    }
+    .download-panel__copy > p {
+      max-width: 650px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.85;
+    }
+    .download-panel__actions {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    .button--download {
+      min-height: 56px;
+      background: var(--ink);
+      color: var(--page);
+    }
+    .button--download:hover { background: #272b32; }
+    .download-panel__secondary {
+      min-height: 50px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .download-panel__secondary:hover { background: var(--page-2); }
+    .download-panel__note {
+      margin: 6px 0 0;
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.65;
+      text-align: center;
+    }
+
+    .proof {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .proof__tech, .proof__tests {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-m);
+      background: var(--surface);
+      padding: 34px;
+    }
+    .proof h3 { margin: 0 0 26px; font-size: 22px; }
+    .tech-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .tech-list span { padding: 13px 0; border-bottom: 1px solid var(--line); color: var(--muted); font: 500 14px "IBM Plex Sans", "Noto Sans SC", sans-serif; }
+    .test-number { display: block; font: 600 clamp(64px, 8vw, 96px)/1 "IBM Plex Sans", sans-serif; letter-spacing: -.06em; color: var(--cyan); }
+    .proof__tests p { margin: 18px 0 0; color: var(--muted); }
+
+    .cta { padding: 0 20px 20px; }
+    .cta__inner {
+      width: min(var(--max), 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 34px;
+      align-items: center;
+      padding: clamp(42px, 7vw, 76px);
+      border-radius: var(--radius-l);
+      background: #0a1c26;
+      color: #edf9fb;
+    }
+    .cta h2 { margin: 0; font-size: clamp(32px, 4.2vw, 54px); line-height: 1.12; letter-spacing: -.04em; }
+    .cta p { margin: 16px 0 0; color: #9fb7c0; max-width: 660px; }
+    .cta__actions { display: flex; flex-direction: column; gap: 10px; min-width: 190px; }
+    .cta .button--ghost { min-height: 50px; }
+
+    .footer { padding: 34px 20px calc(34px + env(safe-area-inset-bottom)); }
+    .footer__inner { width: min(var(--max), 100%); margin: 0 auto; display: flex; justify-content: space-between; gap: 24px; color: var(--faint); font-size: 13px; }
+    .footer__links { display: flex; flex-wrap: wrap; gap: 18px; }
+    .footer a:hover { color: var(--ink); }
+
+    .reveal { opacity: 1; transform: none; transition: opacity .65s ease, transform .65s ease; }
+    .motion-ready .reveal:not(.is-visible) { opacity: 0; transform: translateY(18px); }
+
+    @keyframes drift {
+      0%,100% { transform: rotate(4deg) translateY(0); }
+      50% { transform: rotate(3deg) translateY(-12px); }
+    }
+
+    @media (max-width: 900px) {
+      .nav__inner { justify-content: space-between; }
+      .nav__links { gap: 18px; }
+      .hero { min-height: auto; }
+      .hero__inner { grid-template-columns: 1fr; padding-top: 128px; gap: 72px; }
+      .hero__copy { text-align: center; }
+      .hero__lead { margin-left: auto; margin-right: auto; }
+      .hero__actions, .hero__meta { justify-content: center; }
+      .device-wrap { min-height: 560px; }
+      .floating-note { right: 8%; }
+      .section__head { grid-template-columns: 1fr; gap: 20px; }
+      .feature-stage { grid-template-columns: 1fr; }
+      .feature-stage__visual { min-height: 470px; }
+      .ai-grid { grid-template-columns: 1fr; }
+      .ai-card:first-child, .ai-card:last-child { border-radius: 24px; }
+      .download-panel { grid-template-columns: 1fr; }
+      .proof { grid-template-columns: 1fr; }
+      .cta__inner { grid-template-columns: 1fr; }
+      .cta__actions { flex-direction: row; flex-wrap: wrap; min-width: 0; }
+    }
+
+    @media (max-width: 640px) {
+      .nav { padding-top: 14px; }
+      .nav__links a:nth-child(1), .nav__links a:nth-child(2) { display: none; }
+      .nav__links { gap: 14px; }
+      .nav__cta { min-height: 38px; padding: 0 14px; }
+      .hero__inner { width: min(100% - 30px, var(--max)); padding-top: 112px; padding-bottom: 68px; }
+      .hero h1 { font-size: clamp(43px, 14vw, 60px); }
+      .hero__lead { font-size: 16px; line-height: 1.75; }
+      .hero__actions .button { width: 100%; }
+      .hero__meta { display: grid; grid-template-columns: 1fr 1fr; text-align: left; gap: 10px; }
+      .device-wrap { min-height: 510px; }
+      .device-wrap::before { width: 330px; height: 330px; }
+      .phone { width: 270px; }
+      .now { padding-top: 49px; }
+      .now__cover { width: 164px; margin-bottom: 22px; }
+      .floating-note { width: 136px; right: -2%; top: 25%; padding: 13px; }
+      .section { padding: 82px 16px; }
+      .section--tight { padding-top: 62px; padding-bottom: 62px; }
+      .section__head { margin-bottom: 38px; }
+      .feature-stage { border-radius: 25px; }
+      .feature-stage__visual { min-height: 410px; }
+      .vinyl { width: 315px; height: 315px; left: 45%; }
+      .lyric-sheet { width: 235px; padding: 20px; }
+      .lyric-line { font-size: 15px; }
+      .lyric-line--on { font-size: 21px; }
+      .feature-stage__copy { padding: 34px 25px 38px; }
+      .features { grid-template-columns: 1fr; }
+      .feature:nth-child(n) { grid-column: auto; min-height: 235px; padding: 24px; }
+      .feature h3 { margin-top: 48px; }
+      .feature__art { width: 70px; height: 70px; }
+      .ai-card { min-height: 320px; padding: 28px; }
+      .ai-card h3 { margin-top: 64px; font-size: 27px; }
+      .platforms { grid-template-columns: 1fr; }
+      .platform { min-height: 210px; padding: 28px; }
+      .platform h3 { margin-top: 34px; }
+      .tech-list { grid-template-columns: 1fr; }
+      .proof__tech, .proof__tests { padding: 26px; }
+      .cta { padding: 0 12px 12px; }
+      .cta__inner { padding: 38px 24px; border-radius: 26px; }
+      .cta__actions { flex-direction: column; }
+      .footer__inner { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+  <style id="minimal-white-refresh">
+    /* 2026 editorial refresh: quiet, bright and product-led */
+    :root {
+      --page: #ffffff;
+      --page-2: #f5f6f8;
+      --surface: #ffffff;
+      --surface-solid: #ffffff;
+      --ink: #111318;
+      --muted: #5d626b;
+      --faint: #8d929a;
+      --line: #e5e7eb;
+      --blue: #146ef5;
+      --cyan: #146ef5;
+      --lime: #69a54c;
+      --deep: #111318;
+      --hero-text: #111318;
+      --hero-muted: #5d626b;
+      --shadow: 0 30px 80px rgba(20, 28, 40, .12);
+      --radius-s: 12px;
+      --radius-m: 20px;
+      --radius-l: 30px;
+    }
+
+    body { background: var(--page); letter-spacing: -.006em; }
+
+    .nav {
+      position: absolute;
+      color: var(--ink);
+      padding-top: 22px;
+    }
+    .nav__links a { color: var(--muted); font-weight: 500; }
+    .nav__links a:hover { color: var(--ink); }
+    .nav__cta {
+      min-height: 40px;
+      background: var(--ink);
+      color: var(--page);
+      font-weight: 600;
+      padding-inline: 17px;
+    }
+
+    .hero {
+      min-height: 790px;
+      background: var(--page);
+      color: var(--ink);
+      border-bottom: 1px solid var(--line);
+    }
+    .hero::after { display: none; }
+    .hero__grid {
+      opacity: .55;
+      background-image: linear-gradient(90deg, transparent 0 49.9%, var(--line) 50%, transparent 50.1%);
+      background-size: min(1180px, calc(100% - 40px)) 100%;
+      background-position: center;
+      mask-image: linear-gradient(180deg, transparent 0, #000 16%, #000 84%, transparent 100%);
+    }
+    .hero__inner {
+      grid-template-columns: minmax(0, 1.08fr) minmax(350px, .72fr);
+      gap: clamp(50px, 8vw, 116px);
+      padding-top: 132px;
+    }
+    .kicker {
+      margin-bottom: 28px;
+      color: var(--blue);
+      font-size: 13px;
+      letter-spacing: .04em;
+      text-transform: none;
+    }
+    .hero h1 {
+      max-width: 690px;
+      font-size: clamp(50px, 6.5vw, 82px);
+      line-height: 1.04;
+      letter-spacing: -.058em;
+      font-weight: 600;
+    }
+    .hero__lead {
+      max-width: 600px;
+      margin-top: 30px;
+      color: var(--muted);
+      font-size: clamp(17px, 1.45vw, 19px);
+      line-height: 1.9;
+    }
+    .hero__actions { margin-top: 38px; }
+    .button { min-height: 50px; border-radius: 12px; font-weight: 600; }
+    .button:hover { transform: translateY(-1px); }
+    .button--light { background: var(--ink); color: var(--page); }
+    .button--ghost { border: 1px solid var(--line); color: var(--ink); background: transparent; }
+    .button--ghost:hover { background: var(--page-2); border-color: #d5d8dc; }
+    .hero__meta { color: var(--faint); margin-top: 28px; }
+    .hero__meta i { background: var(--blue); }
+
+    .device-wrap { min-height: 540px; }
+    .device-wrap::before {
+      width: 390px;
+      height: 390px;
+      border: 1px solid var(--line);
+      box-shadow: 0 0 0 56px rgba(17,19,24,.018), 0 0 0 112px rgba(17,19,24,.012);
+    }
+    .phone {
+      width: min(302px, 78vw);
+      padding: 9px;
+      border-radius: 46px;
+      background: linear-gradient(145deg, #d8dde2, #5d6670 38%, #111820 72%, #b6bec5);
+      box-shadow: 0 34px 70px rgba(18, 25, 34, .24), inset 0 0 0 1px rgba(255,255,255,.55);
+      transform: rotate(2deg);
+      animation: drift 7s ease-in-out infinite;
+    }
+    .phone__screen { border-radius: 38px; }
+    .floating-note {
+      right: -8%;
+      top: 24%;
+      width: 164px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.92);
+      color: var(--ink);
+      box-shadow: 0 18px 42px rgba(18,25,34,.12);
+      transform: rotate(-2deg);
+    }
+    .floating-note small { color: var(--muted); }
+
+    .section { padding: 124px 20px; }
+    .section--tight { padding-top: 86px; padding-bottom: 112px; }
+    .section__head {
+      grid-template-columns: .9fr 1.1fr;
+      gap: 88px;
+      margin-bottom: 62px;
+      align-items: end;
+    }
+    .section__eyebrow {
+      color: var(--blue);
+      font-family: "Noto Sans SC", sans-serif;
+      font-size: 13px;
+      letter-spacing: .04em;
+    }
+    .section h2 { font-weight: 600; font-size: clamp(36px, 4.4vw, 58px); }
+    .section__intro { color: var(--muted); font-size: 17px; line-height: 1.9; }
+
+    .feature-stage {
+      min-height: 570px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-l);
+      background: var(--surface-solid);
+      color: var(--ink);
+      box-shadow: none;
+    }
+    .feature-stage__visual {
+      min-height: 520px;
+      background: #f0f2f5;
+      border-right: 1px solid var(--line);
+    }
+    .vinyl {
+      background:
+        radial-gradient(circle, #ffffff 0 3.5%, #146ef5 4% 11.5%, #16191e 12% 15%, transparent 15.5%),
+        repeating-radial-gradient(circle, #171a1e 0 6px, #272a2f 7px 8px);
+      box-shadow: 0 28px 50px rgba(12,15,20,.23);
+    }
+    .lyric-sheet {
+      border: 1px solid rgba(255,255,255,.12);
+      border-bottom: 0;
+      border-radius: 20px 20px 0 0;
+      background: rgba(22,25,30,.88);
+      box-shadow: 0 -12px 36px rgba(0,0,0,.16);
+    }
+    .feature-stage__copy { background: var(--surface-solid); }
+    .feature-stage__copy h3 { font-weight: 600; }
+    .feature-stage__copy p { color: var(--muted); line-height: 1.85; }
+    .pill-list span { color: var(--muted); border-color: var(--line); background: var(--page-2); }
+
+    .features { column-gap: 64px; row-gap: 0; margin-top: 0; }
+    .feature {
+      min-height: 280px;
+      padding: 32px 0 36px;
+      border: 0;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+    }
+    .feature h3 { margin-top: 62px; font-size: 26px; font-weight: 600; }
+    .feature__art { right: 2px; top: 32px; width: 78px; height: 78px; }
+
+    .ai {
+      background: var(--page-2);
+      color: var(--ink);
+      border-block: 1px solid var(--line);
+    }
+    .ai::before { display: none; }
+    .ai .section__intro { color: var(--muted); }
+    .ai-grid { gap: 22px; }
+    .ai-card {
+      min-height: 350px;
+      padding: 38px;
+      border: 1px solid var(--line);
+      border-radius: 20px !important;
+      background: var(--surface-solid);
+    }
+    .ai-card:first-child { background: var(--ink); color: var(--page); border-color: var(--ink); }
+    .ai-card__label { color: var(--blue); font-weight: 600; }
+    .ai-card:first-child .ai-card__label { color: #76aaff; }
+    .ai-card h3 { margin-top: 82px; font-weight: 600; }
+    .ai-card p { color: #b9bec6; line-height: 1.8; }
+    .prompt { margin-top: 34px; border: 1px solid var(--line); background: var(--page-2); color: var(--ink); }
+    .prompt::before { color: var(--blue); }
+
+    .platforms { border-radius: 20px; }
+    .platform { min-height: 260px; padding: 34px; }
+    .platform h3 { font-weight: 600; }
+    .proof { gap: 22px; margin-top: 22px; }
+    .proof__tech, .proof__tests { background: transparent; border-radius: 20px; }
+    .test-number { color: var(--blue); }
+
+    .cta { padding: 0 20px 20px; }
+    .cta__inner { background: var(--ink); color: var(--page); border-radius: 28px; }
+    .cta p { color: #b7bcc4; }
+    .cta .button--light { background: var(--page); color: var(--ink); }
+    .cta .button--ghost { border-color: rgba(255,255,255,.2); color: #fff; }
+    .cta .button--ghost:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.35); }
+
+    @keyframes drift {
+      0%,100% { transform: rotate(2deg) translateY(0); }
+      50% { transform: rotate(1deg) translateY(-10px); }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #101114;
+        --page-2: #17191d;
+        --surface: #17191d;
+        --surface-solid: #17191d;
+        --ink: #f2f3f5;
+        --muted: #b1b5bc;
+        --faint: #858a92;
+        --line: #2b2e34;
+        --hero-text: #f2f3f5;
+        --hero-muted: #b1b5bc;
+      }
+      .nav__cta, .button--light { background: #f4f5f7; color: #101114; }
+      .feature-stage__visual { background: #1c1f24; }
+      .floating-note { background: rgba(24,26,30,.94); }
+      .ai-card:first-child { background: #0b0c0e; border-color: #0b0c0e; }
+      .cta__inner { background: #07080a; }
+      .cta .button--light { background: #f4f5f7; color: #101114; }
+    }
+
+    @media (max-width: 900px) {
+      .hero__grid { display: none; }
+      .hero__inner { grid-template-columns: 1fr; }
+      .feature-stage__visual { border-right: 0; border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 640px) {
+      .nav__inner { justify-content: flex-end; }
+      .hero__inner { padding-top: 108px; gap: 54px; }
+      .hero__copy { text-align: left; }
+      .hero h1 { font-size: clamp(45px, 14vw, 59px); }
+      .hero__lead { margin-left: 0; margin-right: 0; }
+      .hero__actions, .hero__meta { justify-content: flex-start; }
+      .hero__meta { grid-template-columns: 1fr 1fr; }
+      .device-wrap { min-height: 500px; }
+      .device-wrap::before { width: 310px; height: 310px; }
+      .phone { width: 258px; }
+      .floating-note { width: 142px; right: -2%; }
+      .section { padding: 88px 16px; }
+      .section--tight { padding-top: 70px; padding-bottom: 88px; }
+      .feature-stage__visual { min-height: 410px; }
+      .features { gap: 0; }
+      .feature:nth-child(n) { min-height: 230px; padding: 28px 0 32px; }
+      .feature h3 { margin-top: 54px; }
+      .ai-card { min-height: 300px; padding: 28px; }
+      .ai-card h3 { margin-top: 58px; }
+      .platforms { border-radius: 16px; }
+      .download-panel { padding: 30px 24px; border-radius: 20px; }
+      .download-panel h3 { margin-top: 16px; }
+      .proof__tech, .proof__tests { padding: 26px 0; border-width: 1px 0 0; border-radius: 0; }
+      .cta__inner { border-radius: 22px; }
+    }
+  </style>
+
+  <style id="android-download-page">
+    .download-page[hidden] { display: none; }
+    .download-page {
+      min-height: 100svh;
+      padding: max(22px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(26px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+      background: var(--page);
+      color: var(--ink);
+    }
+    .download-page__shell {
+      width: min(1080px, 100%);
+      min-height: calc(100svh - 48px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    .download-page__topbar {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .download-page__back,
+    .download-page__web {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .download-page__back:hover,
+    .download-page__web:hover { color: var(--ink); }
+    .download-page__back svg,
+    .download-page__web svg { width: 17px; height: 17px; }
+    .download-page__body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(320px, .88fr);
+      gap: clamp(52px, 9vw, 112px);
+      align-items: center;
+      padding: clamp(58px, 9vw, 112px) 0;
+    }
+    .download-page__eyebrow {
+      margin: 0 0 24px;
+      color: var(--blue);
+      font: 600 13px "Noto Sans SC", sans-serif;
+      letter-spacing: .04em;
+    }
+    .download-page h1 {
+      max-width: 650px;
+      margin: 0;
+      font-size: clamp(46px, 6.3vw, 78px);
+      font-weight: 600;
+      line-height: 1.06;
+      letter-spacing: -.058em;
+    }
+    .download-page__lead {
+      max-width: 610px;
+      margin: 28px 0 0;
+      color: var(--muted);
+      font-size: clamp(16px, 1.55vw, 19px);
+      line-height: 1.85;
+    }
+    .download-page__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 36px;
+    }
+    .download-page__actions .button { min-height: 54px; }
+    .download-page__facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 24px;
+      margin: 26px 0 0;
+      padding: 0;
+      list-style: none;
+      color: var(--faint);
+      font-size: 13px;
+    }
+    .download-page__facts li {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .download-page__facts li::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+    .package-card {
+      padding: clamp(28px, 4vw, 42px);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--surface-solid);
+      box-shadow: var(--shadow);
+    }
+    .package-card__icon {
+      width: 64px;
+      height: 64px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      background: var(--ink);
+      color: var(--page);
+    }
+    .package-card__icon svg { width: 34px; height: 34px; }
+    .package-card__status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 34px;
+      color: var(--blue);
+      font: 600 12px "IBM Plex Sans", "Noto Sans SC", sans-serif;
+    }
+    .package-card__status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .package-card h2 {
+      margin: 10px 0 0;
+      font-size: 26px;
+      line-height: 1.3;
+      letter-spacing: -.025em;
+    }
+    .package-card dl {
+      margin: 30px 0 0;
+      border-top: 1px solid var(--line);
+    }
+    .package-card dl > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+    .package-card dt { color: var(--faint); }
+    .package-card dd { margin: 0; color: var(--ink); font-weight: 500; text-align: right; }
+    .package-card__note {
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.75;
+    }
+    .download-page__footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--faint);
+      font-size: 12px;
+    }
+    .download-page__footer a:hover { color: var(--ink); }
+
+    @media (max-width: 760px) {
+      .download-page { padding-inline: 16px; }
+      .download-page__shell { min-height: calc(100svh - 38px); }
+      .download-page__body {
+        grid-template-columns: 1fr;
+        gap: 46px;
+        align-items: start;
+        padding: 54px 0 58px;
+      }
+      .download-page h1 { font-size: clamp(43px, 13vw, 60px); }
+      .download-page__actions { flex-direction: column; }
+      .download-page__actions .button { width: 100%; }
+      .package-card { box-shadow: none; }
+      .download-page__footer { flex-direction: column; gap: 6px; }
+    }
+    .package-card__meta {
+      display: block;
+      margin-top: 8px;
+      color: var(--faint);
+      font-size: 13px;
+    }
+    .package-card__log {
+      margin: 22px 0 0;
+      max-height: 180px;
+      overflow: auto;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: var(--page-2);
+      color: var(--muted);
+      font: 13px/1.7 "Noto Sans SC", sans-serif;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .package-card__log[hidden] { display: none; }
+    .dl-badge {
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .button[hidden] { display: none; }
+</style>
+</head>
+<body>
+<header class="nav" aria-label="页面导航">
+    <div class="nav__inner">
+      <nav class="nav__links" aria-label="主要导航">
+        <a href="#design">设计</a>
+        <a href="#features">特性</a>
+        <a href="#platforms">平台</a>
+        <a href="#android-download">下载</a>
+      </nav>
+      <a class="nav__cta" href="https://flyme-music.pages.dev" target="_blank" rel="noopener noreferrer">打开 Web 版</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero__grid" aria-hidden="true"></div>
+      <div class="hero__inner">
+        <div class="hero__copy">
+          <p class="kicker">Flyme Music · Web / Windows / Android</p>
+          <h1>让音乐，<br />回到感受里。</h1>
+          <p class="hero__lead">当封面成为环境色，当歌词跟着旋律呼吸，播放器便不再只是一个工具。Flyme Music 用克制的设计，留住每一次沉浸。</p>
+          <div class="hero__actions">
+            <a class="button button--light" href="https://flyme-music.pages.dev" target="_blank" rel="noopener noreferrer">
+              立即体验 Web 版
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a class="button button--ghost" href="#android-download">下载 Android 版</a>
+          </div>
+          <div class="hero__meta" aria-label="支持平台">
+            <span><i></i>Android 9+</span>
+            <span><i></i>Windows 10+</span>
+            <span><i></i>Web · PWA</span>
+            <span><i></i>开源项目</span>
+          </div>
+        </div>
+
+        <div class="device-wrap" aria-label="Flyme Music 播放界面概念预览">
+          <div class="phone">
+            <div class="phone__screen">
+              <div class="phone__island"></div>
+              <div class="phone__status"><span>9:41</span><span>5G · 100%</span></div>
+              <div class="now">
+                <div class="now__cover"><img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUEBAUEAwUFBAUGBgUGCA4JCAcHCBEMDQoOFBEVFBMRExMWGB8bFhceFxMTGyUcHiAhIyMjFRomKSYiKR8iIyL/2wBDAQYGBggHCBAJCRAiFhMWIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiL/wAARCATmBOYDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD7KooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAopaKAEooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBaKSigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAWikooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAJoooAoAKAaCKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKAaCKKAAmiigCgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKO1FFABRR2ooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooo7UAHaiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAopKWgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACkxS0UALRRRQAlFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFJQAtFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRR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71HmP/eplFAD/Mb+9R5jf3qbRQA7zH9aPMf+9TKKAH+Y396jzG/vU2igB3mP60eY/wDeplFAD/Mb+9R5jetNooAd5jepo8xvU03ijigB3mP6mjzH9TTKKAH+Y/qaPMf1NMooAf5j+po8x/U0yigB/mP6mjzH9TTeaOaAHeY/qaPMf1NN5o5oAd5j+po8x/U0yigB29vU0b29TSZ+tGfrQA7e3940b2/vGm80c0AO3t/eNHmN/eNMooAf5jf3jS+a3rTPwooAkMmfSmq4BzTKKAOl0Tx14n8OSbtA8Qapp3tb3bqD+Ga9c8O/tYfEXRQi6jdWGtQrxtvrcBv++0wSfrXz9S9qAPuvwr+2Z4c1AxxeK9GvtJc4DT2xFxFn1xwwH/fVfQPhXx/4Z8aW3neFtbstSGMlIZf3i/VDhh+Vfknk1bs7640+4juLGeW3njOVkhcowPsRQB+xIcGnV+d/gL9q3xr4WaK111k8RaeMDbdNsuFHtKOT/wACBr62+HXx+8FfEUR21hqH2HVmAB06/wARyE+iHO1/wOfagD1qimqwYZBzTqACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooqKa5ht4nlmkSOONSzu7AKoAySSegoAezbBzXmPxO+N3hX4X2pTWbr7TqrLui0u1IaZuOC3ZF9z+ANeE/Gn9q0RSXGh/DF1Z1JSbXGUEehEAPX/fP4etfHN9f3OpX013fTy3FzOxeSaVyzOx6kk9TQB6z8Tv2hPF/xIeW1luTpWiMfl06ycgOP+mjdX+nT2rx1nJNNooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACpI5HjkV42ZXU5VgcEH2NM6UZoA+ivhZ+1H4k8GeRp3ifzNe0NMKBK/+kwj/AGHP3gP7renGK+3PA3xJ8NfETRlv/C2ox3KAfvIG+WaE+jp1H16e9fk0GrY8PeJtX8K61Bqnh7ULixv4DlJoXKn6H1B9DQB+vgfNLXzJ8E/2nNO8aPb6H42aHS/EBwsdyPlt7s/j9xvboe2OlfTKnsetADqKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAA0i0tFABRRWF4r8U6T4N8NXmteIbtLTT7RdzyN1J7Ko7sTwBQBP4h8Q6Z4X0K61XXb2Ky0+1XdLPKcBR6e5PQAcmvz1+Nn7Q+rfEu8n0rRfN07wqjYWBWIku8dGlI7ei9B7msT40fGzWPitr7eYXs9BtnP2PTQ3C/7b/3nP6dBXkhOTQApbJptFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQBJG+019VfAr9pufw81r4c+IVzJc6PxHbao5LSWvYLJ3ZPfqPevlGnZ4oA/YuzvoL60iubWWOaCZA8csTBldSMggjqKtV+dfwC/aBvPh1exaF4llluvCkzYz957FifvJ6p6r+I56/oPp2pWuqabb3unzx3NpcIJIpom3K6kZBB7igC7RRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRSChjgZoAzda1yw8PaNd6nrFzHa2FpGZJp5DgIo/z09a/N344/GnUPir4n/deZbeHrJyLCzJ69vNcd3I/IcV1P7Sfxsfx14gk8O+Hrg/8IxpspDOhwL2ZeC59UHO0fjXzqSScnrQAnU80UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAKDjpX0V+zp8eZfAOqxeHfE1wzeFruT93I/P2GQ/xD/pmT94duvrXzpUkZwRQB+xtvOlxCkkTq8bqGV0OQwIyCD3Bqaviz9l344m3uLbwF4ruf3DnbpF1K33D/wA8CT2PO3349K+z1bIoAkooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAEavlf9qj4yP4d0g+CvD1xt1bUYs38yH5reA9EB7M/wCi/Wvdfib47svh14A1HxBqG1zbrtt4C2DPMfuIPx5PsDX5aeJNev8AxN4iv9Y1edp76+maaaQnqSeg9AOgHoKAMlmLMSetNoooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigCWGZ4pUeN2R0IZWU4II6EV+jv7OfxdX4k+CRZatMD4l0hFjugTzPH0WYD36H3+tfm7XYfDjx3qPw68daf4g0piXtm2zQk4WeI/fQ/UfkcGgD9ZqWsLwz4jsPFXhnT9b0acTWN/Cs0Td8HsfQg5B9wa3B0oAWiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACmu21CcZI7U6vM/jb8QU+HPwr1TWIpANQkX7NYp3MzghT/AMBALfhQB8fftUfEpvFnxIbw/YXG7RvD7GL5DxLcf8tH98fdH0PrXztUtxM887ySsXd2LMx6kk5JqGgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA+wP2PviX9nvrrwLqc37mfN1ppY9HA/eRj6j5h7g+tfaw6CvyA0DXLzw74gsNW0yXyb2wnSeGQdmU5/Kv1X8CeMLXxx4G0jxBY48rULdZCgOfLfo6fgwYUAdTRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUlLQAUUUUAFFFFABRRRQAUUUUAFFFFAC0UlFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQA1ztQmvgD9rrx02u/Eq38N2smbLQIsShWyDcOAW/Jdq/UGvufxTr1v4Y8KaprV6R9m062kuJATjdtXIH1JwPxr8l9f1i58QeItQ1a/cyXWoTvcSuepZmJNAGUetFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV9l/saeOjjWfB14/Ck39kGP0WVR/4634GvjSu3+FnjGTwL8TtB19CfLtLkCdQcboW+WRfxUmgD9XlOVp1QW08dzbpNAwaKRQyODwykZBH4VPQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAlLSUtABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB80/tfeLW0T4TW2iQy7Zdeuwj4P8Ayyjw7f8AjxSvgBup9uK+jv2vvEbat8YotIDHytEsUjK54MknzsfrhlH4V84GgBKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigApy02nLQB+mv7OXitvFfwM0GaeQvdWCGwnJPOYuF/wDHCtewV8X/ALFfiRkn8U+HZWJJEd/EpPAwdj/+hJ+VfZ46UALRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFACUtJS0AFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFRyNgj3wP1qSsHxdqJ0jwXrepKdpsbCecH3WNiP1FAH5cfFDXT4k+LHijVlYmO71GZoyT/CGIUfkBXG1PcSGV97HLMSxPuTmoKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAPbv2Xdf/ALF/aC0SOR9sOpJJZsM/eLIdo/76C1+k6HKA1+R3gbVm0Hx/4f1VDg2WowTZ9g4r9bo+mPc0ASUtFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAJS0UUAFFFFABRRRQAUUUUAFFFFABRRRQAtFJRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV5d8ftRbTPgB4ynQ7W+w+Vn/fdU/wDZq9Rrwz9qefyf2fNdXP8ArpreP/yID/SgD83n+8ab3p0n+sNN70AJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUVMsWetdf4Z+FvjPxmVPhnw3qF5Cxx9oEWyEf8AbRsL+tAHFUV9XeEf2Mde1AxT+Mtcs9Ki6tbWSfaJT7EnCg/TdXuWgfsq/DXRolF5pd1rEw6zajdNz/wFNq/pQB+cW2kIr9Vrb4NfDq1iCR+CtAIH/PSyRz+bAmsrXf2fvhnrtq8c3hGwtnbpLYKbd19xsIH5gigD8vKK+hfjj+zhe/Da3fXfDss2peGS+JGkH760JPG/HDKegYY54IHGfnqgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAnicxyKw6qQfyOa/XbwvenUfCOjXrHLXVjDMT7tGp/rX5CKe1fq78J7s3nwe8Hyk5zo9sPyQL/SgDuKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvAP2tW2/AW9/wBq+tv5tXv9fPv7W/8AyQS7/wCv+2/m1AH52yf6xvrTe9Ok/wBY31pvegBKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKXBpQpPagBtFa+jeHNX8QX4tNC0y91K5P/LKzgaU/jtBr2/wl+yV8QPEJjl1iOz0C0bkm8l3y49o0z+RIoA+egpPQVLBbTXNzHBbxvLNI21UjUszH0AHJr758Mfsd+CtL2yeI77UtbmHWMt9mhP/AAFfm/8AH69v8L+A/DPg6LyvDGhafpwxgvBAA7f7z/eP4mgD88/Cv7OPxI8V+XJb+H5LC1f/AJeNUYW6geu0/OfwU17n4V/YssUKS+M/Ek1w/VrXS4hGv08x8kj/AICK+wAoFLgelAHm/hX4I/D/AMHlH0nwtYtcR/durxTcS59Q0mcfhivQxCqgADgdAOgqaigBgUDoKfilpKACiiigChq2nWur6Rd6fqMCXFneRNDNFIMq6MMEH8DX5PeO/DD+DviBrugSlmOm3kkKs3V0B+RvxUqfxr9bX+7X5q/tQRJF+0l4qCAAMbZj9TbRZoA8VooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAVetfqT8CXaT4EeDWb/AKBqD8mYf0r8tl61+o/wF/5IN4M/7By/+hNQB6fRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRS0UAJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXz7+1v/AMkEu/8Ar/tv5tX0FXz5+1x/yQO8/wCv+2/m1AH53Sf6xvrTe9K/32+tJ3oASiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACilVSx4FSRQPNOsSKzSMcKqqSSfQAUARU7rXqnhL4AfEXxaySWHhy5trR/8Al51H/RkA9cN8xH0U1734S/YsgURz+M/Eru3U2ulRhQPbzHzn/vkUAfGAXJ5OK7Pwl8LfGfjRlPhrw7f3sLdLjy9kP/fxsL+tfot4W+Bfw88JbH0vwxZSXUeCLq+BuZc+oL5x+GK9HjhWJAiqoQcBVGAKAPhrwn+xn4jvzHL4t1yw0qI8tBaKbiXHpn5VB/E17z4U/Zc+G/htY5LvSptau0/5bapIXXP/AFzXCY+oNe3hApyKdQBn6Zo9ho1mtrpNlbWdqgwsNtCsaj6AAVfAA6UtFABSd6WigAooooAKKKKACiiigBaKKKAI3+7X5qftSE/8NLeKPpbf+k0VfpW/3a/NT9qP/k5bxR9Lb/0mjoA8WooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAVetfqN8Bf+SD+Df+wcv/obV+XK9a/Uf4C/8kH8G/8AYOX/ANDagD0+iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAFopM0UAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFfPv7XH/JBLv8A6/7b+bV9BV8+/tbf8kEu/wDr/tv5tQB+dsn+sb60ynyf61vrTKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiniNj6fjXU+F/h14r8YzInhzw/qF+rHAlihIj/FzhR+dAHJ05VLHAr6k8Jfsa+KdR8ufxXqljo8B5MMINxLj0PRQfxNe7+Fv2Vvhz4fWJ72xudbuk5Mmoy5Qn/rmuFx9QaAPz30bw/qviG9Froem3moXJ/5ZWkDSt9cKOBXtnhP9k74h6+Ul1W3tNCs25L30gaTHqI0z+RIr9A9I0PTtDsltNIsLWwtkGFitYljUfgK0woXoKAPmLwr+x14O0xY5fEupahrcw+9Eh+zQn8F+b/x6vcPDfw78K+D4Anhrw9punnGDJDAPMb6ueT+JrraKAIlQcd6lAA6AUmB2/lS5oAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACkpaSgBr/AHa/NX9qP/k5bxR9Lb/0mjr9Kn+7X5q/tR/8nLeKPpbf+k0dAHitFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFACr1r9SPgL/yQfwb/ANg5f/Qmr8t161+pHwI/5IR4N/7By/8AoTUAenUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFfPv7W3/JBLv/AK/7b+bV9BV8/ftbf8kFvP8Ar/tv5tQB+dkn+tb60ynyf61vrTKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAXNJS4pdtADaKv6Xo9/rV6LXSrO5vLlukVtC0jH8FBr2bwn+y58RvERjlvNMh0a0bBMupShWx6hFyfwOKAPC8GpIreSaRUjUs7HCqOST6Ad6+6fCf7GvhrT1jm8U6zfatL/FBbD7NEfxGX/UV7v4W+GPhDwZEq+G/Dun2TgY88RBpT9XOSaAPzs8J/AP4h+LhHJp/hq7htX/5eb/8A0dB7/N8xH0Br3nwn+xawEc3jLxKFzy1rpcQOPbzH/wDia+yVQDGeSKfj0oA8o8Lfs+fDnwoEex8OW91cpgi51Em4fPqN3A/ACvUIbaO2hWKGNI4l6JGoUD8BUwooATHtS80tFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAMl+6K/NP9qP/k5bxT9Lb/0mjr9LJfuivzT/AGpP+TlvFP0tv/SaKgDxeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBV61+pHwH/5IR4N/wCwcv8A6E1fluvWv1H+A3/JB/Bv/YOX/wBDagD0+iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAr5/wD2tf8Akgl7/wBf9t/Nq+gK+f8A9rX/AJIJe/8AX/bfzagD865P9a31plPk/wBa31plABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUV2nw2+HuqfEnxraaDowCtL889w6kpbxD7zt9Ow7nAoAy/CnhHXPGmvRaV4Y02fUL2TnZEvCD+8zHhR7mvsb4b/sgaTYJDe/EW8Oo3gw39nWjlIF9mfq/wCGB9a94+Hnw20H4b+GItI8N2oRQAbi6kA865fu7n+Q6AV2ygKKAMnQ/DGjeGrFLTQNLstOt0GAlrCqfqOTWuEFOooAQKBRS4oxQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFADJfuivzT/ak/5OW8U/S2/wDSaKv0sl+6K/NP9qT/AJOW8U/S2/8ASaKgDxeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBV61+o/wF/wCSD+Df+wcv/obV+XC9a/Uf4B/8kH8G/wDYOH/obUAen0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFfP/7Wv/JBL3/r/tv5tX0BXz9+1t/yQW+/6/7b+bUAfnZJ/rW+tMp8n+sb60ygAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAVRlgK++/2PvCNvpnwtutfli/03WrplDkciGPhQD6FiTXwNH/rF+tfpn+zeAv7PXhHjrBIT/wB/WoA9hooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAGS/dFfmn+1J/yct4p+lt/6TRV+lkv3RX5p/tSf8nLeKfpbf8ApNFQB4vRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAq9a/Uf4Cf8kI8G/9g4f+htX5cL1r9R/gJ/yQjwb/ANg4f+htQB6fRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV8/ftbf8kFvv+v+2/m1fQNfP/7Wv/JBL3/r/tv5tQB+db/6xvrTKe/+sb60ygAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAfH/rV+tfpt+zou39nnwf72z/APo1q/MmP/Wr9a/Tj9nX/k3fwZ/17P8A+jWoA9cooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBaKKKACiiigBufxo/SgnHtTDJj3oAkptcv4m+IHhfwjbmTxFr+n6ft6pNMN/0CjJP5V4R4r/bE8JaZvi8Nadf6zMMhZZALeLPrz8xH4UAfT5YDqRVS81Sz0+ISX91BbIejTyrGP1Ir89/Fv7V3xC13zIdKntNCtX6LYpukH/bRufyxXimr+ItV124afWdRvL6djkvcztIc/ieKAP1osfEuj6lN5Vhq2n3Uv/PO3ukkb8gc1rh+K/HazvJrO5S4tJpIJ0OVkhcoy/Qjmvvj9mD4v6h4+0G/0XxLObjWNHVWW5f79xATgFvVlOAT33CgD6SopByBS0AFFFFADJfuivzT/ak/5OW8U/S2/wDSaKv0sl+6K/NP9qT/AJOW8U/S2/8ASaKgDxeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBV61+o/wE/wCSD+DP+wcv/obV+XC9a/Uf4Cf8kH8Gf9g5f/Q2oA9PooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK+fv2tv+SC3n/X/AG382r6Br5+/a1/5ILd/9f8AbfzagD87JP8AWN9aZT5P9Y31plABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQA+P/AFq/Wv04/Z1/5N38Gf8AXs//AKNavzHj/wBav1r9OP2c/wDk3rwb/wBer/8Ao1qAPXKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAopjOFxnvWfq2uadotm1zq19a2Vugy0tzMIwPzoA1KbvHrXgvir9qj4d+Hg8djf3GuXS9I9Ojyh/7aNha8N8VftleJr4tF4W0iw0qLJ2zXB+0SkfThQfzoA+5p7hIImklZUjUZLswAH1JrzTxV8evh74SEkep+I7aa6Q4NtYf6RJ+S8D86/O3xR8TfF/jFyfEfiHUL1Dn900pWP/AL4XArjy5PtQB9m+LP20YwjQ+DvDbMRkC51OXA9iEX+prwbxV+0F8RfFm+O88RT2lq4wbbTh9nTH1Xn9a8qLZHWm0AWbi7mu52mnkkklbq8jFmP4nmoSx7nNMooAUmkoooAdX1F+xn/yVLX/APsCn/0fHXy3X1F+xl/yVPXv+wKf/R0dAH3ov3R9KWkX7o+lLQAUUUUAMl+6K/NP9qL/AJOW8Vf9u3/pNFX6WS/dFfmn+1F/yct4q/7dv/SaKgDxeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBV61+o/wG/5IP4M/wCwcv8A6E1flwvWv1I+A/8AyQfwb/2Dl/8AQmoA9OooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK+fv2t/8Akgt3/wBhC2/m1fQNfP37W/8AyQW7/wCwhbfzagD87JP9Y31ptOk/1jfWm0AJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQA+P/AFq/Wv02/Zz/AOTe/B3/AF7P/wCjWr8yY/8AWr9a/Tb9nP8A5N78Hf8AXs//AKNagD16iiigAooooAKKKKACiiigAoopMigBaKiklESF3wEHViQAPxrzfxX8dPh/4QZ49V8SWj3KHBtrLNxLn02rnFAHpmaaXAr498Wftn26l4vBvhtpGGQLnU5do9iI1yT+JFeDeLP2g/iH4wDx6j4hntrZ+trpo+zp+a/MfxNAH6IeJviR4T8IQ7/EXiHTrE9o5JwXb2CjJzXhPir9sfwrp5eLwrpd/q838M0/+jxH8/m/SvhOW5lluGlkdmlc5ZmOST6k96hLFjyaAPoDxX+1f8QvEDSRabdWui2zHgWEWZAPTzGz/IV4rrHiHVNeujca1qN5fzE533czSEfTJ4/CskGlPNACs5Y03NJS5oAWkzSUUAFFFFABRRRQAUUUUAFfUH7Gv/JVdd/7Ap/9HR18v19P/sa/8lV13/sCn/0dHQB97L9wfSnU1fuD6U6gAooooAZL90V+af7UX/Jy3ir/ALdv/SaKv0sl+6K/NP8Aai/5OW8Vf9u3/pNFQB4vRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAq9a/Uj4D/8AJB/Bv/YOX/0Jq/LdetfqR8B/+SD+Df8AsHL/AOhNQB6dRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV8/fta/8kFvP+v+2/m1fQNfP37W3/JBbz/r/tv5tQB+dkv+sb600dadJ/rG+tNHWgBKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAHx/61frX6bfs5/8AJvfg7/r2f/0a1fmTH/rV+tfpt+zn/wAm9+Dv+vZ//RrUAevUUUUAFFFFABRWfq2s6foWlXGo6zeQWVhbLuluLhwiIPUk188+Lf2vvBmkmSPwzZ3+uzrnEgX7PDn/AHm5I+goA+ld4HUis/VNYsNHtXudVvbaztkGWmuJQij86+APFP7XHj7XGkj0drPQrZvu/ZIvMlH1d8/oBXimueJ9Y8SXZufEGp3mpT5yHu5mkx9ATgfQYoA/QfxV+1F8OfDgdLTU5taul/5ZaXHvU/8AbQ4X9a8N8V/tl6/eu8fhLQ7HTEBws94xuJMdvlGFB/E18nliTk0u6gDt/FPxU8Z+MXYeJPEOoXkZyDD5vlxY9NiYH5g1xJck/Lxn0ppNJQAv1ozSUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABX1B+xr/AMlW1v8A7Ap/9HR18wDrX09+xr/yVTXf+wM3/o6OgD72X7g+lOpq/cX6U6gAooooAZL90V+aP7UX/Jy3ir/t2/8ASaKv0ul+6K/NP9qL/k5bxV/27f8ApNFQB4vRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAq9a/Uf4C/wDJB/Bv/YOX/wBDavy4XrX6j/AX/kg/g3/sHL/6G1AHp9FFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXz9+1v/yQW8/6/wC2/m1fQNfP37W//JBbz/r/ALb+bUAfnY/+sP1plPf/AFh+tMoAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAHx/61frX6cfs5/8m9+Dv+vV/wD0a1fmPH/rV+tfpx+zn/yb34O/69X/APRrUAeuUUUUAFFFFAHxh+2nrt/HfeGNCjndNNaGW8eNW4kkDKqlvXAJx9a+O/MOMV9Yftqf8jp4X/7B0v8A6MWvkvvQApoNGKMUAJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV9Qfsa/8AJVdd/wCwK3/o6Ovl+vqD9jX/AJKrrv8A2BW/9HR0Afeq/cX6U6mr9xfpTqACiiigBkv3RX5p/tR/8nLeKfpbf+k0VfpZL90V+af7Uf8Ayct4p+lt/wCk0VAHi9FFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFACr1r9R/gL/AMkH8G/9g4f+htX5cL1r9R/gL/yQfwb/ANg4f+htQB6fRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV8/ftb/APJBbz/r/tv5tX0DXz9+1v8A8kFvP+v+2/m1AH52Sf6xvrTR1p0n+sb600daAEooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAfH/rV+tfpx+zn/wAm9+Dv+vV//RrV+Y8f+tX61+nH7Of/ACb34O/69X/9GtQB65RRRQAUUUUAfDn7an/I8eF/+wdL/wCjBXyYetfWn7an/I8eF/8AsHS/+jBXyVQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABX1B+xr/yVXXf+wK3/AKOjr5fr6g/Y0/5Krrv/AGBW/wDR0dAH3qv3F+lOpq/cX6U6gAooooAZL90V+af7Uf8Ayct4p+lt/wCk0VfpZL90V+af7UX/ACct4q+lt/6TRUAeL0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAKvWv1H+Av/ACQfwb/2Dl/9Davy4XrX6j/AX/kg/g3/ALBy/wDobUAen0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAGiikoAWkNLRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXz9+1v/AMkFvP8Ar/tv5tX0DXz9+1t/yQW8/wCv+2/m1AH52Sf6xvrTR1p0n+sb600daAEooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAfH/rV+tfpx+zn/yb34O/69X/APRrV+Y8f+tX61+nH7Of/Jvfg7/r1f8A9GtQB65RRRQAUUUUAfDv7an/ACPHhf8A7B0v/owV8lV9a/tqf8jv4X/7Bsv/AKMFfJVABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFfT/7Gf8AyVTXv+wMf/R8dfMFfT/7Gf8AyVTXv+wMf/R8dAH3sv3B9KdTV+4PpTqACiiigBkv3RX5p/tRf8nLeKvpbf8ApNFX6WS/dFfmn+1F/wAnLeKvpbf+k0VAHi9FFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFACr1r9R/gJ/wAkH8G/9g5f/Q2r8uF61+o/wE/5IR4N/wCwcP8A0NqAPT6KKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKWigBKKKKACiiigApKU0UAFFFIaAFooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvn79rb/kgt5/1/wBt/Nq+ga+fv2tv+SC3n/X/AG382oA/OyT/AFjfWmjrTpP9Y31po60AJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQA+P/Wr9a/Tj9nP/AJN78Hf9er/+jWr8x4/9av1r9OP2c/8Ak3vwd/16v/6NagD1yiiigAooooA+Hf21P+R58Lf9g2T/ANGCvkqvrX9tT/kefC3/AGDZP/Rgr5KoAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAr6i/Yz/5Klr/AP2BT/6Pjr5dr6i/Yz/5Klr/AP2BT/6PjoA+81+4PpTqav3B9KdQAUUUUAMl+6K/NP8Aai/5OW8VfS2/9Joq/SyX7or80/2of+TlvFX/AG7f+k0VAHi9FFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFACr1r9RfgJ/yQfwZ/2Dh/6G1fl0vWv1F+An/JB/Bn/YOH/obUAeo0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFfP/AO1t/wAkFvP+v+2/m1fQFfP/AO1t/wAkFvP+v+2/m1AH51yf6w/WmU+T/WH60ygAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAfH/AK1frX6cfs5/8m9+Dv8Ar1f/ANGtX5jx/wCtX61+nH7Of/Jvfg7/AK9X/wDRrUAeuUUUUAFFFFAHw7+2p/yPHhb/ALB0n/owV8lV9a/tp/8AI8eF/wDsHS/+jBXyVQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUuD6UoRj0FACCg08ROOxpCjDqKAGV9Qfsaf8lT13/sCn/wBHx18x7cda+nP2Nf8Akq2u/wDYFP8A6OjoA+9EbKL9Kf1piLhR9Kf0oADSGlNIaAGyfdFfmn+1D/yct4q/7dv/AEmir9LJPuivzT/ah/5OW8Vf9u3/AKTRUAeL0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAKvWv1H+A3/JCPBn/YOX/wBCavy4XrX6j/Ab/khHgz/sHL/6E1AHp9FFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABQKKBQAGig0UAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXz9+1v/AMkFvP8Ar/tv5tX0BXz/APtbf8kFvP8Ar/tv5tQB+dkn+sNNp0n+sNNoASiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigB8f+tX61+nH7Of/Jvfg7/r1f8A9GtX5jx/61frX6cfs5/8m9+Dv+vV/wD0a1AHrlFFFABRRRQB8O/trf8AI8eF/wDsGy/+jBXyVX1n+2r/AMj54Z/7B0n/AKMFfJlABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABS5pKeEzQAyn+W3pXrfww/Z/8XfExo7q0txpuhk5bU71CEYf9M16yfhge9fZnw//AGa/AvgmKGeaxXXNUXBN3qSh1Vv9iP7q/qfegD4O8IfCfxn45ZG8M6Be3cD/APLyyeXCP+2jYU/gTXvHh79jDxBeIknibxDp+mg4zDaxtcuPbJ2gH86+4ooUjjVEUKijAVRgAfSngAdAKAPmDTv2MvBduFbUNc127cdQrRxKfwCZ/Wumtv2UvhlAAJtKv7nHeXUJRn/vkiveMCnUAeHyfst/Cx0wvh24Q/3l1K4z/wCh1hX/AOyB8PbzP2afW7E9vKuw+P8AvtTX0bTcc0AfG+v/ALFQRGfwz4uy38MOo2vX6uh4/wC+a3f2ePgr4w+GnxR1q58S2lt9gm0sww3lrcCRJH81GwBww4B6ivqzA9BS0AC/dH0oNLSGgApKWkoAbL90V+af7UP/ACct4q/7dv8A0mir9LJfuivzT/ah/wCTlvFX/bt/6TRUAeL0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAKvWv1H+Av/JB/Bn/AGDl/wDQmr8uF61+o/wE/wCSEeDP+wcP/Q2oA9PooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKBRQKAA0UGigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooASvn/8Aa2/5ILef9f8AbfzavoGvn/8Aa2/5ILef9f8AbfzagD865P8AWH602nSf6w/Wm0AJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABSg0u2kxzQA+P/Wr9a/TX9nP/AJN78H/9ez/+jWr8yo/9av1r9Nv2c1/4x78Hf9ez/wDo1qAPXaKKKACiiigD4b/bV/5Hzwz/ANg6T/0YK+TK+s/21f8AkfPDP/YOk/8ARgr5MoAKKKKACiiigAooooAKKKKACiiigApy02tbw/oOoeJNes9K0a1ku7+8kEcMEYyWJ/kO5PYA0AR6To97req22n6VaTXl9dOEht4ELO7HsAK+3fg3+yrpugR2+sfEaOLUtYGHj00Hdb2/pv8A+ejf+Oj3616H8EPgdpnwr0QXNysV54ouowLm9xkRD/nlH6KO5717KBgcUAQxQJHGiIipGgwqqMACpQAOMU7tTR0oAWiiigAooooAKKKKACiiigAooooAKSlpKAGy/dFfmn+1D/yct4q/7dv/AEmir9LJfuivzR/ah/5OW8Vf9u3/AKTRUAeM0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAKvWv1H+An/JCPBn/YOH/obV+XC9a/Uf4Cf8kI8Gf9g4f+htQB6fRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV8//tbf8kEvv+v+2/m1fQFfP/7W3/JBL3/r/tv5tQB+db/6xvrTTTn/ANY31ppoASiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKK0NK0i+1rUIrLSrS4vLuU4SC3jLu30AoAz6f5Tbc8fjX1H4E/Y+8Q6xBFd+N76PRLWQA/ZIQJrk/X+Ff1r6W8Hfs+fD7wd5clloMN7eIP+PrUv3759QDwv4CgD849H8F+IfEGz+xNG1G+39DbWruv/AH1jH616LpH7M3xS1Mhv+Eaa1Q9GvLiOP9Mk/pX6VxWscEKxwIsUajASNQo/IVKEC9KAPzzT9kP4lsAXi0RP96//AMFqGf8AZK+JcI+S00mb/rnfD+qiv0UNM280AfmbqP7OHxQ04MX8KXE6r/FazRyfpuz+led614U1zw+zDXNH1HTypx/pVq8Yz9SMV+u2wVDcWVvdwmK7hjnjPVJVDKfwNAH47Rqdyt2zX6b/ALOn/JvXgz/r1k/9GvUfiv8AZ1+HnizzHn0GLT7ts/6Tph8hs+pA4b8RXbeAvB0HgLwRpfh2yuZrq306NkSaYAMwLFuQOO+PwoA6miiigAooooA+Hf21v+R48L/9g2X/ANGCvkqvrX9tb/kePC//AGDZf/Rgr5KoAKKKKACiiigAooooAKKKKAFpQKSlBoAkt7eW5uY4LeN5ZpWCRxouWZicAADqSa/Rr9n34J2vw08NLqWswJJ4s1CMG4kIz9kjPIhQ9v8AaPc+wFeM/sk/CaPVdQbx7rkG60spDFpcbDIklHDS49F6D3z6V9thMDAoAFAA4p1FFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABSUtFADJfuivzT/ah/5OW8Vf8Abt/6TRV+lj9K/NP9qH/k5bxV/wBu3/pNFQB4vRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAq9a/Uf4Cf8kI8Gf9g4f+htX5cL1r9RvgL/AMkI8Gf9g4f+htQB6hRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAC0UUUAJXz/+1t/yQS9/6/7b+bV9AV8//tbf8kDvv+v62/m1AH51yf6w/WmU+T/WH60ygAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKctOSPdX1v8A/2ZRrNpa+KPiJbOunviSz0lxtNwvUPKOoX0XuOtAHnHwe/Z11/wCJrRaleFtJ8OZH+myJl5x3ESnrx/EePrX3X4B+F3hf4caatr4Y0yOByMS3cnzTzH1Z+v4DArsLe3itoEigjSKKNQqRooVUUdAAOgFWKAAAKMCg80Higc0AFKelJRQAUCiigAooooAKKKKACiiigAooooA+Hf21f+R48Mf9g2X/ANGCvkqvrT9tX/ke/DH/AGDpf/Rgr5LoAKKKKACiiigAooooAKKKKACui8F+Fr3xn410nQNM/wCPrUbhYlbGdgPLOfZVBP4VztfXn7GXglbjWNb8ZXUWUs1FjaEj+NgGkP1C7Rn/AGjQB9geFvD9j4V8L6boekxCKx06BYY19cDlj7k8n3NblNVcCloAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBsn3DX5pftQ/8AJyvir/t2/wDSaKv0sfpX5p/tQ/8AJy3ir/t2/wDSaKgDxeiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBV61+o3wF/5IR4M/7Bw/8AQ2r8uV61+o/wE/5IR4M/7Bw/9DagD0+iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAFopKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAWiiigBK+f/wBrb/kgd9/1/W382r6Ar5//AGtv+SCXv/X/AG382oA/OuT/AFh+tMp8n+sP1plABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABSgZpK9Z+BXwpl+KXxCitbkMuh6eBcalMpx8mfljB/vOQR7AMe1AHrv7MvwEj137P428Y22/So33abZSrxcsD/rWHdARwO5Geg5+30UKuAAOOg7VBY2cFjZQW1pEkNtboI4YoxhUUDAAHYACrJoAKKKKACiiigAopKQdaAHUUUhoAWiiigAooooAKKKKACiiigD4c/bV/wCR78Mf9g6X/wBGCvkuvrX9tX/kePDH/YNl/wDRgr5KoAKKKKACiiigAooooAKKKKAJIsbua/UH4CeFR4R+B/huyePZc3Nv9tuMjnzJfnIP0BA/CvzT8N6V/bfifStMBwb67htsj/bcL/Wv12tkS3tYreNdqwoEUegAwKALFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUARN1Nfmv+1Cv/ABkr4p+lt/6TR1+lElfmV+0jdfa/2jfF8inIWeKMH/dgjU/qDQB5FRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAq9a/Uf4Cf8kH8Gf9g5f/Q2r8uF61+o3wDOfgP4N/7By/8AobUAeoUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAtFFFACV8//ALW3/JBL3/r/ALb+bV9AV8//ALW3/JBrz/r/ALb+bUAfnXJ/rD9aZT5P9YfrTKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAJ7eJpZlRFLu5AVVGST6AV+oHwR+GkPwz+GOnaXJEo1WdftOpSDktMwGVz6KMKPpnvXxh+y54FHi74y2l7eRB9N0BPt024ZUyA4iX67zu+iGv0eUYFAC0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQB8O/tq/8jx4Y/7Bsv8A6MFfJVfWn7av/I8eGP8AsGy/+jBXyXQAUUUUAFFFFABRRRQAUUUUAeh/BKy/tD45+Drc/dOpRPz/ALB3f+y1+qEYzk+pr8wf2edq/tDeDS/T7aR/5Dev1Aj+6frQA6iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAGOMivyl+LWorq/xd8XXyHcs2rXG0/7IkKj9AK/T/wAX+II/DHgzWtZm+5p1lLcEeu1SQPzr8jbmeS5nkmmYtLKxd2Pck5JoAgooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAcv3q/UT4B/wDJBvBv/YPH/obV+Xa/er9RfgH/AMkG8G/9g8f+htQB6hRRRQAUUUUAFFFFABRRRQAUUUUAJS0UUAFJS0UAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFfP37W3/ACQa8/6/7b+bV9A18/8A7Wv/ACQa8/6/7b+bUAfnVJ9802nyf6w/WmUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAuKUCkzSg0AfoD+x54UXR/hFc63KmLnXrxmBP/ADyiJRf/AB7zD+NfSlcN8JdFHh/4PeENO27Xg0yEyD/bZQzf+PMa7mgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD4a/bT/5Hrwx/2DpP/QxXybX1P+2hdrJ8UdDtgfmg0rcf+BSN/wDE18sUAFFFFABRRRQAUUUUAFFFFAHcfCjUP7K+L3hK9JwsWq24bnszhT+hr9Wov4vrX47WdxJbXMc0DFZY2Do3owOQa/XXwrrMHiDwjo+rWp3Q6hZxXCHPUMoNAGzRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFJ2paa5whoA+df2ufFa6L8GP7IikIu9eukhCg8+UhDufpwo/wCBV+ezHca96/ao8eHxh8Y57C0l36d4eQ2UeDw0ucyt/wB9YX/gFeCUAJRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQA5fvV+o3wF/wCSDeDP+wev/oTV+XK/er9RfgJ/yQbwZ/2Dl/8AQ2oA9QooooAKKKKACiiigAooooAKKKKACiikoAWikpaACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvn39rf/AJINef8AYQtv5tX0FXz7+1v/AMkGvP8AsIW382oA/Ox/vt9aSlf77fWkoASiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKsWkJuLiOJf+Wjqv5mq9X9KkWLUbd26LKhP4GgD9fbCAW1jDboMLCioB7AAVbqOAhgzDoTmpKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKa7bVFOPAqGZgsZZuiqSfyoA/Ov9rPVV1H9oHUIoz/AMeFnb2p9jtLn/0OvAq6/wCJXiE+Kfib4k1guHW81CV42HeMHan/AI6BXIUAFFFFABRRRQAUUUUAFFFFAEkTbTX6Hfsm+Mk8QfBtNJncG88PztblS2T5TfNGfpglf+A1+dte1fs3/EYeAfizbC/l2aPrIFldZPCEn93If91vyDGgD9Kw+TS5yahQ5xU+OKAFooooASiiigAooooAKKKKACiiigAooooAWiiigBK8w+N3xIT4a/C+/wBUhdRqtyPsunRn+KZgcNjuFGWP0969JuZ4razmnuJUihiQvJI5wqKOSSewAr8zvj98V5Pif8QpJbGRxoGmA2+nIwxuXPzSkerkD8AvvQB5NczyTzvJK7PJIxZ3Y5LE9STUFKTnrSUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFADl+9X6ifAX/AJIN4M/7B6/+htX5dr96v1E+Av8AyQbwZ/2D1/8AQ2oA9RooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK+f8A9rb/AJINef8AX/bfzavoCvn/APa1/wCSDXn/AF/2382oA/OuT/WNTKfJ/rGplABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUALjFOVsKcU3OacB8wFAH64eCNV/t3wF4e1RW3C+06Ccn3aNSf510leF/sseI18QfAbS4TJuuNGlksZeecA7k/wDHHUfhXueaAFooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvNPjl4w/wCEJ+C/iLVI5DHdvbm2tSOvmyfKp/DJP4V6UTgV8Rftk+PI77XdL8G2MoZNOBu70KcjzXGEU/RcnH+0KAPkmTG87fu0ynU2gAooooAKKKKACiiigAooooAKchwabSigD9G/2afiuvxA8Ax6Xqk+7xFokaxT72y1xF0SX3OOG9x7ive6/JLwP4z1XwD4vsNf0Cfyru0blSfllQ/ejYd1I/oeor9Mfhp8S9G+JfhGLWNFlAcYS6s2YGS2lxyre3oehFAHeZpDTQc04UALRRRQAUUUUAFFFFABRRRQAUUUUAFMZ9tK7bELHoK+O/2g/wBpNLeO78J/Du9Dztui1DWIW4QdDFCfXsXHToOeQAZ/7UHx2jvxc+BPCF2HtlYpq93C3EjD/lgpHVQfvHv93+9XyAxLMSaVnLMTknvzTKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAcv3q/UX4DcfAjwaP8AqHL/AOhtX5dL96v1H+BH/JCvBv8A2Dl/9CagD06iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACilooASiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvn39rX/AJILef8AYQtv5tX0FXz7+1t/yQW8/wCwhbfzegD87ZPvt9aaac/3z9aaaAEooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAHUUUUAfTv7IPjsaL8RL3wvdybLbX4g0G48C4iBIH/AkLj3IWvvVTlQRX49aVql3o2sWmo6bM0F7ZTLPBKvVHU5B/MV+qXwx8d2XxF+HumeINPZQbiPbcQg8wTLxIh+h6eoIPegDt6KQUtACUUUUAFFFFABRRRQAUUUUAFNxTqKAClpKBQAh60E4FOqOVgFoA5fx/wCM7HwF4G1TxFqTDybGElIweZZDwiD3JxX5WeItevvE3iTUNY1WUy3t/O08z+rE9B7DoPYCvb/2mvjB/wAJ54tGhaFcbvDujSMA6dLqfo0nuo5VfxPcV88Zz1oADSUppKACiiigAooooAKKKKACiiigAooooAdmuv8Ah/8AETXfht4pi1nw5cbJANk8D8x3Cd0cdx79QeRXHUUAfqT8KPjF4e+KmiebpU32fVYVButMmYebEfUf3k9CPxwa9NBr8fdG1i/0PU4NQ0i8ns762bdFcW8hR0PsRX1t8NP2wmhhh074mWTyYwo1exQbj7yRd/cp/wB80AfZ1JXNeFvHHh3xpYC78L6vZ6lBgbjBKCyH0Zeqn2IFdEHGcUAPooooAKKKKACims6rWTrfiLSfDWnPf+INStNOs06zXUojX6DPU0Aa9YXifxbovg7QZtW8TajBp9hF1lmb7x/uqOrMewGTXzp8Q/2wdD0pJ7T4f2b6vecgX92pjtkPqFOGf/x0e9fHfjLx74i8fawdR8VapPfzjIjVziOEH+FEHCjp0HOOc0Ae3fGj9p7UfG8M+h+DRPpfh58pLMx23F2PQ4+4h/ug5PfHIr5rc5YnOTTCaSgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBy/er9R/gP/yQjwd/2Dl/9Davy4X71fqP8B/+SD+Df+wcv/oTUAenUUlLQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV8+/tb/wDJBbz/ALCFt/N6+gq+ff2t/wDkgl5/1/2382oA/O2T77fWmU9/vn60ygAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAr3X9nj4yv8MvGP2PVpGPhnVmVLwdfs79FmA9ujY6r6kCvCqcGx0oA/Y63uorm2jmgkSSKVQ6SRtuV1IyCD3BqYNmvgX9nr9oh/BnkeFvGk8kvhx222t42WaxJ7HuY/wBV+nT7wsbuG+tIrizmjntpkDxzRMGWRTyCCOooAt0UUUAFFFFABRRRQAUUUUAFFFFABRRTTQAhfbXyV+0v8fE063vPBPgy7zqEwMeqX0LcQL3hQj+M/wAR7Djr0qfHz9pxLRLnwv8ADa7Et0QY7zWojlY+xSE9z6v0HbnkfGMkzyyM7sWZjkknJJ9SaAGSElyTTKUnJpKACiiigAooooAKKKKACiiigAooooAKKKKACiiigApcn1pKKAL2natfaRex3elXdxZXUZys9tKY3H/AhzXtfhb9qf4jeHIo4rjULbWbdOi6nDvf/vtdrfnmvBqKAPs3S/21mIUa14OG7HzSWd/jP0Vk/rXRxftpeESP9I8P6+jdwhhb+bivhDJ9aSgD7xl/bQ8Ghcw+H/ELt6P5C/ykNc5qv7a4VGGheDjvPSS9v+B/wFV/rXxnuo3UAe++I/2sfiRrm+OyvbLRoDxjT7Yb8f78m4/iMV4vrPiHVfEN+15rmo3eoXTdZruZpW/NicfQVkUUAOLE02iigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAcv3q/Uf4D/wDJCfBv/YOX/wBCavy4X71fqN8Bf+SD+Df+wcv/AKE1AHp9FJS0AFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFfP37WqFvgHfY/hvrY/q1fQNeJftQWhuv2efErAZ+zm3l/KUD/2agD82Jf9YabT5fvmo6ACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBQSOle1fB79oDxD8LZUsTnVPDjNl9OmkwY89WibnafbofTPNeKU7dQB+rHw/+LHhT4k2An8Namj3KrumsJ8JcQ/VO4/2hke9d4CDX472Oo3Wm3kV3Y3E1tdQtujmgco6H1DDkGvoPwP+114z8Oxw2viSG38RWa8eZOfKuQP+ug4P/AlJ96AP0GorwPwn+1V8OvEASPUb250O7Y4MeownZn2kTcuPc4r2HRvFeieIY0k0LV9N1BG6G0u0k/QGgDbzRmmM+KFfNAD6KTdWJrfirRPDsRk17V9O05B3u7tIv/QiKANymsy14L4n/as+HOgbo7C+u9aul6Jp0J2Z95H2jHuM189eOv2uvGPiJJbbwvb2/h20bjzIz51yR/vsML/wFQR60AfZXjv4n+F/hzpv2nxTqkdu7AmG0T555v8AcQcn68D1NfEPxd/aZ174hR3GkaEkuieHH+V4Uf8Af3I/6aOOg/2F49S1eFalqd5quoTXmp3U93eTNuknuJDI7n1LHk1SoAe77jTKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAFXrX6lfAyJofgZ4NVuv8AZqH8yx/rX5ar1r9Yvhba/Y/hJ4PhPVdItifqYgf60AdpRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAV5z8bdMOrfA7xlaqMs2nPIB/wBc8Sf+y16NWTr2nrq2g6hp0mNl7byW5z6OhX+tAH5BOec1HVq+t2tLua3kGJIZGjYehBxVWgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBwbHepluHjdWjdlZeQVOCKr0UAdLZeOvFGnqFsPEutWyjoIL+RP5GtdPi34/QYXxx4lA9P7Tl/+Krg6KAOp1Dx/wCK9TUrqHifW7oHqs9/Iw/U1zrzvIxaRmdzyWdsk1BRQA4sSaM02igAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKALFrEZp0ReS7qoH1OK/XvQbH+zfD2nWOMfZLaKHHptQL/Svyt+GWjf8JD8VfC2lEfLd6nCjf7u8E/oK/WKH7p9zQBJRRmigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAopM0lADqKSg0AHelFFFAATxUbDipDTSOKAPy4+O/h4+G/jn4rslULE94bmJR0CS/Ov6NXmNfV37Z/ho2XjTQPEEKfu9RtGtZWHeSI8Z/wCAsv5V8o0AFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUo60lKvWgD6B/ZM8PnVvjxbXroHh0ezlumB9SPLX9XB/Cv0TQYQV8i/sWeGTD4c8SeIp0/wCPy4SyhbvtQbnH5sn5V9dAYGKAHUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAtFJmigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBBRS0UANpcUtFAAaKKKACjtS000AeHftQeEW8T/A3U7iBC93ozrfxbVydq8OPptbP/Aa/Nx+tfsNqdlBqWm3NneR77a4iaGVf7yMCrD8ia/J/x74WuvBnj3WdAvR8+nXLxIxGN6ZyjD2K4I+tAHL0UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABT41LNhQS3bFMr1H4EeCf8AhOvjHomnTJv0+CT7Xe5Bx5UfzEHHqcD8aAPv/wCCvhI+DPg74c0mRNtyLUXFzxg+bJ87Z9xkL/wGvRR1ojUKuR35p1ABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAIVBr4v/bI8BbLnSvG1nFtjkxYXxUfxDmJz65GV/wCAivtGuT+IPhC28deANX8PX20RX8BRXI/1cnVH/BgPwzQB+Sp60laOt6Rd6Drt9pepxNDeWM7wTIw5VlOCKzqACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAr7x/Y+8Af2P4KvvFl7CVudcfyrbd1Fuh6/8Ccf+OV8efDnwXd+P/H+leHrEYa9mAlk7RRDl3P0XNfqxouk2eiaLZ6bpkQhs7OFIYYx/CijAoA0aKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKawyOadRQB8U/tefCw297B480uE+TOVt9TCL91+kcv4j5T7getfIBGDg1+v3iPQrDxJ4d1DSNXh86x1CFoZYyM8HuPccEH1Ar8tfib4Dv/hx49v9A1JS3ktvt7jGFnhblHH4dfQg0AcTRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABSgZpK9c+BPwol+KPxBitrhXXQ9P2z6hMB1XPEYP95jx7DJoA+mP2SfhgfD/hOXxhqsO3UNaQLaq45jtgevsXIz9APWvqMYAwKr2drFZ2kVvbxpFDEgRI0GFVQMAAegAAqxQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFeMfH74Pw/FDwOTYIieItMBksJCP9YP4oSfRu3ocepr2emtQB+Od7ay2V1Lb3MTwzwuUkjcYZGBwQR9arV9sftQ/AltQW58deE7fdcoN+rWcS8yKP8Aluo9R/EO/X1r4qdCh9uxoAZRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUVJDDJPMkcKM7uwVVUZJJOAAO5oA1PDfh7UfFHiOy0fRLZrnUL2QRwxL3J7k9gBkk+1fp58Jfhjp3wv8BW2i2WJbs/vb2624M8xHJ/3R0A9B7151+zj8D1+HugjXvEMKnxNqMYyhGfsUR58sf7R/iP4etfQ4GBgUALRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFADJIxIhBAORgg18L/tH/s9t4emu/F/gm1LaNIxkv7GJebRj1dB/zzJ6j+H6dPuyoZ4FmidHVWVgVKsMgg9QR3BoA/G8rg02vqn9oT9nKXw3NdeKvAtqZNEYmS806MZaz55dB3j9v4fpXywy7TQA2iiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKlhheaZI41Z3chVVRksT0AHc0ANjjMjYFfcn7N/7Pg0KO28ZeNbPGquA+nWEy/8eoP/AC0cf89COg/hHv0j/Z8/ZuGiG18WePrUHUuJbHS5BkWx6iSQd39F/h789PrFFCjAGBQAKu0U+iigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAgkjD53KGUjBBFfJfxy/Zbj1BrnxD8NbdY7t8yXOjLwsh7tD6N/sdD2r67oZQwwRQB+OV3aTWVzLb3cMkE8TFJIpFKsjDqCD0NVa/S74v8A7P8A4f8AidbPexBdM8SIhEeoxJxL6LKo++PfqPfpXwL48+GXib4cay9l4n094VJPk3SDdDOPVXHH4daAOLooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAoor1b4VfA/xN8Ur1JNPg+xaKj4n1S5UiNfUIP429hx6mgDz7QfD+p+Jtat9L0KymvdQuW2xQQrlm9/YD1r71+BX7OFh8Plg13xUINQ8TkbkXG6Gy9k/vP/ALXbt616T8M/hF4a+GGjfZtAtt97KoFzqNwA00/1P8K/7I4+tehBMUALgY46UtFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFADaytd8P6Z4k0afTdbsbe+sZxiS3uE3K3v7H3GCK16KAPi74n/sfSI0uo/DO63ocsdIvZOR7RyHr9G/M18n634e1Tw5qkthrthc2F7CcPBcxlGH59R71+wFc14s8DeHvG+mGy8UaTaahbgEJ5yfNH7qw+ZfwNAH5H4pK+zPHX7GgIku/AOsYGSV0/Uz+OFlA9f7wH1r5n8XfDDxd4IuzH4m0G8s484W42F4m/wB11yD+dAHF0v1pxjPYU0gg80AJRRRQAUUUUAFF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Wgfso/EvVmRr2xstKhb+K9uVJH/AUy36V654a/YssIyknivxPPcH+KDTofLX8HbP/oNfXoQU4LQB5j4R+BXw/wDBrI+l+G7WW6X/AJer4faJM+o38A/QCvTEjEaBR0HQelPooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooASloooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAWiiigAooooASiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAAUGgUGgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAopKWgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKWigBKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAWikooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKWigBKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigApKXtRQAUUUnegBaKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBKKWigAoopKAFooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAAUUCigApBS0goAWiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAEpaSloAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAAUUCigApBS0goAWiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAEpaSloAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACkopaACikxS0AFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUlFLQAYpKWigAooooAKKKKACiiigAooooAKKKKACiiigAopKKAFopKKAFooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACikooAWikooAWiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooASilooASilooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigBKKWigBKKWigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACgUUCgANFBooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAoFFAoADRQaKAFooooASiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//ZEzYGAQAAAAAIx7SFjfQXdnGDDenLSRPJ" alt="Flyme Music 应用标志" /></div>
+                <p class="now__title">音乐，正在发生</p>
+                <p class="now__artist">Flyme Music</p>
+                <div class="scrub"><span></span></div>
+                <div class="time"><span>02:26</span><span>03:58</span></div>
+                <div class="controls" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3 6 9-6v12z"/></svg>
+                  <span class="controls__play"><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg></span>
+                  <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zm-1 6-9 6V6z"/></svg>
+                </div>
+              </div>
+              <div class="glass-dock" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+          <div class="floating-note">
+            <strong>动态环境色</strong>
+            <small>界面色调跟随当前封面自然流动</small>
+          </div>
+        </div>
       </div>
-    </header>
+    </section>
 
-    <main>
-      <!-- Hero -->
-      <section class="of-hero">
-        <div class="of-hero__glow of-hero__glow--1" aria-hidden="true"></div>
-        <div class="of-hero__glow of-hero__glow--2" aria-hidden="true"></div>
-        <div class="of-hero__inner">
-          <p class="of-hero__eyebrow">HyperOS 风格 · 现代音乐播放器</p>
-          <h1 class="of-hero__title">让音乐，回到最纯粹的样子</h1>
-          <p class="of-hero__subtitle">
-            轻量 Liquid Glass 视觉、沉浸式歌词、随专辑流动的环境色——<br class="of-hero__br" />
-            一款把设计语言做到极致的音乐应用。
-          </p>
-          <div class="of-hero__actions">
-            <a class="of-btn of-btn--primary of-btn--lg" href="/">立即体验</a>
-            <a class="of-btn of-btn--secondary of-btn--lg" href="#features">了解特性</a>
+    <section class="section" id="design">
+      <div class="section__inner">
+        <div class="section__head reveal">
+          <div>
+            <p class="section__eyebrow">01 · 沉浸设计</p>
+            <h2>听见音乐，也看见它的情绪。</h2>
           </div>
+          <p class="section__intro">封面取色不是装饰，而是一套贯穿播放页、歌词和控制层的视觉语言。每次切歌，界面都会自然换一口气。</p>
+        </div>
 
-          <!-- Live from the release API, so the page never quotes a stale
-               version or size. Filled by src/official/download.ts. -->
-          <dl class="of-stats" data-dl="stats" hidden>
-            <div class="of-stat">
-              <dt class="of-stat__label">最新版本</dt>
-              <dd class="of-stat__value" data-dl="stat-version">—</dd>
+        <div class="feature-stage reveal">
+          <div class="feature-stage__visual" aria-hidden="true">
+            <div class="vinyl"></div>
+            <div class="lyric-sheet">
+              <p class="lyric-line">让声音穿过夜色</p>
+              <p class="lyric-line lyric-line--on">在这一刻，只听见音乐</p>
+              <p class="lyric-line">封面色彩缓缓流动</p>
+              <p class="lyric-line">下一句，自然来到眼前</p>
             </div>
-            <div class="of-stat">
-              <dt class="of-stat__label">安装包</dt>
-              <dd class="of-stat__value" data-dl="stat-size">—</dd>
+          </div>
+          <div class="feature-stage__copy">
+            <p class="section__eyebrow">沉浸歌词</p>
+            <h3>让歌词，成为此刻的视觉焦点。</h3>
+            <p>逐行高亮、自然滚动、点击跳转，并支持桌面歌词悬浮窗。视线跟着旋律，恰好落在下一句。</p>
+            <div class="pill-list"><span>逐行高亮</span><span>点击跳转</span><span>桌面悬浮</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--tight" id="features">
+      <div class="section__inner">
+        <div class="section__head reveal">
+          <div>
+            <p class="section__eyebrow">02 · 聆听工具</p>
+            <h2>每一个细节，都为听得更深。</h2>
+          </div>
+          <p class="section__intro">练歌、扒谱、精听或只是循环喜欢的片段。Flyme Music 把真正影响体验的细节，放回播放器中心。</p>
+        </div>
+
+        <div class="features">
+          <article class="feature reveal">
+            <span class="feature__num">01 / AUDIO</span>
+            <svg class="feature__art" viewBox="0 0 96 96" aria-hidden="true"><path d="M14 66h10V42H14zm19 14h10V24H33zm19-9h10V33H52zm19 10h10V15H71z" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+            <h3>均衡器与响度均衡</h3>
+            <p>完整音频链路内置限幅器，在调整听感的同时控制削波；响度变化更自然，不让音乐跟着“泵动”。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature__num">02 / LOOP</span>
+            <svg class="feature__art" viewBox="0 0 96 96" aria-hidden="true"><path d="M26 29h38a13 13 0 0 1 13 13v1M70 21l8 8-8 8M70 67H32a13 13 0 0 1-13-13v-1m7 22-8-8 8-8" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>A–B 循环</h3>
+            <p>标记两个时间点反复播放，练歌、扒谱、精听，一步到位。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature__num">03 / MEMORY</span>
+            <svg class="feature__art" viewBox="0 0 96 96" aria-hidden="true"><path d="M24 20v56m0-39h36a12 12 0 0 1 0 24H24m39-35 10-6v56l-10-6" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>音频书签</h3>
+            <p>在歌曲的任意位置留下标记，下一次直接回到那段旋律。</p>
+          </article>
+          <article class="feature reveal">
+            <span class="feature__num">04 / TIME</span>
+            <svg class="feature__art" viewBox="0 0 96 96" aria-hidden="true"><path d="M48 15a33 33 0 1 1-26 13M17 15v18h18M48 29v20l13 9" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>音乐时光机与听歌日记</h3>
+            <p>回看去年的今天，翻阅最近两周的每日记录，再从日历热力图、时长与最常听里，看见自己的音乐轨迹。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section ai">
+      <div class="section__inner">
+        <div class="section__head reveal">
+          <div>
+            <p class="section__eyebrow">03 · AI 伴听</p>
+            <h2>不只是推荐，更懂此刻。</h2>
+          </div>
+          <p class="section__intro">它理解当前歌曲、播放节奏和你想要的氛围。需要时给出回应，其余时间，把舞台留给音乐。</p>
+        </div>
+        <div class="ai-grid">
+          <article class="ai-card reveal">
+            <span class="ai-card__label">一起听</span>
+            <h3>有人陪你听，<br />但不打扰音乐。</h3>
+            <p>围绕当前歌曲与播放次数进行自然交流，也可以进一步解读一句歌词背后的语境与典故。</p>
+          </article>
+          <article class="ai-card reveal">
+            <span class="ai-card__label">一句话生成歌单</span>
+            <h3>把心情说出来，<br />歌单就准备好了。</h3>
+            <div class="prompt">放点适合下雨天一个人散步的歌</div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="platforms">
+      <div class="section__inner">
+        <div class="section__head reveal">
+          <div>
+            <p class="section__eyebrow">04 · 跨端一致</p>
+            <h2>换一块屏幕，不换一种体验。</h2>
+          </div>
+          <p class="section__intro">同一套设计系统、播放核心与歌词引擎，覆盖 Web、Windows 与 Android。熟悉的操作，随音乐一起抵达。</p>
+        </div>
+
+        <div class="platforms reveal">
+          <article class="platform">
+            <svg class="platform__icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="5" width="36" height="38" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><path d="M6 15h36M18 10h12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+            <h3>Web · PWA</h3>
+            <p>无需安装，打开即听；也可以添加到主屏。</p>
+          </article>
+          <article class="platform">
+            <svg class="platform__icon" viewBox="0 0 48 48" aria-hidden="true"><path d="M6 8h36v27H6zM18 42h12M24 35v7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Windows 10+</h3>
+            <p>安装包与免安装版本，桌面歌词自然融入系统。</p>
+          </article>
+          <article class="platform">
+            <svg class="platform__icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="11" y="5" width="26" height="38" rx="6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M20 38h8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+            <h3>Android 9+</h3>
+            <p>通知栏播放器、封面控制与完整移动体验。</p>
+          </article>
+        </div>
+
+        <div class="proof">
+          <article class="proof__tech reveal">
+            <h3>开放、清晰的技术栈</h3>
+            <div class="tech-list">
+              <span>React 18 + TypeScript strict</span>
+              <span>Tauri 2 + Rust</span>
+              <span>Vite 6</span>
+              <span>Zustand</span>
+              <span>Cloudflare Pages</span>
+              <span>Vitest</span>
             </div>
-            <div class="of-stat">
-              <dt class="of-stat__label">发布日期</dt>
-              <dd class="of-stat__value" data-dl="stat-date">—</dd>
-            </div>
-            <div class="of-stat">
-              <dt class="of-stat__label">平台</dt>
-              <dd class="of-stat__value">Android 7.0+</dd>
-            </div>
+          </article>
+          <article class="proof__tests reveal">
+            <h3>稳定性，不只是口号</h3>
+            <span class="test-number">738</span>
+            <p>项自动化测试覆盖 61 个文件。每一次迭代，都有可重复验证的底线。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="cta">
+      <div class="cta__inner reveal">
+        <div>
+          <h2>下一首，从这里开始。</h2>
+          <p>打开 Web 版立即体验，或下载 Android / Windows 客户端，把喜欢的音乐带在身边。</p>
+        </div>
+        <div class="cta__actions">
+          <a class="button button--light" href="https://flyme-music.pages.dev" target="_blank" rel="noopener noreferrer">打开 Web 版</a>
+          <a class="button button--ghost" href="#android-download">下载 Android 版</a>
+          <a class="button button--ghost" href="https://github.com/XTH-LOVE/flyme-music" target="_blank" rel="noopener noreferrer">查看 GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <main class="download-page" id="android-download" hidden aria-labelledby="android-download-title">
+    <div class="download-page__shell">
+      <div class="download-page__topbar">
+        <a class="download-page__back" href="#" aria-label="返回 Flyme Music 产品介绍">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          返回产品介绍
+        </a>
+        <a class="download-page__web" href="https://flyme-music.pages.dev" target="_blank" rel="noopener noreferrer">
+          打开 Web 版
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+
+      <div class="download-page__body">
+        <div class="download-page__copy">
+          <p class="download-page__eyebrow">Android · 通用 APK</p>
+          <h1 id="android-download-title">下载 Android 版</h1>
+          <p class="download-page__lead">通过 Flyme Music 官方下载通道获取最新安装包。入口保持不变，新版本发布后会自动下载最新版本。</p>
+          <div class="download-page__actions">
+            <a class="button button--download" data-dl="proxy" href="#">
+              <span data-dl="label">国内加速下载</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a class="button button--ghost" data-dl="direct" href="https://github.com/XTH-LOVE/flyme-music/releases/latest" target="_blank" rel="noopener noreferrer">从 GitHub 下载</a>
+            <a class="button button--ghost" data-dl="fallback" href="https://github.com/XTH-LOVE/flyme-music/releases/latest" target="_blank" rel="noopener noreferrer" hidden>前往 GitHub 查看</a>
+          </div>
+          <ul class="download-page__facts" aria-label="安装包信息">
+            <li>Android 9 及以上</li>
+            <li>通用架构安装包</li>
+            <li>国内加速通道</li>
+          </ul>
+        </div>
+
+        <aside class="package-card" aria-label="Android 安装包详情">
+          <div class="package-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M8.2 6.2 6.8 3.8M15.8 6.2l1.4-2.4M6.1 8.1h11.8v8.7H6.1zM4.1 9.2v6.3M19.9 9.2v6.3M8.6 16.8v3.4M15.4 16.8v3.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.2" cy="11.1" r=".8" fill="currentColor"/><circle cx="14.8" cy="11.1" r=".8" fill="currentColor"/></svg>
+          </div>
+          <span class="package-card__status" data-dl="status">正在获取版本…</span>
+          <span class="package-card__meta" data-dl="meta"></span>
+          <h2>Flyme Music for Android</h2>
+          <dl>
+            <div><dt>文件类型</dt><dd>APK</dd></div>
+            <div><dt>系统要求</dt><dd>Android 9+</dd></div>
+            <div><dt>最新版本</dt><dd data-dl="stat-version">—</dd></div>
+            <div><dt>安装包</dt><dd data-dl="stat-size">—</dd></div>
+            <div><dt>发布日期</dt><dd data-dl="stat-date">—</dd></div>
           </dl>
-          <div class="of-hero__mark-wrap" aria-hidden="true">
-            <img src="/flyme-mark.jpg" alt="" class="of-hero__mark" />
-          </div>
-        </div>
-      </section>
+          <pre class="package-card__log" data-dl="log" hidden></pre>
+          <p class="package-card__note">若系统提示安装未知来源应用，请在系统设置中允许当前浏览器安装，完成后可再次关闭该权限。</p>
+        </aside>
+      </div>
 
-      <!-- Features -->
-      <section class="of-section" id="download">
-        <div class="of-section__inner">
-          <h2 class="of-section__title of-reveal">下载 Android 版</h2>
-          <p class="of-section__desc of-reveal">安装包由 GitHub Releases 分发，安装后可在应用内直接检查更新。</p>
-          <div class="of-download of-reveal">
-            <div class="of-download__head">
-              <span class="of-download__version" data-dl="status">正在获取版本…</span>
-              <span class="of-download__meta" data-dl="meta"></span>
-            </div>
-            <pre class="of-download__log" data-dl="log" hidden></pre>
-            <div class="of-download__actions">
-              <a class="of-btn of-btn--primary of-btn--lg" data-dl="proxy" href="#" rel="noopener">国内加速下载</a>
-              <a class="of-btn of-btn--secondary of-btn--lg" data-dl="direct" href="#" rel="noopener">从 GitHub 下载</a>
-              <a class="of-btn of-btn--secondary of-btn--lg" data-dl="fallback" href="https://github.com/XTH-LOVE/flyme-music/releases/latest" rel="noopener" hidden>前往 GitHub 查看</a>
-            </div>
-            <p class="of-download__note">Android 7.0 及以上 · 安装包已签名，可直接覆盖安装升级</p>
-          </div>
-        </div>
-      </section>
+      <div class="download-page__footer">
+        <span>© 2026 Flyme Music · 缐廷华设计与开发</span>
+        <a href="https://github.com/XTH-LOVE/flyme-music" target="_blank" rel="noopener noreferrer">查看源代码</a>
+      </div>
+    </div>
+  </main>
 
-      <section class="of-section" id="features">
-        <div class="of-section__inner">
-          <h2 class="of-section__title of-reveal">为听歌而生的每一处细节</h2>
-          <p class="of-section__desc of-reveal">从设计系统到播放核心，每个能力都为统一的体验而生。</p>
-          <div class="of-features">
-            <article class="of-card of-reveal">
-              <div class="of-card__icon" style="--icon-tint: var(--am-accent)">◆</div>
-              <h3 class="of-card__title">完整设计系统</h3>
-              <p class="of-card__desc">色彩、字体、间距、圆角、阴影、动效全部统一 Token 驱动，视觉从第一像素就保持一致。</p>
-            </article>
-            <article class="of-card of-reveal">
-              <div class="of-card__icon" style="--icon-tint: var(--am-accent-2)">♪</div>
-              <h3 class="of-card__title">沉浸式歌词</h3>
-              <p class="of-card__desc">逐行高亮、自动滚动、点击跳转，歌词像音乐一样流动。</p>
-            </article>
-            <article class="of-card of-reveal">
-              <div class="of-card__icon" style="--icon-tint: #9c6bff">◐</div>
-              <h3 class="of-card__title">动态环境色</h3>
-              <p class="of-card__desc">播放器背景随专辑封面色调实时生成，每一次切歌都是新的氛围。</p>
-            </article>
-            <article class="of-card of-reveal">
-              <div class="of-card__icon" style="--icon-tint: #00b8b0">⇄</div>
-              <h3 class="of-card__title">Provider 架构</h3>
-              <p class="of-card__desc">数据源与 UI 完全解耦，一行代码即可切换未来的真实音乐服务。</p>
-            </article>
-            <article class="of-card of-reveal">
-              <div class="of-card__icon" style="--icon-tint: #f2a65a">▦</div>
-              <h3 class="of-card__title">本地渐变封面</h3>
-              <p class="of-card__desc">程序生成的渐变封面系统，零网络依赖、零版权风险，离线也完整可用。</p>
-            </article>
-            <article class="of-card of-reveal">
-              <div class="of-card__icon" style="--icon-tint: #2fa96b">◑</div>
-              <h3 class="of-card__title">多主题支持</h3>
-              <p class="of-card__desc">Light / Dark / 跟随系统，三种主题从第一天起就是一等公民。</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- Preview -->
-      <section class="of-section of-section--preview" id="preview">
-        <div class="of-section__inner">
-          <h2 class="of-section__title of-reveal">熟悉的界面，一眼心动</h2>
-          <p class="of-section__desc of-reveal">圆角卡片、玻璃质感与柔和阴影——主应用的气质，浓缩在这一屏。</p>
-          <div class="of-preview of-reveal">
-            <div class="of-preview__player" aria-hidden="true">
-              <div class="of-preview__cover" style="--cover-a: #2c5fd8; --cover-b: #7fb0ff"></div>
-              <div class="of-preview__meta">
-                <p class="of-preview__song">夜光航线</p>
-                <p class="of-preview__artist">夜航星</p>
-              </div>
-              <div class="of-preview__progress">
-                <span class="of-preview__progress-fill"></span>
-              </div>
-              <div class="of-preview__controls">
-                <span class="of-preview__ctrl">⏮</span>
-                <span class="of-preview__ctrl of-preview__ctrl--play">▶</span>
-                <span class="of-preview__ctrl">⏭</span>
-              </div>
-            </div>
-            <div class="of-preview__list" aria-hidden="true">
-              <div class="of-preview__row">
-                <span class="of-preview__row-cover" style="--cover-a: #2c5fd8; --cover-b: #7fb0ff"></span>
-                <span class="of-preview__row-meta">
-                  <span class="of-preview__row-title">舷窗</span>
-                  <span class="of-preview__row-artist">夜航星</span>
-                </span>
-                <span class="of-preview__eq"><i></i><i></i><i></i></span>
-              </div>
-              <div class="of-preview__row">
-                <span class="of-preview__row-cover" style="--cover-a: #2fa96b; --cover-b: #b8e8c8"></span>
-                <span class="of-preview__row-meta">
-                  <span class="of-preview__row-title">清晨采集</span>
-                  <span class="of-preview__row-artist">林间回声</span>
-                </span>
-                <span class="of-preview__row-dur">3:16</span>
-              </div>
-              <div class="of-preview__row">
-                <span class="of-preview__row-cover" style="--cover-a: #f2a65a; --cover-b: #ffe8c8"></span>
-                <span class="of-preview__row-meta">
-                  <span class="of-preview__row-title">海岸线电台</span>
-                  <span class="of-preview__row-artist">白鹭乐队</span>
-                </span>
-                <span class="of-preview__row-dur">4:02</span>
-              </div>
-              <div class="of-preview__row">
-                <span class="of-preview__row-cover" style="--cover-a: #7b4fe0; --cover-b: #d4b8ff"></span>
-                <span class="of-preview__row-meta">
-                  <span class="of-preview__row-title">云层图鉴</span>
-                  <span class="of-preview__row-artist">云岛</span>
-                </span>
-                <span class="of-preview__row-dur">3:41</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- About / Footer -->
-      <section class="of-section" id="stack">
-        <div class="of-section__inner">
-          <h2 class="of-section__title of-reveal">一套代码，三个平台</h2>
-          <p class="of-section__desc of-reveal">同一份 React 代码库编译出网页版、Windows 桌面版与 Android 应用，播放核心、设计系统与歌词引擎完全共用。</p>
-          <div class="of-stack">
-            <div class="of-stack__item of-reveal"><span class="of-stack__name">Tauri 2</span><span class="of-stack__role">桌面与移动端外壳</span></div>
-            <div class="of-stack__item of-reveal"><span class="of-stack__name">React 18 + Vite 6</span><span class="of-stack__role">界面与构建</span></div>
-            <div class="of-stack__item of-reveal"><span class="of-stack__name">Rust</span><span class="of-stack__role">音频标签解析、代理与签名下载</span></div>
-            <div class="of-stack__item of-reveal"><span class="of-stack__name">Cloudflare Pages</span><span class="of-stack__role">网页版与更新服务</span></div>
-            <div class="of-stack__item of-reveal"><span class="of-stack__name">GitHub Actions</span><span class="of-stack__role">自动构建与签名发布</span></div>
-            <div class="of-stack__item of-reveal"><span class="of-stack__name">Web Audio + Canvas</span><span class="of-stack__role">频谱、特征提取与动态背景</span></div>
-          </div>
-          <p class="of-stack__note of-reveal">全部离线可用 · 无广告 · 无第三方统计埋点</p>
-        </div>
-      </section>
-
-      <section class="of-section of-section--social" data-showcase="social" hidden>
-        <div class="of-section__inner">
-          <div class="of-social">
-            <div class="of-social__item">
-              <span class="of-social__value" data-count-to="stars">0</span>
-              <span class="of-social__label">GitHub Star</span>
-            </div>
-            <div class="of-social__item">
-              <span class="of-social__value" data-count-to="downloads">0</span>
-              <span class="of-social__label">累计下载</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="of-section" id="gallery">
-        <div class="of-section__inner">
-          <h2 class="of-section__title of-reveal">看得见的设计</h2>
-          <p class="of-section__desc of-reveal">同一套设计系统在手机与桌面上的样子。</p>
-          <div class="of-gallery">
-            <figure class="of-device of-reveal">
-              <div class="of-device__screen">
-                <div class="of-mock">
-                  <div class="of-mock__bar"><span class="of-mock__dot"></span>正在播放</div>
-                  <div class="of-mock__art"></div>
-                  <div class="of-mock__title">晴天</div>
-                  <div class="of-mock__artist">周杰伦 · 叶惠美</div>
-                  <div class="of-mock__lines">
-                    <span>故事的小黄花</span>
-                    <span class="of-mock__line--on">从出生那年就飘着</span>
-                    <span>童年的荡秋千</span>
-                  </div>
-                </div>
-              </div>
-              <figcaption class="of-device__caption">沉浸式歌词</figcaption>
-            </figure>
-
-            <figure class="of-device of-reveal">
-              <div class="of-device__screen">
-                <div class="of-mock">
-                  <div class="of-mock__bar"><span class="of-mock__dot"></span>播放队列</div>
-                  <ul class="of-mock__list">
-                    <li><span class="of-mock__idx">1</span><span class="of-mock__cover"></span><span class="of-mock__row">晴天</span></li>
-                    <li><span class="of-mock__idx">2</span><span class="of-mock__cover"></span><span class="of-mock__row">稻香</span></li>
-                    <li class="of-mock__row--on"><span class="of-mock__idx">3</span><span class="of-mock__cover"></span><span class="of-mock__row">夜曲</span></li>
-                    <li><span class="of-mock__idx">4</span><span class="of-mock__cover"></span><span class="of-mock__row">七里香</span></li>
-                  </ul>
-                </div>
-              </div>
-              <figcaption class="of-device__caption">队列拖拽排序</figcaption>
-            </figure>
-
-            <figure class="of-device of-reveal">
-              <div class="of-device__screen">
-                <div class="of-mock">
-                  <div class="of-mock__bar"><span class="of-mock__dot"></span>听歌统计</div>
-                  <div class="of-mock__stat"><b>1,204</b><span>播放记录</span></div>
-                  <div class="of-mock__bars">
-                    <i style="height:38%"></i><i style="height:62%"></i><i style="height:45%"></i>
-                    <i style="height:84%"></i><i style="height:56%"></i><i style="height:72%"></i>
-                    <i style="height:30%"></i><i style="height:66%"></i><i style="height:50%"></i>
-                    <i style="height:90%"></i><i style="height:58%"></i><i style="height:74%"></i>
-                  </div>
-                </div>
-              </div>
-              <figcaption class="of-device__caption">听歌日历与统计</figcaption>
-            </figure>
-          </div>
-          <p class="of-gallery__note of-reveal">以上为界面示意。真机截图可直接替换：把图片放进 <code>public/screenshots/</code>，并把 <code>of-mock</code> 换成 <code>&lt;img&gt;</code>。</p>
-        </div>
-      </section>
-
-      <section class="of-section" id="history">
-        <div class="of-section__inner">
-          <h2 class="of-section__title of-reveal">版本历史</h2>
-          <p class="of-section__desc of-reveal">每一次发布都记录在案。</p>
-          <ol class="of-timeline" data-showcase="timeline"></ol>
-          <p class="of-timeline__empty" data-showcase="timeline-empty" hidden>暂时无法获取版本记录。</p>
-        </div>
-      </section>
-
-      <footer class="of-footer" id="about">
-        <div class="of-footer__inner">
-          <div class="of-footer__brand">
-            <img src="/flyme-mark.jpg" alt="" class="of-footer__mark" />
-            <div>
-              <p class="of-footer__name">Flyme Music</p>
-              <p class="of-footer__tagline">HyperOS 风格 · 高级简约 · 轻量 Liquid Glass</p>
-            </div>
-          </div>
-          <nav class="of-footer__links" aria-label="页面链接">
-            <a href="/">立即体验</a>
-            <a href="#features">设计语言</a>
-            <a href="#preview">界面预览</a>
-            <a href="#download">下载 Android 版</a>
-            <a href="#stack">技术栈</a>
-            <a href="/">网页版</a>
-          </nav>
-          <p class="of-footer__copy">© 2026 Flyme Music · 由 <strong>缐廷华</strong> 设计与开发 · <a href="https://github.com/XTH-LOVE">github.com/XTH-LOVE</a></p>
-        </div>
-      </footer>
-    </main>
-  </body>
+  <footer class="footer">
+    <div class="footer__inner">
+      <span>© 2026 Flyme Music · 缐廷华设计与开发</span>
+      <nav class="footer__links" aria-label="页脚链接">
+        <a href="https://github.com/XTH-LOVE/flyme-music" target="_blank" rel="noopener noreferrer">源代码</a>
+        <a href="https://github.com/XTH-LOVE/flyme-music/issues" target="_blank" rel="noopener noreferrer">反馈建议</a>
+        <a href="https://github.com/XTH-LOVE/flyme-music/releases/latest" target="_blank" rel="noopener noreferrer">版本发布</a>
+      </nav>
+    </div>
+  </footer>
+  <script type="module" src="/src/official/main.ts"></script>
+</body>
 </html>

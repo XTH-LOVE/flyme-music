@@ -210,13 +210,17 @@ jobs:
       # relays GitHub on every request. GitHub remains the source of record;
       # a failed upload must not fail the release itself.
       - name: Mirror the APK to R2
-        if: ${{ secrets.R2_ACCESS_KEY_ID != '' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$R2_BUCKET" ] || [ -z "$R2_ACCOUNT_ID" ]; then
+            echo "R2 credentials are not configured; skipping APK mirror."
+            exit 0
+          fi
           tag="${{ github.ref_name }}"
           apk=$(find dist/android -name '*.apk' -type f | head -1)
           name=$(basename "$apk")
@@ -224,7 +228,7 @@ jobs:
           unzip -q awscliv2.zip
           ./aws/install --bin-dir "$HOME/.local/bin" --install-dir "$HOME/.local/aws-cli"
           "$HOME/.local/bin/aws" s3 cp "$apk" "s3://$R2_BUCKET/releases/$tag/$name" \
-            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" \
             --content-type application/vnd.android.package-archive \
             --cache-control "public, max-age=31536000, immutable"
 

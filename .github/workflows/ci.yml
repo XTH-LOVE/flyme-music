@@ -16,7 +16,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Lint
-        run: npx eslint .
+        run: npm run lint
       - name: Typecheck
         run: npx tsc -b
       - name: Unit tests

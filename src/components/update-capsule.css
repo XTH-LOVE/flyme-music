@@ -16,14 +16,33 @@
   align-items: stretch;
   width: min(420px, calc(100vw - 24px));
   border-radius: var(--am-radius-pill, 999px);
-  background: var(--am-glass, rgba(28, 28, 34, 0.72));
+  background:
+    radial-gradient(120% 180% at 8% -45%, rgba(255, 255, 255, 0.26), transparent 56%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02)),
+    var(--am-glass, rgba(28, 28, 34, 0.72));
   backdrop-filter: blur(var(--am-glass-blur, 20px)) saturate(var(--am-glass-saturate, 1.6));
   -webkit-backdrop-filter: blur(var(--am-glass-blur, 20px)) saturate(var(--am-glass-saturate, 1.6));
   border: 1px solid var(--am-glass-border, rgba(255, 255, 255, 0.14));
-  box-shadow: var(--am-glass-shadow, 0 14px 40px rgba(0, 0, 0, 0.32));
+  box-shadow:
+    var(--am-glass-shadow, 0 14px 40px rgba(0, 0, 0, 0.32)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  isolation: isolate;
+  will-change: transform;
   /* Enters from above, which is where a notification comes from. */
   animation: update-capsule-in 380ms var(--am-ease-spring, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+.update-capsule::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0.12), transparent 36%);
+  opacity: 0.9;
 }
 
 @keyframes update-capsule-in {
@@ -47,44 +66,69 @@
 .update-capsule__main {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 66px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 6px 9px 12px;
+  gap: 12px;
+  padding: 10px 8px 10px 14px;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--am-motion-micro) var(--am-ease-standard), transform var(--am-motion-micro) var(--am-ease-spring);
+}
+
+.update-capsule__main:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.update-capsule__main:active {
+  transform: scale(0.985);
+}
+
+.update-capsule__main:focus-visible,
+.update-capsule__close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
 }
 
 .update-capsule__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
   border-radius: 50%;
   color: #fff;
   background: linear-gradient(135deg, var(--am-accent, #3d7bff), var(--am-accent-2, #8a5cff));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--am-accent, #3d7bff) 32%, transparent);
 }
 
 .update-capsule__text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.update-capsule__eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  color: var(--am-text-3);
+  white-space: nowrap;
 }
 
 .update-capsule__title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--am-text-1);
   white-space: nowrap;
   overflow: hidden;
@@ -101,7 +145,7 @@
 }
 
 .update-capsule__desc {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--am-text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -118,14 +162,38 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
+  width: 46px;
+  min-height: 44px;
   border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
   background: none;
   color: var(--am-text-3);
   cursor: pointer;
-  transition: color var(--am-motion-micro) var(--am-ease-standard);
+  transition: color var(--am-motion-micro) var(--am-ease-standard), background-color var(--am-motion-micro) var(--am-ease-standard);
 }
 
 .update-capsule__close:hover {
   color: var(--am-text-1);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 420px) {
+  .update-capsule {
+    width: min(390px, calc(100vw - 16px));
+    top: calc(8px + env(safe-area-inset-top));
+  }
+
+  .update-capsule__main {
+    min-height: 62px;
+    padding-left: 11px;
+  }
+
+  .update-capsule__icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .update-capsule__eyebrow {
+    font-size: 8px;
+  }
 }

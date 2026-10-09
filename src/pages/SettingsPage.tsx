@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Icon, type IconName } from '@/components/Icon';
@@ -93,20 +93,20 @@ export function SettingsPage() {
   const [downloadSummary, setDownloadSummary] = useState(getDownloadQueueSummary);
   const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([]);
 
-  const refreshDiagnostics = async () => {
+  const refreshDiagnostics = useCallback(async () => {
     setDiagnosticsLoading(true);
     try {
       setDiagnostics(await collectPlaybackDiagnostics(currentTrack));
     } finally {
       setDiagnosticsLoading(false);
     }
-  };
+  }, [currentTrack]);
 
   useEffect(() => subscribeDownloads((tasks) => {
     setDownloadTasks(tasks);
     setDownloadSummary(getDownloadQueueSummary());
   }), []);
-  useEffect(() => { void refreshDiagnostics(); }, [currentTrack]);
+  useEffect(() => { void refreshDiagnostics(); }, [refreshDiagnostics]);
 
   useEffect(() => {
     if (neteaseAuth.user) return;

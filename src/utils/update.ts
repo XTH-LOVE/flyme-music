@@ -55,7 +55,7 @@ export interface UpdateResult {
  */
 export async function currentVersion(): Promise<string> {
   try {
-    const { isTauri } = await import('@/lib/apiTransport');
+    // isTauri is statically imported above so this module remains in one chunk.
     if (isTauri()) {
       const { getVersion } = await import('@tauri-apps/api/app');
       const version = await getVersion();

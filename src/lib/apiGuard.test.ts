@@ -64,6 +64,17 @@ describe('isAllowedProxyTarget', () => {
     expect(isAllowedProxyTarget('https://music.example.com/api')).toBe(true);
     expect(isAllowedProxyTarget('http://203.0.113.10/')).toBe(true);
   });
+
+  it('supports purpose-specific upstream allowlists', () => {
+    expect(isAllowedProxyTarget('https://c.y.qq.com/api', 'proxy')).toBe(true);
+    expect(isAllowedProxyTarget('https://evil.example/api', 'proxy')).toBe(false);
+    expect(isAllowedProxyTarget('https://cdn.example/cover.jpg', 'image', ['cdn.example'])).toBe(true);
+    expect(isAllowedProxyTarget('https://cdn.example/song.mp3', 'media')).toBe(false);
+  });
+
+  it('rejects oversized proxy URLs', () => {
+    expect(isAllowedProxyTarget('https://c.y.qq.com/' + 'x'.repeat(4096), 'proxy')).toBe(false);
+  });
 });
 
 describe('rateLimit', () => {

@@ -60,6 +60,26 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
 }
 
+/* Keep long, image-heavy surfaces from forcing layout/paint work for rows
+ * below the fold. This does not alter the existing card geometry. */
+.song-list > * {
+  content-visibility: auto;
+  /* Song rows are roughly 58–64px tall; reserving that space keeps the
+     scroll position stable while rows below the fold are skipped. */
+  contain-intrinsic-size: auto 62px;
+}
+
+.grid-cards > * {
+  content-visibility: auto;
+  /* Playlist cards include a square cover plus two text lines. */
+  contain-intrinsic-size: auto 210px;
+}
+
+.banner-row > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
 /* ---------- OS3 ambient colour field ----------
  * A live wash of palette-derived blobs, rasterised on the CPU at a low frame
  * rate (see utils/ambientField.ts) and blended over the artwork layers.
@@ -1221,6 +1241,27 @@
   animation: none;
 }
 
+/* Older phones/WebViews often turn a full-screen blur into a per-frame paint.
+ * The automatic lite tier keeps the same palette and geometry while removing
+ * only those decorative costs. The user-facing ambient-motion switch still
+ * controls the richer path on capable devices. */
+.hc--lite .hc-bg__cover {
+  filter: none;
+  opacity: 0.3;
+  transform: scale(1.06);
+  will-change: auto;
+}
+.hc--lite .hc-bg__field {
+  opacity: 0.28;
+}
+.hc--lite .hc-bg__noise {
+  opacity: 0.035;
+}
+.hc--lite .hc-bg__flow--live,
+.hc--lite .hc-cover--playing {
+  animation: none;
+}
+
 /* An A-B mark is set: the row reads as active rather than as another action. */
 .hc-more__on {
   color: var(--am-accent, #3482ff);
@@ -1294,7 +1335,14 @@
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  transition: background-image 100ms linear;
+  /*
+   * The progress custom property is updated while the track is playing.
+   * Transitioning `background-image` here makes WebView repeatedly discard
+   * and rebuild the text layer, which presents as a short flash on every
+   * playback tick. The fill itself is already sampled every update, so a
+   * second CSS tween only adds work and no useful visual information.
+   */
+  transition: none;
 }
 
 .hc-more__mark-go {

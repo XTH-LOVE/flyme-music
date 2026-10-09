@@ -130,7 +130,7 @@ export async function handleProxy(req: IncomingMessage, res: ServerResponse): Pr
   const query = parseQuery(req);
   const target = query.get('url');
   const referer = query.get('referer') ?? '';
-  if (!isAllowedProxyTarget(target)) {
+  if (!isAllowedProxyTarget(target, 'proxy', (process.env.AURORA_PROXY_HOSTS ?? '').split(','))) {
     badUrl(res);
     return;
   }
@@ -164,7 +164,7 @@ export async function handleProxy(req: IncomingMessage, res: ServerResponse): Pr
 export async function handleImg(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!guardRequest(req, res, 'img')) return;
   const target = parseQuery(req).get('url');
-  if (!isAllowedProxyTarget(target)) {
+  if (!isAllowedProxyTarget(target, 'image', (process.env.AURORA_PROXY_HOSTS ?? '').split(','))) {
     badUrl(res);
     return;
   }
@@ -208,7 +208,7 @@ export async function handleImg(req: IncomingMessage, res: ServerResponse): Prom
 export async function handleMediaProxy(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!guardRequest(req, res, 'media-proxy')) return;
   const target = parseQuery(req).get('url');
-  if (!isAllowedProxyTarget(target)) {
+  if (!isAllowedProxyTarget(target, 'media', (process.env.AURORA_PROXY_HOSTS ?? '').split(','))) {
     badUrl(res);
     return;
   }
@@ -429,6 +429,13 @@ export async function handleAi(req: IncomingMessage, res: ServerResponse): Promi
   if (!allowedPaths.has(subPath)) {
     res.statusCode = 400;
     res.end(JSON.stringify({ error: 'unsupported AI path' }));
+    return;
+  }
+  const expectedMethod = subPath === '/models' ? 'GET' : 'POST';
+  if (req.method !== expectedMethod) {
+    res.statusCode = 405;
+    res.setHeader('Allow', expectedMethod);
+    res.end(JSON.stringify({ error: 'method not allowed' }));
     return;
   }
   if (!apiKey) {

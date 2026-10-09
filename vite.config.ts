@@ -3,7 +3,11 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
-import { AI_DEFAULT_ENDPOINT, AI_DEFAULT_MODEL } from './src/lib/apiGuard';
+import {
+  AI_DEFAULT_ENDPOINT,
+  AI_DEFAULT_MODEL,
+  isAllowedProxyTarget,
+} from './src/lib/apiGuard';
 import { ALLOWED_PATHS, bilibiliUpstream, isUpstreamFailure } from './src/lib/bilibiliServer';
 
 /* ------------------------------------------------------------------
@@ -275,7 +279,7 @@ function genericProxy(): Plugin {
         const parsed = new URL(req.url ?? '', 'http://localhost');
         const target = parsed.searchParams.get('url');
         const referer = parsed.searchParams.get('referer') ?? '';
-        if (!target || !/^https?:\/\//.test(target)) {
+        if (!isAllowedProxyTarget(target, 'proxy')) {
           res.statusCode = 400;
           res.end('bad url');
           return;
@@ -398,7 +402,7 @@ function imageProxy(): Plugin {
       server.middlewares.use('/api/img', async (req, res) => {
         const parsed = new URL(req.url ?? '', 'http://localhost');
         const target = parsed.searchParams.get('url');
-        if (!target || !/^https?:\/\//.test(target)) {
+        if (!isAllowedProxyTarget(target, 'image')) {
           res.statusCode = 400;
           res.end('bad url');
           return;
@@ -444,7 +448,7 @@ function mediaDownloadProxy(): Plugin {
       server.middlewares.use('/api/media-proxy', (req, res) => {
         const parsed = new URL(req.url ?? '', 'http://localhost');
         const target = parsed.searchParams.get('url');
-        if (!target || !/^https?:\/\//.test(target)) {
+        if (!isAllowedProxyTarget(target, 'media')) {
           res.statusCode = 400;
           res.end('bad url');
           return;
@@ -521,6 +525,13 @@ function aiProxy(env: Record<string, string>): Plugin {
           res.end(JSON.stringify({ error: 'unsupported AI path' }));
           return;
         }
+        const expectedMethod = subPath === '/models' ? 'GET' : 'POST';
+        if (req.method !== expectedMethod) {
+          res.statusCode = 405;
+          res.setHeader('Allow', expectedMethod);
+          res.end(JSON.stringify({ error: 'method not allowed' }));
+          return;
+        }
         if (!apiKey) {
           res.statusCode = 503;
           res.end(JSON.stringify({ error: 'AI server key is not configured' }));
@@ -528,10 +539,19 @@ function aiProxy(env: Record<string, string>): Plugin {
         }
         const target = endpoint.replace(/\/$/, '') + subPath;
         let body = '';
+        let bodyBytes = 0;
+        let oversized = false;
         req.on('data', (chunk) => {
-          body += chunk;
+          bodyBytes += chunk.length;
+          if (bodyBytes > 2 * 1024 * 1024) oversized = true;
+          else body += chunk;
         });
         req.on('end', async () => {
+          if (oversized) {
+            res.statusCode = 413;
+            res.end(JSON.stringify({ error: 'request body too large' }));
+            return;
+          }
           try {
             const upstream = await fetch(target, {
               method: req.method || 'GET',

@@ -10,8 +10,14 @@ import { getTrackProvider } from '@/music/source/factory';
 import { searchSourceOptions } from '@/music/source/types';
 import type { MusicSource, MusicTrack } from '@/music/source/types';
 import { aggregateSearch, dedupeKey } from '@/ai/musicSearch';
-import { getNeteaseSearchMeta, type NetSearchMeta } from '@/music/netease/netease-api';
+import {
+  getNeteaseSearchMeta,
+  hydrateNeteaseSearchMetaCovers,
+  type NetSearchMeta,
+} from '@/music/netease/netease-api';
 import { BilibiliUnavailableError } from '@/music/bilibili/bilibili-api';
+import { SearchSuggestionPanel } from '@/components/SearchSuggestionPanel';
+import { flattenSearchSuggestions, type SearchSuggestion } from '@/music/netease/search-suggestions';
 import { useNavigate } from 'react-router-dom';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import './pages.css';
@@ -31,81 +37,8 @@ const SEARCH_TABS: { source: SearchTab; label: string }[] = [
   ...searchSourceOptions,
 ];
 
-/**
- * Artist and album matches for whatever is in the box.
- *
- * Extracted so the same cards can appear while typing as well as after a
- * search. The endpoint was already being called on submit; making the user
- * press Enter before showing the one thing they were about to pick is a round
- * trip for nothing.
- */
-function SearchMetaCards({ meta }: { meta: NetSearchMeta | null }) {
-  if (!meta || (!meta.artists.length && !meta.albums.length)) return null;
-  return (
-    <section className="search-meta">
-      {meta.artists.length ? (
-        <>
-          <SectionHeader title="相关歌手" />
-          <div className="search-meta__row">
-            {meta.artists.map((a) => (
-              <SearchMetaCard
-                key={a.id}
-                to={'/ne-artist/' + a.id}
-                cover={a.coverUrl}
-                name={a.name}
-                kind="歌手"
-                fallbackIcon="user"
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
-      {meta.albums.length ? (
-        <>
-          <SectionHeader title="相关专辑" />
-          <div className="search-meta__row">
-            {meta.albums.map((al) => (
-              <SearchMetaCard
-                key={al.id}
-                to={'/ne-album/' + al.id}
-                cover={al.coverUrl}
-                name={al.name}
-                kind={al.artist || '专辑'}
-                fallbackIcon="album"
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
-    </section>
-  );
-}
-
-/** One artist or album tile. The two were identical and written twice. */
-function SearchMetaCard({
-  to,
-  cover,
-  name,
-  kind,
-  fallbackIcon,
-}: {
-  to: string;
-  cover?: string;
-  name: string;
-  kind: string;
-  fallbackIcon: 'user' | 'album';
-}) {
-  const navigate = useNavigate();
-  return (
-    <button className="search-meta__card" onClick={() => navigate(to)}>
-      {cover ? <img src={cover} alt={name} /> : <Icon name={fallbackIcon} size={30} />}
-      <span className="search-meta__name">{name}</span>
-      <span className="search-meta__kind">{kind}</span>
-    </button>
-  );
-}
-
 export function SearchPage() {
+  const navigate = useNavigate();
   // Defaults to the aggregate tab: searching once and seeing every catalogue
   // beats guessing which of five tabs holds the song.
   const [source, setSource] = useState<SearchTab>('all');
@@ -123,6 +56,8 @@ export function SearchPage() {
   const abortRef = useRef<AbortController | null>(null);
   const [meta, setMeta] = useState<NetSearchMeta | null>(null);
   const metaAbortRef = useRef<AbortController | null>(null);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
 
   const history = useLibraryStore((s) => s.searchHistory);
   const addKeyword = useLibraryStore((s) => s.addSearchKeyword);
@@ -140,15 +75,23 @@ export function SearchPage() {
   useEffect(() => {
     const kw = keyword.trim();
     if (submitted || kw.length < 1) {
+      if (kw.length < 1) setMeta(null);
       return;
     }
     const timer = window.setTimeout(() => {
       metaAbortRef.current?.abort();
       const mc = new AbortController();
       metaAbortRef.current = mc;
-      getNeteaseSearchMeta(kw, mc.signal)
+      getNeteaseSearchMeta(kw, mc.signal, false)
         .then((m) => {
-          if (!mc.signal.aborted) setMeta(m);
+          if (!mc.signal.aborted) {
+            setMeta(m);
+            setSuggestionsOpen(true);
+            setActiveSuggestionIndex(-1);
+            void hydrateNeteaseSearchMetaCovers(m, mc.signal).then((hydrated) => {
+              if (!mc.signal.aborted) setMeta(hydrated);
+            });
+          }
         })
         .catch(() => undefined);
     }, 300);
@@ -202,18 +145,58 @@ export function SearchPage() {
     // the results section, otherwise the error state has nowhere to render and
     // the page silently stays on the hot-keywords screen.
     setSubmitted(value);
-    void runSearch(value, src, 1, false);
-    // Multi-type discovery runs for EVERY source: artist/album cards come
-    // from the netease library even when songs are searched on Joox.
-    metaAbortRef.current?.abort();
-    const mc = new AbortController();
-    metaAbortRef.current = mc;
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
     setMeta(null);
-    getNeteaseSearchMeta(value, mc.signal)
-      .then((m) => {
-        if (!mc.signal.aborted) setMeta(m);
-      })
-      .catch(() => undefined);
+    void runSearch(value, src, 1, false);
+  };
+
+  const suggestions = meta ? flattenSearchSuggestions(meta) : [];
+
+  const selectSuggestion = (suggestion: SearchSuggestion) => {
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
+    if (suggestion.type === 'artist') {
+      navigate('/ne-artist/' + suggestion.item.id);
+      return;
+    }
+    if (suggestion.type === 'album') {
+      navigate('/ne-album/' + suggestion.item.id);
+      return;
+    }
+    if (suggestion.type === 'playlist') {
+      navigate('/ne-playlist/' + suggestion.item.id);
+      return;
+    }
+    const query = [suggestion.item.name, suggestion.item.artist].filter(Boolean).join(' ');
+    setKeyword(query);
+    doSearch(query);
+  };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!suggestionsOpen || !suggestions.length) {
+      if (event.key === 'Escape') setSuggestionsOpen(false);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveSuggestionIndex((previous) => {
+        const next = event.key === 'ArrowDown' ? previous + 1 : previous - 1;
+        return next < 0 ? suggestions.length - 1 : next >= suggestions.length ? 0 : next;
+      });
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setSuggestionsOpen(false);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
+    if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
+      event.preventDefault();
+      const suggestion = suggestions[activeSuggestionIndex];
+      if (suggestion) selectSuggestion(suggestion);
+    }
   };
 
   const switchSource = (src: SearchTab) => {
@@ -224,13 +207,33 @@ export function SearchPage() {
   return (
     <div className="page">
       <h1 className="page-title">搜索</h1>
-      <SearchBar
-        value={keyword}
-        placeholder="搜索歌曲、歌手、专辑"
-        autoFocus
-        onChange={setKeyword}
-        onSubmit={(v) => doSearch(v)}
-      />
+      <div className="search-field">
+        <SearchBar
+          value={keyword}
+          placeholder="搜索歌曲、歌手、专辑或歌单"
+          autoFocus
+          onChange={(value) => {
+            setKeyword(value);
+            setActiveSuggestionIndex(-1);
+            if (!submitted && value.trim()) setSuggestionsOpen(true);
+          }}
+          onFocus={() => {
+            if (!submitted && suggestions.length) setSuggestionsOpen(true);
+          }}
+          onBlur={() => {
+            window.setTimeout(() => setSuggestionsOpen(false), 120);
+          }}
+          onKeyDown={handleSearchKeyDown}
+          onSubmit={(v) => doSearch(v)}
+        />
+        {suggestionsOpen && !submitted && meta ? (
+          <SearchSuggestionPanel
+            meta={meta}
+            activeIndex={activeSuggestionIndex}
+            onSelect={selectSuggestion}
+          />
+        ) : null}
+      </div>
 
       <div className="source-chips">
         {SEARCH_TABS.map((opt) => (
@@ -242,10 +245,6 @@ export function SearchPage() {
 
       {!submitted ? (
         <>
-          {/* Live suggestions. Above the history because someone who has
-              started typing is already past the history. */}
-          <SearchMetaCards meta={meta} />
-
           {history.length ? (
             <section>
               <div className="history-header">
@@ -285,8 +284,6 @@ export function SearchPage() {
         </>
       ) : (
         <>
-          <SearchMetaCards meta={meta} />
-
           {loading && !items.length ? (
             <div className="song-list">
               {[0, 1, 2, 3, 4].map((i) => (

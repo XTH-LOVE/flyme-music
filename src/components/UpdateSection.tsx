@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { checkForUpdate, currentVersion, describeUpdate, type UpdateResult } from '@/utils/update';
 import { formatBytes, isPrereleaseVersion } from '@/utils/versionCompare';
+import { isTauri } from '@/lib/apiTransport';
 import './update-section.css';
 
 /**
@@ -80,7 +81,6 @@ export function UpdateSection() {
    */
   const download = async (url: string) => {
     try {
-      const { isTauri } = await import('@/lib/apiTransport');
       if (isTauri()) {
         const { openUrl } = await import('@tauri-apps/plugin-opener');
         await openUrl(url);
@@ -133,6 +133,27 @@ export function UpdateSection() {
             ) : null}
           </div>
 
+          <div className={'update-panel__hero' + (hasUpdate ? ' update-panel__hero--available' : '')}>
+            <span className="update-panel__hero-icon">
+              <Icon name={hasUpdate ? 'download' : 'check'} size={18} />
+            </span>
+            <span className="update-panel__hero-copy">
+              <span className="update-panel__eyebrow">
+                {busy ? '正在检查' : hasUpdate ? '发现新版本' : '版本状态'}
+              </span>
+              <strong className="update-panel__title">
+                {busy
+                  ? '正在检查更新…'
+                  : hasUpdate && latest
+                    ? 'Flyme Music ' + latest.latestVersion + ' 已准备好'
+                    : status}
+              </strong>
+              <span className="update-panel__subtitle">
+                {hasUpdate ? '更流畅的播放体验与更多细节优化' : '你当前使用的是最新版本'}
+              </span>
+            </span>
+          </div>
+
           {hasUpdate && latest ? (
             <>
               <div className="update-panel__version">
@@ -158,7 +179,7 @@ export function UpdateSection() {
                 </button>
                 <button className="am-btn am-btn--secondary am-btn--sm" onClick={() => void download(latest.directUrl)}>
                   <Icon name="download" size={14} />
-                  从 GitHub 下载
+                  GitHub 官方下载
                 </button>
               </div>
             </>

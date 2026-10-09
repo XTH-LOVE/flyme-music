@@ -6,6 +6,8 @@ import { useListenStore, myListenId } from '@/store/useListenStore';
 import {
   broadcastRoomState,
   closeRoom,
+  createRoom,
+  joinRoom,
   leaveRoomAsGuest,
   subscribeRoom,
   type RoomStatePatch,
@@ -129,7 +131,6 @@ export async function hostListenRoom(): Promise<void> {
   }
   listen.begin('host');
   try {
-    const { createRoom } = await import('@/listen/listenRoom');
     const row = await createRoom({ nickname: user.nickname, avatarUrl: user.avatarUrl });
     useListenStore.getState().activate(row, 'host', user.id);
   } catch (e) {
@@ -147,7 +148,6 @@ export async function joinListenRoom(code: string): Promise<void> {
   }
   listen.begin('guest');
   try {
-    const { joinRoom } = await import('@/listen/listenRoom');
     const row = await joinRoom(code, { nickname: user.nickname, avatarUrl: user.avatarUrl });
     useListenStore.getState().activate(row, 'guest', user.id);
   } catch (e) {

@@ -130,8 +130,54 @@ function isPrivateAddress(host: string): boolean {
  * runs on plain Node (server/auroraApi.ts) where nothing does - so the check has
  * to live here rather than relying on the platform.
  */
-export function isAllowedProxyTarget(target: string | null): target is string {
-  if (!isHttpUrl(target)) return false;
+export type ProxyKind = 'proxy' | 'image' | 'media';
+
+const PROXY_HOSTS: Record<ProxyKind, readonly string[]> = {
+  proxy: [
+    'music.163.com',
+    'music-api.gdstudio.xyz',
+    'higequ.com',
+    'c.y.qq.com',
+    'u.y.qq.com',
+  ],
+  image: [
+    'music.163.com',
+    'music.126.net',
+    'hdslb.com',
+    'bilibili.com',
+    'bilivideo.com',
+    'gtimg.cn',
+    'kuwo.cn',
+    'higequ.com',
+    'gdstudio.xyz',
+  ],
+  media: [
+    'music.163.com',
+    'music.126.net',
+    'hdslb.com',
+    'bilibili.com',
+    'bilivideo.com',
+    'gtimg.cn',
+    'kuwo.cn',
+    'higequ.com',
+    'gdstudio.xyz',
+  ],
+};
+
+function matchesAllowedHost(hostname: string, allowed: readonly string[]): boolean {
+  const host = hostname.toLowerCase().replace(/^\.+|\.+$/g, '');
+  return allowed.some((entry) => {
+    const suffix = entry.toLowerCase().replace(/^\.+|\.+$/g, '');
+    return host === suffix || host.endsWith('.' + suffix);
+  });
+}
+
+export function isAllowedProxyTarget(
+  target: string | null,
+  kind?: ProxyKind,
+  extraHosts: readonly string[] = [],
+): target is string {
+  if (!isHttpUrl(target) || target.length > 4096) return false;
   let url: URL;
   try {
     url = new URL(target);
@@ -140,7 +186,9 @@ export function isAllowedProxyTarget(target: string | null): target is string {
   }
   if (url.username || url.password) return false; // credentials in the URL
   if (url.port && url.port !== '80' && url.port !== '443') return false;
-  return !isPrivateAddress(url.hostname);
+  if (isPrivateAddress(url.hostname)) return false;
+  if (kind && !matchesAllowedHost(url.hostname, [...PROXY_HOSTS[kind], ...extraHosts])) return false;
+  return true;
 }
 
 /**

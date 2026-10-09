@@ -1,4 +1,5 @@
 import { Icon } from '@/components/Icon';
+import type { KeyboardEvent, FocusEvent } from 'react';
 import './ds.css';
 
 interface SearchBarProps {
@@ -7,6 +8,9 @@ interface SearchBarProps {
   autoFocus?: boolean;
   onChange: (value: string) => void;
   onSubmit?: (value: string) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  onFocus?: (event: FocusEvent<HTMLInputElement>) => void;
+  onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
 }
 
 export function SearchBar({
@@ -15,6 +19,9 @@ export function SearchBar({
   autoFocus = false,
   onChange,
   onSubmit,
+  onKeyDown,
+  onFocus,
+  onBlur,
 }: SearchBarProps) {
   return (
     <div className="am-search">
@@ -25,8 +32,11 @@ export function SearchBar({
         placeholder={placeholder}
         autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onSubmit?.(value);
+          onKeyDown?.(e);
+          if (!e.defaultPrevented && e.key === 'Enter') onSubmit?.(value);
         }}
       />
       {value ? (

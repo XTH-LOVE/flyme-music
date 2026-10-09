@@ -18,6 +18,27 @@ const CATS = [
   '古风', 'ACG', '影视原声', '治愈', '学习', '驾车', '夜晚', '怀旧',
 ];
 
+const SQUARE_CURSOR_PREFIX = 'aurora.playlistSquare.cursor.';
+
+function readSquareCursor(category: string): number {
+  try {
+    const value = Number(sessionStorage.getItem(SQUARE_CURSOR_PREFIX + category));
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeSquareCursor(category: string, cursor: number, more: boolean): void {
+  try {
+    const key = SQUARE_CURSOR_PREFIX + category;
+    if (more && cursor > 0) sessionStorage.setItem(key, String(cursor));
+    else sessionStorage.removeItem(key);
+  } catch {
+    /* private browsing or storage-disabled environments are still supported */
+  }
+}
+
 /** 歌单广场：真实精品歌单，分类可切换，可翻页。 */
 export function PlaylistSquarePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,11 +61,23 @@ export function PlaylistSquarePage() {
       const seq = ++seqRef.current;
       setLoading(true);
       setError(null);
-      const lasttime = append ? cursorRef.current : 0;
-      getHighQualityPlaylists(category === '全部' ? '全部' : category, lasttime)
+      const categoryKey = category === '全部' ? '全部' : category;
+      const requestedCursor = append ? cursorRef.current : readSquareCursor(categoryKey);
+      const fetchPage = (lasttime: number) =>
+        getHighQualityPlaylists(categoryKey, lasttime).then((page) => {
+          // A stored cursor can expire on the server. Retry the first page once
+          // instead of leaving the square blank, then start the rotation again.
+          if (!append && lasttime > 0 && !page.items.length) {
+            return getHighQualityPlaylists(categoryKey, 0);
+          }
+          return page;
+        });
+
+      fetchPage(requestedCursor)
         .then((page) => {
           if (seq !== seqRef.current) return;
           cursorRef.current = page.lasttime;
+          writeSquareCursor(categoryKey, page.lasttime, page.more);
           setItems((prev) => (append ? [...prev, ...page.items] : page.items));
           setHasMore(page.more && page.items.length > 0);
           setLoading(false);

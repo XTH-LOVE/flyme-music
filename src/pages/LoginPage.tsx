@@ -6,6 +6,7 @@ import { useNeteaseAuthStore } from '@/store/useNeteaseAuthStore';
 import { useNeteaseQrLogin, type QrState } from '@/hooks/useNeteaseQrLogin';
 import './login-page.css';
 import { notify } from '@/utils/notify';
+import { isTauri } from '@/lib/apiTransport';
 
 /**
  * The sign-in page.
@@ -46,7 +47,6 @@ import { notify } from '@/utils/notify';
  */
 async function openNeteaseApp(): Promise<void> {
   const target = 'orpheuswidget://';
-  const { isTauri } = await import('@/lib/apiTransport');
   if (isTauri()) {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
     try {

@@ -16,7 +16,7 @@ import { enqueueDownload } from '@/utils/downloadQueue';
 import { notify } from '@/utils/notify';
 import { formatTime } from '@/utils/format';
 import { fallbackPalette, playerPalette } from '@/utils/palette';
-import { useCoverPalette } from '@/utils/coverPalette';
+import { useCoverPalette, type CoverPalette } from '@/utils/coverPalette';
 import { shareLyricCard } from '@/utils/lyricShare';
 import { fetchLyricLines, lyricLineAt, type MiniLyricLine } from '@/utils/currentLyric';
 import { plainLyricLines } from '@/utils/lyricVoices';
@@ -124,9 +124,16 @@ function useSungLines(track: MusicTrack): MiniLyricLine[] {
  * gradient stack, the ambient canvas and the noise layer were rebuilt each
  * time, for a background that only changes when the track does.
  */
-const HalcyonBg = memo(function HalcyonBg({ track, live }: { track: MusicTrack; live: boolean }) {
+const HalcyonBg = memo(function HalcyonBg({
+  track,
+  live,
+  palette: extracted,
+}: {
+  track: MusicTrack;
+  live: boolean;
+  palette: CoverPalette | null;
+}) {
   const stack = useCrossfadeStack(track);
-  const extracted = useCoverPalette(track.picUrl, track.id);
   const palette = playerPalette(extracted ?? track.palette, fallbackPalette(track.id));
 
   return (
@@ -170,8 +177,9 @@ const ImmersiveCover = memo(function ImmersiveCover({ track }: { track: MusicTra
 });
 
 /** Active lyric line for the immersive mini-lyric strip. */
-function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
+function ImmLyricLine({ track }: { track: MusicTrack }) {
   const lines = useSungLines(track);
+  const currentTime = usePlayerStore((s) => s.currentTime);
   const line = lyricLineAt(lines, currentTime);
   return <div className="hc-imm__lyric">{line?.text ?? ''}</div>;
 }
@@ -183,8 +191,9 @@ function ImmLyricLine({ track, currentTime }: { track: MusicTrack; currentTime: 
  * with - you see the words after you needed them. The second line is dimmed so
  * the pair reads as "here" and "next" rather than as two equally current lines.
  */
-function MiniLyricStrip({ track, currentTime }: { track: MusicTrack; currentTime: number }) {
+function MiniLyricStrip({ track }: { track: MusicTrack }) {
   const lines = useSungLines(track);
+  const currentTime = usePlayerStore((s) => s.currentTime);
   // Same global timing correction the lyrics view applies, so the strip and the
   // full lyric sheet never disagree about which line is current.
   const offset = useLyricStore((s) => s.offset);
@@ -365,6 +374,42 @@ function GlowProgress({
   );
 }
 
+/**
+ * Keep the high-frequency playback clock out of the full player tree. The
+ * artwork, ambient background, controls and sheets only change on track/state
+ * changes; they should not reconcile on every progress tick.
+ */
+const PlayerProgressBlock = memo(function PlayerProgressBlock() {
+  const current = usePlayerStore((s) => s.current);
+  const currentTime = usePlayerStore((s) => s.currentTime);
+  const duration = usePlayerStore((s) => s.duration);
+  const [scrub, setScrub] = useState<number | null>(null);
+  const trackKey = current ? current.source + ':' + current.id : '';
+
+  useEffect(() => {
+    setScrub(null);
+  }, [trackKey]);
+
+  if (!current) return null;
+
+  const shown = scrub ?? currentTime;
+  const seekTo = (value: number) => {
+    playerController.seek(value);
+    setScrub(null);
+  };
+
+  return (
+    <div className="hc-progress-block">
+      <GlowProgress value={shown} max={duration} onScrub={setScrub} onCommit={seekTo} />
+      <div className="hc-times">
+        <span>{formatTime(shown)}</span>
+        <span className="hc-pill">{SOURCE_LABEL[current.source] ?? '在线'}</span>
+        <span>{formatTime(duration)}</span>
+      </div>
+    </div>
+  );
+});
+
 /** Elements that must never trigger the drag-down dismiss gesture. */
 const INTERACTIVE_SEL =
   'button, a, input, .hc-glow, .am-slider, .lyrics, .lyrics-wrap, .hc-cover, .hc-transport, .hc-volume, .am-sheet-root, .hc-more, .mini-glass';
@@ -386,8 +431,6 @@ export function FullPlayer() {
   const open = usePlayerStore((s) => s.fullPlayerOpen);
   const current = usePlayerStore((s) => s.current);
   const status = usePlayerStore((s) => s.status);
-  const currentTime = usePlayerStore((s) => s.currentTime);
-  const duration = usePlayerStore((s) => s.duration);
   const volume = usePlayerStore((s) => s.volume);
   const loopA = usePlayerStore((s) => s.loopA);
   const bookmarks = useBookmarkStore((s) => s.bookmarks);
@@ -453,7 +496,6 @@ export function FullPlayer() {
     },
     [],
   );
-  const [scrub, setScrub] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [pipOpen, setPipOpen] = useState(isPipOpen());
@@ -482,6 +524,10 @@ export function FullPlayer() {
   // Reactive media query: a render-time matchMedia read would freeze the
   // layout when the window is resized or rotated while the player is closed.
   const isDesktop = useIsDesktop();
+  // Keep a conservative visual fallback for older Android WebViews. This is
+  // intentionally automatic: it only removes expensive ambience layers and
+  // never changes the player layout or controls.
+  const lowPower = deviceTier() === 'low';
 
   useEffect(() => {
     if (!open) {
@@ -530,7 +576,6 @@ export function FullPlayer() {
 
   const fav = isTrackFavorite(current, favoriteTracks, favorites);
   const playing = status === 'playing';
-  const shown = scrub ?? currentTime;
 
   const handleDownload = async () => {
     if (downloading) return;
@@ -550,7 +595,7 @@ export function FullPlayer() {
     if (sharing) return;
     setSharing(true);
     try {
-      await shareLyricCard(current, currentTime);
+      await shareLyricCard(current, usePlayerStore.getState().currentTime);
     } catch (error) {
       if (error instanceof Error && error.message !== 'cancelled') notify('分享失败：' + error.message);
     } finally {
@@ -687,11 +732,6 @@ export function FullPlayer() {
     onPointerCancel: dismissUp,
   };
 
-  const seekTo = (v: number) => {
-    playerController.seek(v);
-    setScrub(null);
-  };
-
   const wheelVolume = (e: React.WheelEvent) => {
     playerController.setVolume(Math.min(1, Math.max(0, volume + (e.deltaY < 0 ? 0.05 : -0.05))));
   };
@@ -734,17 +774,6 @@ export function FullPlayer() {
     </div>
   );
 
-  const progressBlock = (
-    <div className="hc-progress-block">
-      <GlowProgress value={shown} max={duration} onScrub={setScrub} onCommit={seekTo} />
-      <div className="hc-times">
-        <span>{formatTime(shown)}</span>
-        <span className="hc-pill">{SOURCE_LABEL[current.source] ?? '在线'}</span>
-        <span>{formatTime(duration)}</span>
-      </div>
-    </div>
-  );
-
   const sheets = (
     <>
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
@@ -771,7 +800,7 @@ export function FullPlayer() {
           </button>
           <button
             onClick={() => {
-              addBookmark(trackKey, currentTime, '');
+              addBookmark(trackKey, usePlayerStore.getState().currentTime, '');
               notify('已在此处加书签');
             }}
           >
@@ -973,7 +1002,7 @@ export function FullPlayer() {
   /* ---------------- Immersive full-bleed cover mode ---------------- */
   if (immersive) {
     return (
-      <div className="full-player hc hc--imm" {...dismissProps}>
+      <div className={'full-player hc hc--imm' + (lowPower ? ' hc--lite' : '')} {...dismissProps}>
         <ImmersiveCover track={current} />
         <div className="hc-imm__scrim" />
         <div className="hc-imm__content" style={dismissStyle}>
@@ -995,8 +1024,8 @@ export function FullPlayer() {
           <div className="hc-imm__bottom">
             <div className="hc-imm__title">{current.name}</div>
             <div className="hc-imm__artist">{current.artist.join(' / ')}</div>
-            <ImmLyricLine track={current} currentTime={currentTime} />
-            {progressBlock}
+            <ImmLyricLine track={current} />
+            <PlayerProgressBlock />
             {transportRow}
           </div>
         </div>
@@ -1008,8 +1037,8 @@ export function FullPlayer() {
   /* ---------------- Desktop: Halcyon landscape layout ---------------- */
   if (isDesktop) {
     return (
-      <div className={'full-player hc' + (ambientMotion ? '' : ' hc--still') + (lyricBlur && !coverDragging && !lyricsDragging ? ' hc--lyrics-blur' : '') + (coverDragging ? ' hc--cover-dragging' : '') + (lyricsDragging ? ' hc--lyrics-dragging' : '')} {...dismissProps}>
-        <HalcyonBg track={current} live={playing && ambientMotion} />
+      <div className={'full-player hc' + (lowPower ? ' hc--lite' : '') + (ambientMotion ? '' : ' hc--still') + (lyricBlur && !coverDragging && !lyricsDragging ? ' hc--lyrics-blur' : '') + (coverDragging ? ' hc--cover-dragging' : '') + (lyricsDragging ? ' hc--lyrics-dragging' : '')} {...dismissProps}>
+        <HalcyonBg track={current} live={playing && ambientMotion} palette={trackPalette} />
         <button className="hc-collapse" onClick={close} aria-label="收起">
           <Icon name="chevronLeft" size={22} className="hc-collapse__icon" />
         </button>
@@ -1047,7 +1076,7 @@ export function FullPlayer() {
               </div>
             </div>
 
-            {progressBlock}
+            <PlayerProgressBlock />
             {transportRow}
 
             {/* Hovering the zone opens the panel for mouse users, so adjusting
@@ -1108,7 +1137,7 @@ export function FullPlayer() {
           </div>
 
           <div className="hc-right">
-            <LyricsView track={current} currentTime={currentTime} onDraggingChange={setLyricsDragging} />
+            <LyricsView track={current} onDraggingChange={setLyricsDragging} />
           </div>
         </div>
 
@@ -1122,6 +1151,7 @@ export function FullPlayer() {
     <div
       className={
         'full-player hc hc--p' +
+        (lowPower ? ' hc--lite' : '') +
         (lyricsMode ? ' hc--p-lyrics' : '') +
         (ambientMotion ? '' : ' hc--still') +
         (lyricBlur && !coverDragging && !lyricsDragging ? ' hc--lyrics-blur' : '') +
@@ -1132,7 +1162,7 @@ export function FullPlayer() {
     >
       {/* The portrait layout used to pass `playing` alone, so the motion
           setting was silently ignored on phones. */}
-      <HalcyonBg track={current} live={playing && ambientMotion} />
+        <HalcyonBg track={current} live={playing && ambientMotion} palette={trackPalette} />
 
       <div className="hc-p-body" style={dismissStyle}>
         {lyricsMode ? (
@@ -1160,7 +1190,7 @@ export function FullPlayer() {
               {favButton}
             </div>
             <div className="hc-p-lyrics">
-              <LyricsView track={current} currentTime={currentTime} onDraggingChange={setLyricsDragging} />
+              <LyricsView track={current} onDraggingChange={setLyricsDragging} />
             </div>
           </>
         ) : (
@@ -1190,7 +1220,7 @@ export function FullPlayer() {
                 <CoverSwap track={current} />
               </div>
             </div>
-            <MiniLyricStrip track={current} currentTime={currentTime} />
+            <MiniLyricStrip track={current} />
           </>
         )}
 
@@ -1209,7 +1239,7 @@ export function FullPlayer() {
             </div>
           </>
         )}
-        {progressBlock}
+        <PlayerProgressBlock />
         {transportRow}
       </div>
 

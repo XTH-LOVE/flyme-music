@@ -18,6 +18,7 @@ import {
   MIN_PROFILE_TRACKS,
 } from '@/audio/analysis';
 import { useThemeStore, type ThemeMode } from '@/store/useThemeStore';
+import { useExtrasStore } from '@/store/useExtrasStore';
 import { navigateAppRoute } from '@/app/navigation';
 import { fetchLyricLines, lyricLineAt } from '@/utils/currentLyric';
 import { searchAllSources, searchForPlayback, countSkippedCovers } from './musicSearch';
@@ -343,6 +344,51 @@ function trackFacts(tracks: MusicTrack[]): Record<string, unknown>[] {
   return tracks.map((t, i) => ({ i, name: t.name, artist: t.artist.join('/') }));
 }
 
+const AI_SEARCH_TIMEOUT_MS = 9000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('AI 搜索超时')), ms);
+    }),
+  ]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
+
+async function safeSearchAllSources(
+  query: string,
+  count: number,
+  dislikes: string[],
+): Promise<MusicTrack[]> {
+  try {
+    return await withTimeout(searchAllSources(query, count, undefined, dislikes), AI_SEARCH_TIMEOUT_MS);
+  } catch {
+    return [];
+  }
+}
+
+/** Run independent AI search stages without opening an unbounded request fan-out. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const run = async () => {
+    while (true) {
+      const index = next++;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index], index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => run()));
+  return results;
+}
+
 /**
  * Multi-angle playlist seeding: never search the raw theme alone (that would
  * return songs whose title contains the theme word). Split into several
@@ -358,7 +404,7 @@ async function playlistTracks(theme: string, count: number, dislikes: string[]):
     if (seeds.length >= 4) break;
     seeds.push(base + ' ' + f);
   }
-  const batches = await Promise.all(seeds.map((q) => searchAllSources(q, 8, undefined, dislikes)));
+  const batches = await mapWithConcurrency(seeds, 3, (q) => safeSearchAllSources(q, 8, dislikes));
   const seen = new Set<string>();
   const out: MusicTrack[] = [];
   const maxLen = batches.reduce((n, b) => Math.max(n, b.length), 0);
@@ -621,7 +667,10 @@ export async function executeTool(
     const request = String(call.request ?? call.query ?? '').trim();
     if (!request) return { reply: '告诉我想听多久、什么场景，我来规划。', fact: { action: 'plan_playlist', error: 'missing_request' } };
     ctx.plan = buildPlaylistPlan(request);
-    const batches = await Promise.all(ctx.plan.stages.map(async (stage) => ({ stage, tracks: await searchAllSources(stageQuery(ctx.plan!, stage, request), 6, undefined, dislikes) })));
+    const batches = await mapWithConcurrency(ctx.plan.stages, 3, async (stage) => ({
+      stage,
+      tracks: await safeSearchAllSources(stageQuery(ctx.plan!, stage, request), 6, dislikes),
+    }));
     ctx.pool = { query: request, createdAt: Date.now(), candidates: [] };
     for (const batch of batches) ctx.pool = addCandidates(ctx.pool, batch.tracks, request, dislikes, batch.stage.id);
     ctx.found = ctx.pool.candidates.map((candidate) => candidate.track);
@@ -778,13 +827,13 @@ export async function executeTool(
         if (![0.5, 0.75, 1, 1.25, 1.5, 2].includes(speed)) {
           return { reply: '倍速支持 0.5、0.75、1、1.25、1.5、2 倍。' };
         }
-        const extras = (await import('@/store/useExtrasStore')).useExtrasStore.getState();
+        const extras = useExtrasStore.getState();
         extras.setSpeed(speed);
         return { reply: '已切换到 ' + speed + ' 倍速。', fact: { action: 'control', did: 'speed', speed } };
       }
       case 'sleep': {
         const minutes = Number(call.value ?? call.minutes);
-        const extras = (await import('@/store/useExtrasStore')).useExtrasStore.getState();
+        const extras = useExtrasStore.getState();
         if (minutes === 0) extras.clearSleep();
         else if (Number.isFinite(minutes) && minutes > 0 && minutes <= 240) extras.setSleepMinutes(minutes);
         else return { reply: '睡眠定时请输入 1 到 240 分钟，或 0 取消。' };
@@ -1086,8 +1135,7 @@ const PLAYLIST_NAME_RE = /(?:建|创建|做|来)(?:一个|个|份)?(.{1,14}?)歌
 export async function localAssistant(text: string): Promise<ToolResult> {
   const t = text.trim();
   const snap = usePlayerStore.getState();
-  const extrasStore = await import('@/store/useExtrasStore');
-  const extras = extrasStore.useExtrasStore.getState();
+  const extras = useExtrasStore.getState();
   const aiStore = useAiStore.getState();
 
   const skill = await runAiSkill(t, { current: snap.current, playLog: useLibraryStore.getState().playLog });

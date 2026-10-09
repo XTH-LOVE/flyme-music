@@ -585,9 +585,29 @@ export interface NetAlbumMatch {
   coverUrl?: string;
 }
 
+export interface NetSongMatch {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  albumId?: string;
+  coverUrl?: string;
+}
+
+export interface NetPlaylistMatch {
+  id: string;
+  name: string;
+  creator: string;
+  coverUrl?: string;
+  trackCount: number;
+  playCount: number;
+}
+
 export interface NetSearchMeta {
   artists: NetArtistMatch[];
+  songs: NetSongMatch[];
   albums: NetAlbumMatch[];
+  playlists: NetPlaylistMatch[];
 }
 
 /**
@@ -598,6 +618,7 @@ export interface NetSearchMeta {
 export async function getNeteaseSearchMeta(
   query: string,
   signal?: AbortSignal,
+  resolveAlbumCovers = true,
 ): Promise<NetSearchMeta> {
   try {
     const j = await neteasePublicGet<{ result?: SuggestResult }>(
@@ -610,42 +631,138 @@ export async function getNeteaseSearchMeta(
       name: a.name,
       coverUrl: a.picUrl || a.img1v1Url || undefined,
     }));
+    const songs: NetSongMatch[] = (r.songs ?? []).slice(0, 4).map((s) => ({
+      id: String(s.id),
+      name: s.name,
+      artist: (s.artists ?? []).map((a) => a.name).filter(Boolean).join(' / '),
+      album: s.album?.name ?? '',
+      albumId: s.album?.id ? String(s.album.id) : undefined,
+      coverUrl: s.album?.picUrl ? s.album.picUrl + '?param=160y160' : undefined,
+    }));
     const albums: NetAlbumMatch[] = (r.albums ?? []).slice(0, 4).map((a) => ({
       id: String(a.id),
       name: a.name,
       artist: a.artist?.name ?? '',
       coverUrl: a.picUrl || undefined,
     }));
+    const playlists: NetPlaylistMatch[] = (r.playlists ?? []).slice(0, 4).map((p) => ({
+      id: String(p.id),
+      name: p.name,
+      creator: p.creator?.nickname ?? '',
+      coverUrl: p.coverImgUrl || undefined,
+      trackCount: p.trackCount ?? 0,
+      playCount: p.playCount ?? 0,
+    }));
     // The suggest endpoint strips album covers - pull each missing one from
     // the legacy album endpoint (risk control is probabilistic; retry twice).
-    const noCover = albums.filter((a) => !a.coverUrl);
-    if (noCover.length) {
-      await Promise.allSettled(
-        noCover.map(async (a) => {
-          for (let i = 0; i < 3; i++) {
-            try {
-              const detail = await neteasePublicGet<{ album?: { picUrl?: string } }>('/api/album/' + a.id, signal);
-              if (detail.album?.picUrl) {
-                a.coverUrl = detail.album.picUrl + '?param=300y300';
-                return;
-              }
-            } catch {
-              /* probabilistic risk control - retry */
-            }
-            await new Promise((r2) => setTimeout(r2, 600));
-          }
-        }),
-      );
-    }
-    return { artists, albums };
+    const meta = { artists, songs, albums, playlists };
+    return resolveAlbumCovers ? hydrateNeteaseSearchMetaCovers(meta, signal) : meta;
   } catch {
-    return { artists: [], albums: [] };
+    return { artists: [], songs: [], albums: [], playlists: [] };
   }
+}
+
+/**
+ * Fill missing album artwork after the first suggestion payload has rendered.
+ * Search suggestions should not wait for several risk-controlled album calls,
+ * but the same metadata can be hydrated in the background for visible covers.
+ */
+export async function hydrateNeteaseSearchMetaCovers(
+  meta: NetSearchMeta,
+  signal?: AbortSignal,
+): Promise<NetSearchMeta> {
+  const albumIds = new Set<string>();
+  for (const album of meta.albums) {
+    if (!album.coverUrl) albumIds.add(album.id);
+  }
+  for (const song of meta.songs) {
+    if (!song.coverUrl && song.albumId) albumIds.add(song.albumId);
+  }
+  if (!albumIds.size || signal?.aborted) return meta;
+
+  const covers = new Map<string, string>();
+  const songCovers = new Map<string, { coverUrl?: string; albumId?: string }>();
+  await Promise.allSettled(
+    [...albumIds].map(async (id) => {
+      try {
+        const detail = await neteasePublicGet<{ album?: { picUrl?: string } }>(
+          '/api/album/' + id,
+          signal,
+        );
+        const cover = detail.album?.picUrl;
+        if (cover) covers.set(id, cover + '?param=300y300');
+      } catch {
+        // Artwork is optional; keep the type icon if the album endpoint is blocked.
+      }
+    }),
+  );
+
+  // Album endpoints are frequently risk-controlled. Song detail is a more
+  // reliable fallback and also gives us the same cover for both song and
+  // album suggestions.
+  await Promise.allSettled(
+    meta.songs
+      .filter((song) => !song.coverUrl)
+      .map(async (song) => {
+        try {
+          const detail = await neteasePublicGet<{
+            songs?: Array<{
+              id?: number;
+              al?: { id?: number; picUrl?: string };
+              album?: { id?: number; picUrl?: string };
+            }>;
+          }>('/api/song/detail?ids=[' + encodeURIComponent(song.id) + ']', signal);
+          const item = detail.songs?.[0];
+          const album = item?.al ?? item?.album;
+          const cover = album?.picUrl;
+          if (cover) {
+            const value = {
+              coverUrl: cover + '?param=300y300',
+              albumId: album?.id ? String(album.id) : undefined,
+            };
+            songCovers.set(song.id, value);
+            if (value.albumId) covers.set(value.albumId, value.coverUrl);
+          }
+        } catch {
+          // Keep the icon fallback when the detail endpoint is unavailable.
+        }
+      }),
+  );
+
+  if (!covers.size && !songCovers.size) return meta;
+  return {
+    ...meta,
+    albums: meta.albums.map((album) => ({
+      ...album,
+      coverUrl: album.coverUrl || covers.get(album.id),
+    })),
+    songs: meta.songs.map((song) => ({
+      ...song,
+      coverUrl:
+        song.coverUrl ||
+        songCovers.get(song.id)?.coverUrl ||
+        (song.albumId ? covers.get(song.albumId) : undefined),
+    })),
+  };
 }
 
 interface SuggestResult {
   artists?: { id: number; name: string; picUrl?: string; img1v1Url?: string }[];
+  songs?: {
+    id: number;
+    name: string;
+    artists?: { id: number; name: string; picUrl?: string }[];
+    album?: { id: number; name: string; picUrl?: string };
+  }[];
   albums?: { id: number; name: string; picUrl?: string; artist?: { name?: string } }[];
+  playlists?: {
+    id: number;
+    name: string;
+    coverImgUrl?: string;
+    creator?: { nickname?: string };
+    trackCount?: number;
+    playCount?: number;
+  }[];
 }
 
 export interface NetAlbumDetail {
@@ -721,7 +838,11 @@ export async function getNeteaseArtist(artistId: string, signal?: AbortSignal): 
     const r = await callWeapi<ArtistPayload>('/weapi/v1/artist/' + artistId, { id: artistId, csrf_token: '' }, signal);
     if (r.artist) {
       const parsed = parse(r.artist, r.hotSongs ?? []);
-      // Anonymous weapi calls may strip hotSongs - fall back to legacy.
+      // /artist returns only the 50-song hot list. The songs endpoint has the
+      // complete catalogue; use it when available and keep the hot list as a
+      // safe fallback for anonymous/risk-controlled sessions.
+      const fullTracks = await getNeteaseArtistTracks(artistId, parsed.name, signal);
+      if (fullTracks.length) parsed.tracks = fullTracks;
       if (parsed.tracks.length) return parsed;
     }
     throw new Error('netease artist empty');
@@ -730,9 +851,57 @@ export async function getNeteaseArtist(artistId: string, signal?: AbortSignal): 
     if (!recoverable || signal?.aborted) throw e;
     const j = await neteasePublicGet<ArtistPayload & { code: number }>('/api/artists/' + artistId, signal);
     if (!j.artist) throw codeError('netease artist (legacy)', j.code);
-    return parse(j.artist, j.hotSongs ?? []);
+    const parsed = parse(j.artist, j.hotSongs ?? []);
+    const fullTracks = await getNeteaseArtistTracks(artistId, parsed.name, signal);
+    if (fullTracks.length) parsed.tracks = fullTracks;
+    return parsed;
   }
   });
+}
+
+async function getNeteaseArtistTracks(
+  artistId: string,
+  artistName: string,
+  signal?: AbortSignal,
+): Promise<MusicTrack[]> {
+  try {
+    const result = await callWeapi<{
+      code?: number;
+      songs?: RawSong[];
+      more?: boolean;
+      total?: number;
+    }>(
+      '/weapi/v1/artist/songs',
+      {
+        id: artistId,
+        offset: 0,
+        limit: 200,
+        order: 'hot',
+        total: true,
+        csrf_token: '',
+      },
+      signal,
+    );
+    const expected = artistName.toLocaleLowerCase().replace(/[\s·・.。!！?？'"“”‘’()（）[\]【】_-]/g, '');
+    const tracks = (result.songs ?? [])
+      .map(toTrackAny)
+      .filter((track) =>
+        track.artist.some((name) => {
+          const normalized = name
+            .toLocaleLowerCase()
+            .replace(/[\s·・.。!！?？'"“”‘’()（）[\]【】_-]/g, '');
+          return normalized === expected || normalized.includes(expected) || expected.includes(normalized);
+        }),
+      );
+    const seen = new Set<string>();
+    return tracks.filter((track) => {
+      if (seen.has(track.id)) return false;
+      seen.add(track.id);
+      return true;
+    });
+  } catch {
+    return [];
+  }
 }
 
 interface ArtistPayload {

@@ -16,7 +16,7 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   if (blocked) return blocked;
   const target = queryParam(request, 'url');
   const referer = queryParam(request, 'referer') ?? '';
-  if (!isAllowedProxyTarget(target)) {
+  if (!isAllowedProxyTarget(target, 'proxy', (context.env.AURORA_PROXY_HOSTS ?? '').split(','))) {
     return new Response('bad url', { status: 400 });
   }
   try {

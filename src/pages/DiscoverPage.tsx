@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/Icon';
+import { ProxyImg } from '@/components/ProxyImg';
 import { NetPlaylistCard } from '@/components/NetPlaylistCard';
 import { TrackListItem } from '@/components/TrackListItem';
 import { SectionHeader } from '@/design-system/components/SectionHeader';
@@ -87,7 +88,7 @@ export function DiscoverPage() {
                   <div className="banner__title">{pl.name}</div>
                   <div className="banner__desc">{pl.description || pl.trackCount + ' 首歌曲'}</div>
                 </div>
-                {pl.coverUrl ? <img className="net-banner-cover" src={pl.coverUrl} alt={pl.name} loading="lazy" /> : null}
+                {pl.coverUrl ? <ProxyImg className="net-banner-cover" src={pl.coverUrl} alt={pl.name} /> : null}
               </button>
             ))}
       </section>

@@ -5,6 +5,7 @@ import { LegalSection } from './LegalSection';
 import { currentVersion } from '@/utils/update';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { usePlaylistStore } from '@/store/usePlaylistStore';
+import { isTauri } from '@/lib/apiTransport';
 import './legal.css';
 
 /**
@@ -50,7 +51,6 @@ export function AboutSection() {
     // plain link, so it has to go through the OS.
     void (async () => {
       try {
-        const { isTauri } = await import('@/lib/apiTransport');
         if (isTauri()) {
           const { openUrl } = await import('@tauri-apps/plugin-opener');
           await openUrl(url);

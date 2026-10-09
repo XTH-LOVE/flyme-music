@@ -100,7 +100,7 @@ Flyme Music 是一个**从设计出发**的音乐播放器。
 构建             Vite 6
 状态             Zustand
 路由             React Router 6
-测试             Vitest · 738 个测试 / 61 个文件
+测试             Vitest · 788 个测试 / 86 个文件
 部署             Cloudflare Pages Functions
 ```
 
@@ -241,7 +241,7 @@ npm run lint
 - [x] 桌面歌词悬浮窗
 - [x] 音乐时光机 · 音乐日记
 - [x] AI 伴听 · 一句话生成歌单
-- [ ] **跨设备同步** —— Supabase 存储代码已存在，账号身份接入与端到端验证待完成
+- [x] **跨设备同步** —— Supabase 用户曲库与 AI 记忆已接入（仍建议持续验证多设备冲突）
 - [ ] 车载模式
 - [ ] 音乐闹钟
 - [ ] 自定义主题编辑器

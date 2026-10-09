@@ -5,6 +5,7 @@ interface ProxyImgProps {
   alt?: string;
   className?: string;
   style?: React.CSSProperties;
+  priority?: boolean;
 }
 
 /**
@@ -12,7 +13,7 @@ interface ProxyImgProps {
  * through the proxy (blob URL in the packaged app, /api/img in dev); if
  * that also fails the element disappears so the gradient fallback shows.
  */
-export function ProxyImg({ src, alt = '', className, style }: ProxyImgProps) {
+export function ProxyImg({ src, alt = '', className, style, priority = false }: ProxyImgProps) {
   const { src: resolved, stage, onError } = useProxiedImage(src);
 
   if (!src || !resolved) return null;
@@ -23,7 +24,9 @@ export function ProxyImg({ src, alt = '', className, style }: ProxyImgProps) {
       className={className}
       style={style}
       alt={alt}
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
+      decoding="async"
       // See TrackCover: same-origin keeps the proxy fallback usable, since
       // /api/img requires origin evidence that no-referrer suppressed.
       referrerPolicy="same-origin"

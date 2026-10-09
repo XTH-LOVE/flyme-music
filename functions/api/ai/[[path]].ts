@@ -36,8 +36,19 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   if (!allowedPaths.has(subPath)) {
     return json({ error: 'unsupported AI path' }, 400);
   }
+  const expectedMethod = subPath === '/models' ? 'GET' : 'POST';
+  if (request.method !== expectedMethod) {
+    return new Response(JSON.stringify({ error: 'method not allowed' }), {
+      status: 405,
+      headers: { Allow: expectedMethod, 'Content-Type': 'application/json' },
+    });
+  }
   if (!apiKey) {
     return json({ error: 'AI server key is not configured' }, 503);
+  }
+  const contentLength = Number(request.headers.get('content-length') ?? 0);
+  if (contentLength > 2 * 1024 * 1024) {
+    return json({ error: 'request body too large' }, 413);
   }
   const target = endpoint + subPath;
   try {

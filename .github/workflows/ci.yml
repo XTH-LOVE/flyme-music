@@ -23,6 +23,10 @@ jobs:
         run: npx vitest run
       - name: Production build
         run: npm run build
+      - name: Assemble and smoke-test deployment bundles
+        run: |
+          npm run release:cf
+          npm run release:smoke
 
   # supabase/functions is Deno (URL imports + the Deno global), so it is
   # deliberately excluded from tsconfig.server.json and from ESLint. Without

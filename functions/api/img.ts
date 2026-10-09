@@ -14,7 +14,7 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   const blocked = guard(request, context.env, 'img');
   if (blocked) return blocked;
   const target = queryParam(request, 'url');
-  if (!isAllowedProxyTarget(target)) {
+  if (!isAllowedProxyTarget(target, 'image', (context.env.AURORA_PROXY_HOSTS ?? '').split(','))) {
     return new Response('bad url', { status: 400 });
   }
   try {

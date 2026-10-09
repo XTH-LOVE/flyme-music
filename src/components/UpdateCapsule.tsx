@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { checkForUpdate, type UpdateResult } from '@/utils/update';
 import { formatBytes } from '@/utils/versionCompare';
+import { isTauri } from '@/lib/apiTransport';
 import './update-capsule.css';
 
 /**
@@ -65,7 +66,6 @@ export function UpdateCapsule() {
     setDownloading(true);
     const url = latest.downloadUrl;
     try {
-      const { isTauri } = await import('@/lib/apiTransport');
       if (isTauri()) {
         const { openUrl } = await import('@tauri-apps/plugin-opener');
         await openUrl(url);
@@ -89,17 +89,22 @@ export function UpdateCapsule() {
 
   return (
     <div className="update-capsule" role="status">
-      <button className="update-capsule__main" onClick={() => void startDownload()}>
+      <button
+        className="update-capsule__main"
+        aria-label={`下载 Flyme Music ${version}`}
+        onClick={() => void startDownload()}
+      >
         <span className="update-capsule__icon">
           <Icon name="download" size={16} />
         </span>
         <span className="update-capsule__text">
+          <span className="update-capsule__eyebrow">FLYME MUSIC · 更新提醒</span>
           <span className="update-capsule__title">
-            新版本 {version}
+            新版本 {version} 已准备好
             {latest.prerelease ? <span className="update-capsule__badge">测试版</span> : null}
           </span>
           <span className="update-capsule__desc">
-            {downloading ? '正在打开下载…' : size ? '点击下载 · ' + size : '点击下载'}
+            {downloading ? '正在打开下载…' : size ? '点击立即下载 · ' + size : '点击立即下载'}
           </span>
         </span>
         <Icon name="chevronRight" size={16} className="update-capsule__chevron" />
@@ -108,6 +113,7 @@ export function UpdateCapsule() {
       <button
         className="update-capsule__close"
         aria-label="忽略此版本"
+        title="忽略此版本"
         onClick={() => {
           rememberDismissed(version);
           setDismissed(version);

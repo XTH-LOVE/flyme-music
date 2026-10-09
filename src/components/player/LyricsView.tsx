@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { playerController } from '@/player';
 import { fetchLyricLines, type MiniLyricLine } from '@/utils/currentLyric';
@@ -7,18 +7,115 @@ import { optimizeLyricLines } from '@/utils/lyricOptimize';
 import { analyseLyricVoices, voiceSide } from '@/utils/lyricVoices';
 import type { MusicTrack } from '@/music/source/types';
 import { LYRIC_OFFSET_STEP, useLyricStore } from '@/store/useLyricStore';
+import { usePlayerStore } from '@/store/usePlayerStore';
 import './fullplayer.css';
 import './lyrics-trans.css';
 
 interface LyricsViewProps {
   track: MusicTrack;
-  currentTime: number;
+  /** Optional for callers that already own the clock; normally read directly
+   * from the player store so the parent player does not re-render on ticks. */
+  currentTime?: number;
   onDraggingChange?: (dragging: boolean) => void;
 }
 
 const TOUCH_SLOP = 8;
 const AUTO_SCROLL_RESUME_MS = 5000;
 const SCROLL_ANIM_MS = 400;
+
+interface LyricRowProps {
+  line: MiniLyricLine;
+  index: number;
+  activeIndex: number;
+  wordTime: number;
+  showTrans: boolean;
+  clearRows: boolean;
+  duet: boolean;
+  side: 'left' | 'right' | 'center';
+  parsed: ReturnType<typeof analyseLyricVoices>['lines'][number];
+  seekRef: { current: (time: number) => void };
+  draggedRef: { current: boolean };
+}
+
+/**
+ * Playback updates arrive twice a second. Keeping each row behind a memo
+ * boundary prevents an update to the karaoke fill on the active row from
+ * rebuilding every blurred row in the sheet. That full-list repaint is what
+ * made Chromium/WebView briefly drop the text layer and look like a flash.
+ */
+const LyricRow = memo(function LyricRow({
+  line,
+  index,
+  activeIndex,
+  wordTime,
+  showTrans,
+  clearRows,
+  duet,
+  side,
+  parsed,
+  seekRef,
+  draggedRef,
+}: LyricRowProps) {
+  const distance = Math.abs(index - activeIndex);
+  const className =
+    'lyrics__line' +
+    (index === activeIndex
+      ? ' lyrics__line--active'
+      : distance === 1
+        ? ' lyrics__line--near'
+        : distance >= 4
+          ? ' lyrics__line--far'
+          : '') +
+    (duet ? ' lyrics__line--' + side : '') +
+    (parsed.allBackground ? ' lyrics__line--aside' : '') +
+    (clearRows ? ' lyrics__line--clear' : '');
+
+  return (
+    <button
+      type="button"
+      data-index={index}
+      data-active={index === activeIndex}
+      className={className}
+      onClick={(event) => {
+        if (draggedRef.current) {
+          draggedRef.current = false;
+          return;
+        }
+        event.stopPropagation();
+        seekRef.current(line.time);
+      }}
+    >
+      <span className="lyrics__text">
+        {line.words?.length && index === activeIndex && !duet && !parsed.allBackground
+          ? line.words.map((word, wordIndex) => {
+              const progress =
+                wordTime <= word.start
+                  ? 0
+                  : wordTime >= word.end
+                    ? 1
+                    : (wordTime - word.start) / (word.end - word.start);
+              return (
+                <span
+                  key={wordIndex}
+                  className="lyrics__word"
+                  style={{ '--word-progress': `${Math.round(progress * 100)}%` } as CSSProperties}
+                >
+                  {word.text}
+                </span>
+              );
+            })
+          : parsed.runs.length
+            ? parsed.runs.map((run, runIndex) => (
+                <span key={runIndex} className={run.background ? 'lyrics__bg' : undefined}>
+                  {run.text}
+                </span>
+              ))
+            : '· · ·'}
+      </span>
+      {showTrans && line.trans ? <span className="lyrics__trans">{line.trans}</span> : null}
+    </button>
+  );
+});
 
 /**
  * The lyric sheet has one owner for scrolling:
@@ -33,6 +130,8 @@ const SCROLL_ANIM_MS = 400;
  * that each system could retarget the same scroll position at once.
  */
 export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewProps) {
+  const storeCurrentTime = usePlayerStore((s) => s.currentTime);
+  const playbackTime = currentTime ?? storeCurrentTime;
   const [lines, setLines] = useState<MiniLyricLine[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -55,10 +154,12 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
   const dragStartedRef = useRef(false);
   const dragStartYRef = useRef(0);
   const draggedRef = useRef(false);
+  const seekToLyricRef = useRef<(time: number) => void>(() => undefined);
   const autoResumeTimerRef = useRef<number | null>(null);
   const wheelReleaseTimerRef = useRef<number | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const scrollAnimationRef = useRef<number | null>(null);
+  const scrubFrameRef = useRef<number | null>(null);
   const offset = useLyricStore((s) => s.offset);
   const setOffset = useLyricStore((s) => s.setOffset);
   const nudgeOffset = useLyricStore((s) => s.nudge);
@@ -79,6 +180,13 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
     if (scrollAnimationRef.current !== null) {
       window.cancelAnimationFrame(scrollAnimationRef.current);
       scrollAnimationRef.current = null;
+    }
+  };
+
+  const cancelScrubFrame = () => {
+    if (scrubFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrubFrameRef.current);
+      scrubFrameRef.current = null;
     }
   };
 
@@ -135,6 +243,7 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
     clearTimer(wheelReleaseTimerRef);
     clearTimer(hideTimerRef);
     cancelScrollAnimation();
+    cancelScrubFrame();
     setDragging(false);
     setManualMode(false);
     setScrubTarget(null);
@@ -153,6 +262,7 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
       clearTimer(wheelReleaseTimerRef);
       clearTimer(hideTimerRef);
       cancelScrollAnimation();
+      cancelScrubFrame();
       onDraggingChange?.(false);
     },
     [onDraggingChange],
@@ -178,7 +288,7 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
 
   let activeIndex = -1;
   for (let index = 0; index < lines.length; index += 1) {
-    if (lines[index].time + offset > currentTime) break;
+    if (lines[index].time + offset > playbackTime) break;
     if (!voices.lines[index].allBackground) activeIndex = index;
   }
   activeIndexRef.current = activeIndex;
@@ -261,24 +371,48 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
   const centerLineIndex = () => {
     const container = containerRef.current;
     if (!container || !lines.length) return null;
-    const bounds = container.getBoundingClientRect();
-    const center = bounds.top + bounds.height / 2;
+    const rows = container.querySelectorAll<HTMLElement>('.lyrics__line');
+    if (!rows.length) return null;
+
+    // offsetTop is monotonic in document order, so find the two rows around the
+    // viewport centre instead of forcing a getBoundingClientRect() read for every
+    // lyric line on each pointer frame.
+    const center = container.scrollTop + container.clientHeight / 2;
+    let low = 0;
+    let high = rows.length - 1;
+    while (low <= high) {
+      const middle = (low + high) >> 1;
+      const row = rows[middle];
+      const rowCenter = row.offsetTop + row.offsetHeight / 2;
+      if (rowCenter < center) low = middle + 1;
+      else high = middle - 1;
+    }
+
+    const candidates = [rows[Math.max(0, high)], rows[Math.min(rows.length - 1, low)]];
     let best: number | null = null;
     let bestDistance = Infinity;
-    container.querySelectorAll<HTMLElement>('.lyrics__line').forEach((line) => {
-      const rect = line.getBoundingClientRect();
-      const distance = Math.abs(rect.top + rect.height / 2 - center);
-      const index = Number(line.dataset.index);
-      if (distance < bestDistance && Number.isFinite(index)) {
+    for (const row of candidates) {
+      const index = Number(row.dataset.index);
+      if (!Number.isFinite(index)) continue;
+      const distance = Math.abs(row.offsetTop + row.offsetHeight / 2 - center);
+      if (distance < bestDistance) {
         bestDistance = distance;
         best = index;
       }
-    });
+    }
     return best;
   };
 
   const showScrub = () => {
-    setScrubTarget(centerLineIndex());
+    // Pointer/touch move can fire more often than the browser can paint. Reading
+    // every lyric row's layout on each event forces repeated synchronous layout
+    // work, which is especially visible on low-end WebViews. Coalesce the read
+    // and state update to one animation frame.
+    if (scrubFrameRef.current !== null) return;
+    scrubFrameRef.current = window.requestAnimationFrame(() => {
+      scrubFrameRef.current = null;
+      setScrubTarget(centerLineIndex());
+    });
   };
 
   const scheduleHideScrub = () => {
@@ -313,6 +447,7 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
     onDraggingChange?.(false);
     playerController.seek(time + offset);
   };
+  seekToLyricRef.current = seekToLyric;
 
   useEffect(() => {
     if (userScrollingRef.current || touchingRef.current) return;
@@ -456,21 +591,6 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
 
     const clearRows = manualMode || dragging || scrubIdx !== null;
     return lines.map((line, index) => {
-      const parsed = voices.lines[index];
-      const distance = Math.abs(index - activeIndex);
-      const side = voices.duet ? voiceSide(parsed.voice) : 'center';
-      const className =
-        'lyrics__line' +
-        (index === activeIndex
-          ? ' lyrics__line--active'
-          : distance === 1
-            ? ' lyrics__line--near'
-            : distance >= 4
-              ? ' lyrics__line--far'
-              : '') +
-        (voices.duet ? ' lyrics__line--' + side : '') +
-        (parsed.allBackground ? ' lyrics__line--aside' : '') +
-        (clearRows ? ' lyrics__line--clear' : '');
       const gap = index > 0 ? line.time - lines[index - 1].time : 0;
       return (
         <Fragment key={track.id + '-' + index}>
@@ -481,50 +601,23 @@ export function LyricsView({ track, currentTime, onDraggingChange }: LyricsViewP
               <span />
             </div>
           ) : null}
-          <button
-            type="button"
-            data-index={index}
-            data-active={index === activeIndex}
-            className={className}
-            onClick={(event) => {
-              if (draggedRef.current) {
-                draggedRef.current = false;
-                return;
-              }
-              event.stopPropagation();
-              seekToLyric(line.time);
-            }}
-          >
-            <span className="lyrics__text">
-              {line.words?.length && index === activeIndex && !voices.duet && !parsed.allBackground
-                ? line.words.map((word, wordIndex) => {
-                    const wordTime = currentTime - offset;
-                    const progress =
-                      wordTime <= word.start
-                        ? 0
-                        : wordTime >= word.end
-                          ? 1
-                          : (wordTime - word.start) / (word.end - word.start);
-                    return (
-                      <span
-                        key={wordIndex}
-                        className="lyrics__word"
-                        style={{ '--word-progress': `${Math.round(progress * 100)}%` } as CSSProperties}
-                      >
-                        {word.text}
-                      </span>
-                    );
-                  })
-                : parsed.runs.length
-                  ? parsed.runs.map((run, runIndex) => (
-                      <span key={runIndex} className={run.background ? 'lyrics__bg' : undefined}>
-                        {run.text}
-                      </span>
-                    ))
-                  : '· · ·'}
-            </span>
-            {showTrans && line.trans ? <span className="lyrics__trans">{line.trans}</span> : null}
-          </button>
+          <LyricRow
+            line={line}
+            index={index}
+            activeIndex={activeIndex}
+            wordTime={
+              index === activeIndex && !voices.duet && !voices.lines[index].allBackground
+                ? playbackTime - offset
+                : 0
+            }
+            showTrans={showTrans}
+            clearRows={clearRows}
+            duet={voices.duet}
+            side={voices.duet ? voiceSide(voices.lines[index].voice) : 'center'}
+            parsed={voices.lines[index]}
+            seekRef={seekToLyricRef}
+            draggedRef={draggedRef}
+          />
         </Fragment>
       );
     });

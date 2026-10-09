@@ -110,7 +110,13 @@ export function Visualizer({ playing, className, colors }: VisualizerProps) {
         ctx.fill();
       }
       ctx.globalAlpha = 1;
-      if (playingRef.current && !document.hidden) raf = requestAnimationFrame(frame);
+      if (playingRef.current && !document.hidden) {
+        raf = requestAnimationFrame(frame);
+      } else {
+        // The current callback has finished. Clear the handle when the page is
+        // hidden so the visibility listener can wake the loop again.
+        raf = 0;
+      }
     };
 
     const wake = () => {

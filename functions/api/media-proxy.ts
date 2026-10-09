@@ -17,7 +17,7 @@ export async function onRequest(context: PagesContext): Promise<Response> {
   const blocked = guard(request, context.env, 'media-proxy');
   if (blocked) return blocked;
   const target = queryParam(request, 'url');
-  if (!isAllowedProxyTarget(target)) {
+  if (!isAllowedProxyTarget(target, 'media', (context.env.AURORA_PROXY_HOSTS ?? '').split(','))) {
     return new Response('bad url', { status: 400 });
   }
   const range = request.headers.get('range');

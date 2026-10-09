@@ -1128,7 +1128,128 @@
       vertical-align: middle;
     }
     .button[hidden] { display: none; }
-</style>
+  </style>
+  <style id="mobile-refit">
+    /* Mobile refit: one final block that wins over the two earlier 640px
+       media queries, which disagree with each other. Tighter type scale,
+       real whitespace, no stretched cards. */
+    @media (max-width: 640px) {
+      /* --- Nav: keep it to one quiet row --- */
+      .nav { padding-top: 16px; }
+      .nav__inner { justify-content: space-between; gap: 12px; }
+      .nav__links { gap: 16px; }
+      .nav__links a { font-size: 13px; }
+      .nav__links a:nth-child(1) { display: none; }
+      .nav__cta { min-height: 36px; padding: 0 13px; font-size: 13px; }
+
+      /* --- Hero: calmer headline, no dead vertical space --- */
+      .hero__inner { width: min(100% - 36px, var(--max)); padding-top: 96px; padding-bottom: 48px; gap: 44px; }
+      .hero h1 { max-width: none; font-size: clamp(32px, 9.4vw, 44px); letter-spacing: -.035em; }
+      .hero__lead { margin-top: 16px; font-size: 15px; line-height: 1.8; }
+      .hero__actions { margin-top: 26px; gap: 10px; }
+      .hero__actions .button { width: 100%; min-height: 48px; font-size: 14.5px; }
+      .hero__meta { margin-top: 22px; gap: 8px 18px; font-size: 12.5px; }
+      .kicker { margin-bottom: 12px; font-size: 12.5px; }
+
+      /* --- Phone mock: smaller and centered, note tucked inside --- */
+      .device-wrap { min-height: 400px; }
+      .device-wrap::before { width: 250px; height: 250px; box-shadow: 0 0 0 34px rgba(17,19,24,.018), 0 0 0 68px rgba(17,19,24,.012); }
+      .phone { width: min(212px, 62vw); border-radius: 36px; padding: 7px; }
+      .phone__screen { border-radius: 30px; }
+      .phone__island { width: 60px; height: 18px; top: 10px; }
+      .phone__status { padding: 14px 17px 0; font-size: 9.5px; }
+      .now { padding: 44px 18px 0; }
+      .now__cover { width: 124px; margin-bottom: 14px; padding: 15px; border-radius: 26px; }
+      .now__cover img { border-radius: 17px; }
+      .now__title { font-size: 16px; }
+      .now__artist { font-size: 10.5px; }
+      .scrub { margin: 18px 0 7px; }
+      .controls { gap: 22px; margin-top: 14px; }
+      .controls svg { width: 16px; height: 16px; }
+      .controls__play { width: 42px; height: 42px; }
+      .controls__play svg { width: 15px; height: 15px; }
+      .glass-dock { height: 44px; left: 10px; right: 10px; bottom: 10px; border-radius: 20px; }
+      .floating-note { position: absolute; width: 118px; right: 0; top: 6%; padding: 11px 12px 10px; border-radius: 14px; }
+      .floating-note strong { font-size: 11px; }
+      .floating-note small { font-size: 9.5px; margin-top: 3px; }
+
+      /* --- Sections: readable rhythm instead of long empty scrolls --- */
+      .section { padding: 58px 18px; }
+      .section--tight { padding-top: 46px; padding-bottom: 58px; }
+      .section__head { margin-bottom: 30px; gap: 12px; }
+      .section h2 { font-size: clamp(26px, 7.4vw, 34px); }
+      .section__intro { font-size: 14.5px; line-height: 1.75; }
+      .section__eyebrow { font-size: 12px; margin-bottom: 8px; }
+
+      /* --- Lyric stage --- */
+      .feature-stage { border-radius: 20px; min-height: 0; }
+      .feature-stage__visual { min-height: 300px; }
+      .vinyl { width: 218px; height: 218px; left: 42%; }
+      .lyric-sheet { width: 196px; padding: 16px 16px 20px; right: 4%; }
+      .lyric-line { font-size: 13px; margin-bottom: 10px; }
+      .lyric-line--on { font-size: 17px; }
+      .feature-stage__copy { padding: 26px 22px 30px; }
+      .feature-stage__copy h3 { font-size: clamp(22px, 6vw, 28px); }
+      .feature-stage__copy p { font-size: 14.5px; margin-top: 12px; }
+      .pill-list { margin-top: 18px; gap: 8px; }
+      .pill-list span { font-size: 11px; padding: 7px 11px; }
+
+      /* --- Feature cards: content height, not fixed 230px --- */
+      .features { margin-top: 12px; }
+      .feature:nth-child(n) { min-height: 0; padding: 22px 0 26px; }
+      .feature h3 { margin-top: 34px; font-size: 20px; }
+      .feature p { font-size: 14px; }
+      .feature__art { width: 54px; height: 54px; top: 22px; right: 2px; }
+
+      /* --- AI cards: drop the desktop-scale top gap --- */
+      .ai-card:nth-child(n) { min-height: 0; padding: 24px 22px; }
+      .ai-card h3 { margin-top: 26px; font-size: 22px; }
+      .ai-card p { font-size: 14px; }
+      .prompt { margin-top: 22px; padding: 14px 16px; font-size: 14px; }
+
+      /* --- Platforms & proof --- */
+      .platforms { border-radius: 16px; }
+      .platform:nth-child(n) { min-height: 0; padding: 22px; }
+      .platform h3 { margin-top: 18px; font-size: 18px; }
+      .platform p { font-size: 13.5px; }
+      .platform__icon { width: 36px; height: 36px; }
+      .proof__tech, .proof__tests { padding: 22px 2px; border-radius: 0; }
+      .proof h3 { font-size: 18px; margin-bottom: 16px; }
+      .tech-list span { font-size: 13px; padding: 10px 0; }
+      .test-number { font-size: clamp(44px, 13vw, 64px); }
+
+      /* --- CTA & footer --- */
+      .cta { padding: 0 12px 12px; }
+      .cta__inner { padding: 30px 22px; border-radius: 20px; }
+      .cta h2 { font-size: clamp(24px, 7vw, 32px); }
+      .cta p { font-size: 14px; margin-top: 10px; }
+      .cta__actions { margin-top: 4px; }
+      .cta .button { min-height: 46px; }
+      .footer { padding: 26px 18px calc(26px + env(safe-area-inset-bottom)); }
+      .footer__inner { flex-direction: column; gap: 12px; font-size: 12px; }
+      .footer__links { gap: 14px; }
+    }
+
+    /* Download view shares the same type scale on phones. */
+    @media (max-width: 760px) {
+      .download-page h1 { font-size: clamp(32px, 9vw, 44px); letter-spacing: -.035em; }
+      .download-page__eyebrow { margin-bottom: 14px; }
+      .download-page__lead { margin-top: 16px; font-size: 14.5px; line-height: 1.75; }
+      .download-page__actions { margin-top: 24px; gap: 10px; }
+      .download-page__actions .button { min-height: 48px; }
+      .download-page__facts { margin-top: 20px; gap: 8px 18px; font-size: 12.5px; }
+      .download-page__body { gap: 34px; padding: 36px 0 44px; }
+      .package-card { padding: 22px 20px; border-radius: 18px; }
+      .package-card__icon { width: 52px; height: 52px; border-radius: 15px; }
+      .package-card__icon svg { width: 27px; height: 27px; }
+      .package-card__status { margin-top: 22px; }
+      .package-card h2 { font-size: 21px; }
+      .package-card dl { margin-top: 18px; }
+      .package-card dl > div { padding: 11px 0; font-size: 13px; }
+      .package-card__log { margin-top: 16px; padding: 12px 13px; font-size: 12px; max-height: 150px; }
+      .download-page__topbar { min-height: 46px; }
+    }
+  </style>
 </head>
 <body>
 <header class="nav" aria-label="页面导航">
